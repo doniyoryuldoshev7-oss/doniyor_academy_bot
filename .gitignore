@@ -1,0 +1,13 @@
+.env
+.venv/
+__pycache__/
+*.pyc
+.idea/
+.vscode/
+.pytest_cache/
+venv/
+
+*.bak
+*.backup*
+*.BEFORE_*
+*.HISTORY_*
