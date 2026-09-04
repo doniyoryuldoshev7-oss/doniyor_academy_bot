@@ -880,7 +880,7 @@ async def edit_topic_finish(m: Message, state: FSMContext):
                         text="⬅️ Mavzular", callback_data=f"adm:subject:{subject_id}"
                     )
                 ],
-                [InlineKeyboardButton(text="СЂСџРЏВ Р'В  Admin panel", callback_data="admin")],
+                [InlineKeyboardButton(text="?? Admin panel", callback_data="admin")],
             ]
         ),
     )
@@ -914,7 +914,7 @@ async def delete_topic(c: CallbackQuery):
                         text="⬅️ Mavzular", callback_data=f"adm:subject:{subject_id}"
                     )
                 ],
-                [InlineKeyboardButton(text="СЂСџРЏВ Р'В  Admin panel", callback_data="admin")],
+                [InlineKeyboardButton(text="?? Admin panel", callback_data="admin")],
             ]
         ),
     )
@@ -1034,7 +1034,7 @@ async def catalog_question(c: CallbackQuery):
                         text="⬅️ Savollar", callback_data=f"adm:questions:{q.topic_id}"
                     )
                 ],
-                [InlineKeyboardButton(text="СЂСџРЏВ Р'В  Admin panel", callback_data="admin")],
+                [InlineKeyboardButton(text="?? Admin panel", callback_data="admin")],
             ]
         ),
     )
@@ -1184,7 +1184,7 @@ async def edit_question_d_handler(m: Message, state: FSMContext):
                         text="⬅️ Savollar", callback_data=f"adm:questions:{topic_id}"
                     )
                 ],
-                [InlineKeyboardButton(text="СЂСџРЏВ Р'В  Admin panel", callback_data="admin")],
+                [InlineKeyboardButton(text="?? Admin panel", callback_data="admin")],
             ]
         ),
     )
@@ -1218,7 +1218,7 @@ async def delete_question(c: CallbackQuery):
                         text="⬅️ Savollar", callback_data=f"adm:questions:{topic_id}"
                     )
                 ],
-                [InlineKeyboardButton(text="СЂСџРЏВ Р'В  Admin panel", callback_data="admin")],
+                [InlineKeyboardButton(text="?? Admin panel", callback_data="admin")],
             ]
         ),
     )
@@ -1529,7 +1529,7 @@ async def delete_subject(c: CallbackQuery):
         reply_markup=InlineKeyboardMarkup(
             inline_keyboard=[
                 [InlineKeyboardButton(text="📚 Fanlar", callback_data="adm:catalog")],
-                [InlineKeyboardButton(text="СЂСџРЏВ Р'В  Admin panel", callback_data="admin")],
+                [InlineKeyboardButton(text="?? Admin panel", callback_data="admin")],
             ]
         ),
         parse_mode="HTML",
