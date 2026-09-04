@@ -8,6 +8,7 @@ class QuizState(StatesGroup):
 class AdminState(StatesGroup):
     import_file = State()
     add_subject_name = State()
+    edit_subject_name = State()
     add_topic_subject = State()
     add_topic_name = State()
     edit_topic_name = State()
