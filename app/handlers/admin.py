@@ -496,7 +496,21 @@ async def import_document(m: Message, state: FSMContext):
         if len(rows) < 2:
             raise ValueError("Faylda savollar mavjud emas.")
 
-        headers = [str(x).strip().lower() if x is not None else "" for x in rows[0]]
+        def normalize_header(value):
+            if value is None:
+                return ""
+            value = str(value).strip().lower()
+            for code in (0x2018, 0x2019, 0x02BB, 0x02BC, 0x0060):
+                value = value.replace(chr(code), "'")
+            value = value.replace(chr(0xFEFF), "")
+            value = " ".join(value.split())
+            return value
+
+        headers = [normalize_header(x) for x in rows[0]]
+
+        headers = [normalize_header(x) for x in rows[0]]
+        print("EXCEL HEADERS:", repr(headers))
+
         aliases = {
             "fan": {"fan", "subject"},
             "mavzu": {"mavzu", "topic"},
@@ -508,17 +522,21 @@ async def import_document(m: Message, state: FSMContext):
             "correct": {
                 "to'g'ri javob",
                 "togri javob",
-                "to'g'ri javob",
                 "correct",
                 "correct option",
+                "correct answer",
                 "javob",
+                "to'g'ri",
+                "tog'ri",
             },
             "izoh": {"izoh", "explanation", "comment"},
         }
+
         idx = {}
         for key, names in aliases.items():
+            normalized_names = {normalize_header(x) for x in names}
             for i, h in enumerate(headers):
-                if h in names:
+                if h in normalized_names:
                     idx[key] = i
                     break
 
