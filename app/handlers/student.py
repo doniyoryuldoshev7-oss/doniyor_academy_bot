@@ -84,8 +84,14 @@ async def choose(c, state):
     if not count: 
         await c.answer('Bu mavzuda hozircha test yo‘q.', show_alert=True)
         return
-    sizes = sorted(set([n for n in (10, 20, 50) if n <= count] + [count]))
-    kb = [[InlineKeyboardButton(text=f'📝 {n} ta savol', callback_data=f'quizsize:{tid}:{n}')] for n in sizes]
+    kb = [
+    [
+        InlineKeyboardButton(
+            text=f"📝 Testni boshlash — {count} ta savol",
+            callback_data=f"quizsize:{tid}:{count}"
+        )
+    ]
+]
     kb.append([InlineKeyboardButton(text='⬅️ Mavzular', callback_data=f'sub:{topic.subject_id}')])
     await c.message.edit_text(f'📖 <b>{topic.name}</b>\n\nJami savollar: <b>{count}</b>\n\nTest hajmini tanlang:', reply_markup=InlineKeyboardMarkup(inline_keyboard=kb))
     await c.answer()
