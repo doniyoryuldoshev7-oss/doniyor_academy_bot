@@ -188,7 +188,7 @@ async def add_subject_finish(m: Message, state: FSMContext):
             select(Subject).where(func.lower(Subject.name) == name.lower())
         )
         if exists:
-            await m.answer("вљ пёЏ Bu fan allaqachon mavjud.")
+            await m.answer("⚠️ Bu fan allaqachon mavjud.")
             return
         s.add(Subject(name=name))
         await s.commit()
@@ -235,7 +235,7 @@ async def add_topic_finish(m: Message, state: FSMContext):
         subject = await s.get(Subject, data["subject_id"])
         if not subject:
             await state.clear()
-            await m.answer("РІСњРЉ Fan topilmadi.", reply_markup=admin_menu())
+            await m.answer("❌ Fan topilmadi.", reply_markup=admin_menu())
             return
         exists = await s.scalar(
             select(Topic).where(
@@ -243,7 +243,7 @@ async def add_topic_finish(m: Message, state: FSMContext):
             )
         )
         if exists:
-            await m.answer("вљ пёЏ Bu mavzu allaqachon mavjud.")
+            await m.answer("⚠️ Bu mavzu allaqachon mavjud.")
             return
         s.add(Topic(subject_id=subject.id, name=name))
         await s.commit()
@@ -508,9 +508,6 @@ async def import_document(m: Message, state: FSMContext):
 
         headers = [normalize_header(x) for x in rows[0]]
 
-        headers = [normalize_header(x) for x in rows[0]]
-        print("EXCEL HEADERS:", repr(headers))
-
         aliases = {
             "fan": {"fan", "subject"},
             "mavzu": {"mavzu", "topic"},
@@ -519,16 +516,7 @@ async def import_document(m: Message, state: FSMContext):
             "b": {"b", "variant b"},
             "c": {"c", "variant c"},
             "d": {"d", "variant d"},
-            "correct": {
-                "to'g'ri javob",
-                "togri javob",
-                "correct",
-                "correct option",
-                "correct answer",
-                "javob",
-                "to'g'ri",
-                "tog'ri",
-            },
+            "correct": {"to'g'ri javob", "tog'ri javob", "togri javob", "correct", "correct option", "correct answer", "javob", "to'g'ri", "togri"},
             "izoh": {"izoh", "explanation", "comment"},
         }
 
@@ -571,7 +559,7 @@ async def import_document(m: Message, state: FSMContext):
             preview = "\n".join(errors[:10])
             more = f"\n... yana {len(errors)-10} ta xato" if len(errors) > 10 else ""
             await m.answer(
-                f"вљ пёЏ <b>Faylda xato bor.</b>\n\n{preview}{more}\n\n"
+                f"⚠️ <b>Faylda xato bor.</b>\n\n{preview}{more}\n\n"
                 "Import bajarilmadi. Faylni tuzatib qayta yuboring.",
                 reply_markup=cancel_kb(),
             )
@@ -646,7 +634,7 @@ async def import_document(m: Message, state: FSMContext):
         )
     except Exception as e:
         await m.answer(
-            f"РІСњРЉ <b>Import amalga oshmadi.</b>\n\nSabab: <code>{str(e)[:500]}</code>",
+            f"❌ <b>Import amalga oshmadi.</b>\n\nSabab: <code>{str(e)[:500]}</code>",
             reply_markup=cancel_kb(),
         )
     finally:
@@ -856,7 +844,7 @@ async def edit_topic_finish(m: Message, state: FSMContext):
 
         if not topic:
             await state.clear()
-            await m.answer("РІСњРЉ Mavzu topilmadi.", reply_markup=admin_menu())
+            await m.answer("❌ Mavzu topilmadi.", reply_markup=admin_menu())
             return
 
         topic.name = name
@@ -880,7 +868,7 @@ async def edit_topic_finish(m: Message, state: FSMContext):
                         text="⬅️ Mavzular", callback_data=f"adm:subject:{subject_id}"
                     )
                 ],
-                [InlineKeyboardButton(text="?? Admin panel", callback_data="admin")],
+                [InlineKeyboardButton(text="⚙️ Admin panel", callback_data="admin")],
             ]
         ),
     )
@@ -914,7 +902,7 @@ async def delete_topic(c: CallbackQuery):
                         text="⬅️ Mavzular", callback_data=f"adm:subject:{subject_id}"
                     )
                 ],
-                [InlineKeyboardButton(text="?? Admin panel", callback_data="admin")],
+                [InlineKeyboardButton(text="⚙️ Admin panel", callback_data="admin")],
             ]
         ),
     )
@@ -1034,7 +1022,7 @@ async def catalog_question(c: CallbackQuery):
                         text="⬅️ Savollar", callback_data=f"adm:questions:{q.topic_id}"
                     )
                 ],
-                [InlineKeyboardButton(text="?? Admin panel", callback_data="admin")],
+                [InlineKeyboardButton(text="⚙️ Admin panel", callback_data="admin")],
             ]
         ),
     )
@@ -1153,7 +1141,7 @@ async def edit_question_d_handler(m: Message, state: FSMContext):
 
         if not q:
             await state.clear()
-            await m.answer("РІСњРЉ Savol topilmadi.", reply_markup=admin_menu())
+            await m.answer("❌ Savol topilmadi.", reply_markup=admin_menu())
             return
 
         q.text = data["text"]
@@ -1184,7 +1172,7 @@ async def edit_question_d_handler(m: Message, state: FSMContext):
                         text="⬅️ Savollar", callback_data=f"adm:questions:{topic_id}"
                     )
                 ],
-                [InlineKeyboardButton(text="?? Admin panel", callback_data="admin")],
+                [InlineKeyboardButton(text="⚙️ Admin panel", callback_data="admin")],
             ]
         ),
     )
@@ -1218,7 +1206,7 @@ async def delete_question(c: CallbackQuery):
                         text="⬅️ Savollar", callback_data=f"adm:questions:{topic_id}"
                     )
                 ],
-                [InlineKeyboardButton(text="?? Admin panel", callback_data="admin")],
+                [InlineKeyboardButton(text="⚙️ Admin panel", callback_data="admin")],
             ]
         ),
     )
@@ -1329,7 +1317,7 @@ async def addsubject_command(m: Message):
             select(Subject).where(func.lower(Subject.name) == name.lower())
         )
         if exists:
-            await m.answer("вљ пёЏ Bu fan allaqachon mavjud.")
+            await m.answer("⚠️ Bu fan allaqachon mavjud.")
             return
         s.add(Subject(name=name))
         await s.commit()
@@ -1529,7 +1517,7 @@ async def delete_subject(c: CallbackQuery):
         reply_markup=InlineKeyboardMarkup(
             inline_keyboard=[
                 [InlineKeyboardButton(text="📚 Fanlar", callback_data="adm:catalog")],
-                [InlineKeyboardButton(text="?? Admin panel", callback_data="admin")],
+                [InlineKeyboardButton(text="⚙️ Admin panel", callback_data="admin")],
             ]
         ),
         parse_mode="HTML",
