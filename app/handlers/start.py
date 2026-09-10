@@ -128,6 +128,15 @@ async def start_cmd(message: Message, state: FSMContext):
             await start_registration(message, state)
             return
 
+        # Bloklangan foydalanuvchi
+        if user.is_blocked:
+            await state.clear()
+            await message.answer(
+                "?? <b>Sizning hisobingiz bloklangan.</b>\n\n"
+                "Botdan foydalanish uchun administratorga murojaat qiling."
+            )
+            return
+
         # Foydalanuvchi ma'lumotlarini yangilab turamiz
         user.username = message.from_user.username
 
@@ -310,9 +319,39 @@ async def registration_grade_course(
             user.phone_number = phone_number
             user.grade_course = grade_course
             user.registration_status = "pending"
-            user.is_blocked = False
 
         await s.commit()
+
+    # Yangi ariza haqida administratorlarga xabar
+    admin_kb = InlineKeyboardMarkup(
+        inline_keyboard=[
+            [
+                InlineKeyboardButton(text="✅ Tasdiqlash", callback_data=f"adm:approve_user:{message.from_user.id}"),
+                InlineKeyboardButton(text="❌ Rad etish", callback_data=f"adm:reject_user:{message.from_user.id}"),
+            ]
+        ]
+    )
+
+    username = f"@{message.from_user.username}" if message.from_user.username else "yo‘q"
+
+    admin_text = (
+        "🔔 <b>Yangi ro‘yxatdan o‘tish arizasi!</b>\n\n"
+        f"👤 Ism-familiya: <b>{full_name}</b>\n"
+        f"📱 Telefon: <b>{phone_number}</b>\n"
+        f"🎓 Sinf/kurs: <b>{grade_course}</b>\n"
+        f"🆔 Telegram ID: <code>{message.from_user.id}</code>\n"
+        f"👤 Username: <b>{username}</b>"
+    )
+
+    for admin_id in settings.admins:
+        try:
+            await message.bot.send_message(
+                admin_id,
+                admin_text,
+                reply_markup=admin_kb,
+            )
+        except Exception:
+            pass
 
     await state.clear()
 
@@ -359,3 +398,4 @@ async def start_exit(
     )
 
     await c.answer("🚪 Testdan chiqildi")
+

@@ -6,10 +6,49 @@ from aiogram.client.default import DefaultBotProperties
 from aiogram.client.session.aiohttp import AiohttpSession
 from aiogram.enums import ParseMode
 from aiogram.fsm.storage.memory import MemoryStorage
+from aiogram.dispatcher.middlewares.base import BaseMiddleware
+
+from sqlalchemy import select
 
 from .config import settings
 from .db import init_db
 from .handlers import start, student, admin
+from .models import User
+from .db import SessionLocal
+
+
+class BlockedUserMiddleware(BaseMiddleware):
+    async def __call__(self, handler, event, data):
+        if not getattr(event, "from_user", None):
+            return await handler(event, data)
+
+        telegram_id = event.from_user.id
+
+        if telegram_id in settings.admins:
+            return await handler(event, data)
+
+        async with SessionLocal() as s:
+            user = await s.scalar(
+                select(User).where(
+                    User.telegram_id == telegram_id
+                )
+            )
+
+        if user and user.is_blocked:
+            if hasattr(event, "answer"):
+                if event.__class__.__name__ == "CallbackQuery":
+                    await event.answer(
+                        "?? Hisobingiz bloklangan.",
+                        show_alert=True,
+                    )
+                else:
+                    await event.answer(
+                        "?? <b>Sizning hisobingiz bloklangan.</b>\n\n"
+                        "Botdan foydalanish uchun administratorga murojaat qiling."
+                    )
+            return
+
+        return await handler(event, data)
 
 
 async def main():
@@ -30,6 +69,10 @@ async def main():
     dp = Dispatcher(
         storage=MemoryStorage()
     )
+
+    blocked_middleware = BlockedUserMiddleware()
+    dp.message.middleware(blocked_middleware)
+    dp.callback_query.middleware(blocked_middleware)
 
     dp.include_router(start.router)
     dp.include_router(student.router)

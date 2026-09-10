@@ -58,7 +58,12 @@ def admin_menu():
                     callback_data="adm:delete_subject_menu",
                 )
             ],
-            [InlineKeyboardButton(text="📊 Statistika", callback_data="adm:stats")],
+            [
+                InlineKeyboardButton(
+                    text="\U0001f465 Foydalanuvchilar",
+                    callback_data="adm:users",
+                )
+            ],            [InlineKeyboardButton(text="📊 Statistika", callback_data="adm:stats")],
             [InlineKeyboardButton(text="📢 E'lonlar", callback_data="adm:send_ad")],
             [InlineKeyboardButton(text="❌ Bekor qilish", callback_data="adm:cancel")],
         ]
@@ -1562,4 +1567,335 @@ async def delete_subject_menu(c: CallbackQuery):
     await c.answer()
 
 
-# TEST
+
+@router.callback_query(F.data.startswith("adm:approve_user:"))
+async def approve_user(c: CallbackQuery):
+    if not is_admin(c.from_user.id):
+        return
+
+    telegram_id = int(c.data.split(":")[2])
+
+    async with SessionLocal() as s:
+        user = await s.scalar(
+            select(User).where(User.telegram_id == telegram_id)
+        )
+
+        if not user:
+            await c.answer("Foydalanuvchi topilmadi.", show_alert=True)
+            return
+
+        user.registration_status = "approved"
+        await s.commit()
+
+        full_name = user.full_name or "Foydalanuvchi"
+
+    try:
+        await c.bot.send_message(
+            telegram_id,
+            "<b>Royxatdan otishingiz tasdiqlandi!</b>\n\n"
+            f"Ism-familiya: <b>{full_name}</b>\n\n"
+            "Endi Doniyor Academy dan toliq foydalanishingiz mumkin.",
+            reply_markup=main_menu(False),
+        )
+    except Exception:
+        pass
+
+    await c.message.edit_text(
+        "<b>FOYDALANUVCHI TASDIQLANDI!</b>\n\n"
+        f"Ism-familiya: <b>{full_name}</b>\n"
+        f"Telegram ID: <code>{telegram_id}</code>\n\n"
+        "Foydalanuvchiga tasdiqlanganligi haqida xabar yuborildi.",
+        reply_markup=InlineKeyboardMarkup(
+            inline_keyboard=[
+                [InlineKeyboardButton(text="Admin panel", callback_data="admin")]
+            ]
+        ),
+        parse_mode="HTML",
+    )
+
+    await c.answer("Foydalanuvchi tasdiqlandi.")
+
+
+@router.callback_query(F.data.startswith("adm:reject_user:"))
+async def reject_user(c: CallbackQuery):
+    if not is_admin(c.from_user.id):
+        return
+
+    telegram_id = int(c.data.split(":")[2])
+
+    async with SessionLocal() as s:
+        user = await s.scalar(
+            select(User).where(User.telegram_id == telegram_id)
+        )
+
+        if not user:
+            await c.answer("Foydalanuvchi topilmadi.", show_alert=True)
+            return
+
+        user.registration_status = "rejected"
+        await s.commit()
+
+        full_name = user.full_name or "Foydalanuvchi"
+
+    try:
+        await c.bot.send_message(
+            telegram_id,
+            "<b>Royxatdan otish arizangiz rad etildi.</b>\n\n"
+            "Qaytadan royxatdan otish uchun /start buyrugini yuboring.",
+        )
+    except Exception:
+        pass
+
+    await c.message.edit_text(
+        "<b>FOYDALANUVCHI RAD ETILDI!</b>\n\n"
+        f"Ism-familiya: <b>{full_name}</b>\n"
+        f"Telegram ID: <code>{telegram_id}</code>",
+        reply_markup=InlineKeyboardMarkup(
+            inline_keyboard=[
+                [InlineKeyboardButton(text="Admin panel", callback_data="admin")]
+            ]
+        ),
+        parse_mode="HTML",
+    )
+
+    await c.answer("Foydalanuvchi rad etildi.")
+
+@router.callback_query(F.data == "adm:users")
+async def admin_users(c: CallbackQuery):
+    if not is_admin(c.from_user.id):
+        return
+
+    async with SessionLocal() as s:
+        users = (
+            await s.scalars(
+                select(User).order_by(User.created_at.desc())
+            )
+        ).all()
+
+    if not users:
+        await c.message.edit_text(
+            "Foydalanuvchilar hali mavjud emas.",
+            reply_markup=InlineKeyboardMarkup(
+                inline_keyboard=[
+                    [InlineKeyboardButton(text="Admin panel", callback_data="admin")]
+                ]
+            ),
+        )
+        await c.answer()
+        return
+
+    keyboard = []
+
+    for user in users:
+        status_icon = {
+            "approved": "\u2705",
+            "pending": "\u23f3",
+            "rejected": "\u274c",
+        }.get(user.registration_status, "\u2753")
+
+        name = user.full_name or "Nomsiz"
+
+        keyboard.append(
+            [
+                InlineKeyboardButton(
+                    text=f"{status_icon} {name}",
+                    callback_data=f"adm:user:{user.telegram_id}",
+                )
+            ]
+        )
+
+    keyboard.append(
+        [
+            InlineKeyboardButton(
+                text="Admin panel",
+                callback_data="admin",
+            )
+        ]
+    )
+
+    await c.message.edit_text(
+        "<b>\U0001f465 FOYDALANUVCHILAR</b>\n\n"
+        "Kerakli foydalanuvchini tanlang:",
+        reply_markup=InlineKeyboardMarkup(
+            inline_keyboard=keyboard
+        ),
+        parse_mode="HTML",
+    )
+
+    await c.answer()
+@router.callback_query(F.data.startswith("adm:user:"))
+async def admin_user_detail(c: CallbackQuery):
+    if not is_admin(c.from_user.id):
+        return
+
+    telegram_id = int(c.data.split(":")[2])
+
+    async with SessionLocal() as s:
+        user = await s.scalar(
+            select(User).where(User.telegram_id == telegram_id)
+        )
+
+    if not user:
+        await c.answer(
+            "Foydalanuvchi topilmadi.",
+            show_alert=True,
+        )
+        return
+
+    status = {
+        "approved": "\u2705 Tasdiqlangan",
+        "pending": "\u23f3 Kutilmoqda",
+        "rejected": "\u274c Rad etilgan",
+    }.get(
+        user.registration_status,
+        user.registration_status,
+    )
+
+    blocked = "\U0001f6ab Bloklangan" if user.is_blocked else "\u2705 Faol"
+
+    text = (
+        "<b>\U0001f464 FOYDALANUVCHI MA'LUMOTLARI</b>\n\n"
+        f"\U0001f464 Ism-familiya: <b>{user.full_name or 'Nomsiz'}</b>\n"
+        f"\U0001f4f1 Username: @{user.username or '-'}\n"
+        f"\U0001f194 Telegram ID: <code>{user.telegram_id}</code>\n"
+        f"\U0001f4de Telefon: {user.phone_number or '-'}\n"
+        f"\U0001f393 Sinf/Kurs: {user.grade_course or '-'}\n"
+        f"\U0001f4cc Holat: <b>{status}</b>\n"
+        f"\U0001f512 Hisob: <b>{blocked}</b>"
+    )
+
+    buttons = []
+
+    if user.registration_status != "approved":
+        buttons.append(
+            [
+                InlineKeyboardButton(
+                    text="\u2705 Tasdiqlash",
+                    callback_data=f"adm:approve_user:{user.telegram_id}",
+                )
+            ]
+        )
+
+    if user.registration_status != "rejected":
+        buttons.append(
+            [
+                InlineKeyboardButton(
+                    text="\u274c Rad etish",
+                    callback_data=f"adm:reject_user:{user.telegram_id}",
+                )
+            ]
+        )
+
+    if user.is_blocked:
+        buttons.append(
+            [
+                InlineKeyboardButton(
+                    text="\U0001f513 Blokdan chiqarish",
+                    callback_data=f"adm:unblock_user:{user.telegram_id}",
+                )
+            ]
+        )
+    else:
+        buttons.append(
+            [
+                InlineKeyboardButton(
+                    text="\U0001f6ab Bloklash",
+                    callback_data=f"adm:block_user:{user.telegram_id}",
+                )
+            ]
+        )
+
+    buttons.append(
+        [
+            InlineKeyboardButton(
+                text="\U0001f465 Foydalanuvchilar",
+                callback_data="adm:users",
+            )
+        ]
+    )
+
+    buttons.append(
+        [
+            InlineKeyboardButton(
+                text="Admin panel",
+                callback_data="admin",
+            )
+        ]
+    )
+
+    await c.message.edit_text(
+        text,
+        reply_markup=InlineKeyboardMarkup(
+            inline_keyboard=buttons
+        ),
+        parse_mode="HTML",
+    )
+
+    await c.answer()
+
+@router.callback_query(F.data.startswith("adm:block_user:"))
+async def block_user(c: CallbackQuery):
+    if not is_admin(c.from_user.id):
+        return
+
+    telegram_id = int(c.data.split(":")[2])
+
+    async with SessionLocal() as s:
+        user = await s.scalar(
+            select(User).where(User.telegram_id == telegram_id)
+        )
+
+        if not user:
+            await c.answer(
+                "Foydalanuvchi topilmadi.",
+                show_alert=True,
+            )
+            return
+
+        if user.is_blocked:
+            await c.answer(
+                "Bu foydalanuvchi allaqachon bloklangan.",
+                show_alert=True,
+            )
+            return
+
+        user.is_blocked = True
+        await s.commit()
+
+    await c.answer("\U0001f6ab Foydalanuvchi bloklandi.")
+
+    await admin_user_detail(c)
+
+
+@router.callback_query(F.data.startswith("adm:unblock_user:"))
+async def unblock_user(c: CallbackQuery):
+    if not is_admin(c.from_user.id):
+        return
+
+    telegram_id = int(c.data.split(":")[2])
+
+    async with SessionLocal() as s:
+        user = await s.scalar(
+            select(User).where(User.telegram_id == telegram_id)
+        )
+
+        if not user:
+            await c.answer(
+                "Foydalanuvchi topilmadi.",
+                show_alert=True,
+            )
+            return
+
+        if not user.is_blocked:
+            await c.answer(
+                "Bu foydalanuvchi bloklanmagan.",
+                show_alert=True,
+            )
+            return
+
+        user.is_blocked = False
+        await s.commit()
+
+    await c.answer("\U0001f513 Foydalanuvchi blokdan chiqarildi.")
+
+    await admin_user_detail(c)
