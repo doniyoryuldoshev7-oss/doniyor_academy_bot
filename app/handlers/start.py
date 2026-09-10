@@ -1,6 +1,14 @@
-from aiogram import Router, F
+﻿from aiogram import Router, F
 from aiogram.filters import CommandStart
-from aiogram.types import Message, CallbackQuery, InlineKeyboardMarkup, InlineKeyboardButton
+from aiogram.types import (
+    Message,
+    CallbackQuery,
+    InlineKeyboardMarkup,
+    InlineKeyboardButton,
+    ReplyKeyboardMarkup,
+    KeyboardButton,
+    ReplyKeyboardRemove,
+)
 from aiogram.fsm.context import FSMContext
 
 from sqlalchemy import select
@@ -9,9 +17,36 @@ from ..config import settings
 from ..db import SessionLocal
 from ..models import User
 from ..keyboards import main_menu
-from ..states import QuizState
+from ..states import QuizState, RegistrationState
 
 router = Router()
+
+
+def contact_kb() -> ReplyKeyboardMarkup:
+    return ReplyKeyboardMarkup(
+        keyboard=[
+            [
+                KeyboardButton(
+                    text="📱 Kontaktni yuborish",
+                    request_contact=True,
+                )
+            ]
+        ],
+        resize_keyboard=True,
+        one_time_keyboard=True,
+    )
+
+
+async def start_registration(message: Message, state: FSMContext):
+    await state.clear()
+    await state.set_state(RegistrationState.first_name)
+
+    await message.answer(
+        "🎓 <b>Doniyor Academy</b>\n\n"
+        "Botdan foydalanish uchun ro‘yxatdan o‘tishingiz kerak.\n\n"
+        "1️⃣ <b>Ismingizni</b> kiriting:",
+        reply_markup=ReplyKeyboardRemove(),
+    )
 
 
 @router.message(CommandStart())
@@ -25,15 +60,15 @@ async def start_cmd(message: Message, state: FSMContext):
                 [
                     InlineKeyboardButton(
                         text="↩️ Testga qaytish",
-                        callback_data="start:continue"
+                        callback_data="start:continue",
                     )
                 ],
                 [
                     InlineKeyboardButton(
                         text="🚪 Testdan chiqish",
-                        callback_data="start:exit"
+                        callback_data="start:exit",
                     )
-                ]
+                ],
             ]
         )
 
@@ -42,9 +77,214 @@ async def start_cmd(message: Message, state: FSMContext):
             "Testni tark etmoqchimisiz?\n\n"
             "↩️ Testga qaytsangiz, davom etishingiz mumkin.\n"
             "🚪 Chiqsangiz, joriy test yakunlanmaydi.",
-            reply_markup=kb
+            reply_markup=kb,
         )
         return
+
+    # Adminlar ro‘yxatdan o‘tish tizimidan mustaqil ishlaydi
+    if message.from_user.id in settings.admins:
+        await state.clear()
+
+        async with SessionLocal() as s:
+            user = await s.scalar(
+                select(User).where(
+                    User.telegram_id == message.from_user.id
+                )
+            )
+
+            if user is None:
+                user = User(
+                    telegram_id=message.from_user.id,
+                    username=message.from_user.username,
+                    full_name=message.from_user.full_name,
+                    registration_status="approved",
+                )
+                s.add(user)
+            else:
+                user.username = message.from_user.username
+                user.full_name = message.from_user.full_name
+                user.registration_status = "approved"
+
+            await s.commit()
+
+        await message.answer(
+            f"🎓 <b>Doniyor Academy</b>\n\n"
+            f"Assalomu alaykum, "
+            f"<b>{message.from_user.first_name}</b>!\n\n"
+            f"📚 Bilim oling • 📝 Test ishlang • 🏆 Reytingda yuqorilang",
+            reply_markup=main_menu(True),
+        )
+        return
+
+    async with SessionLocal() as s:
+        user = await s.scalar(
+            select(User).where(
+                User.telegram_id == message.from_user.id
+            )
+        )
+
+        # Yangi foydalanuvchi
+        if user is None:
+            await start_registration(message, state)
+            return
+
+        # Foydalanuvchi ma'lumotlarini yangilab turamiz
+        user.username = message.from_user.username
+
+        # Tasdiqlangan foydalanuvchi
+        if user.registration_status == "approved":
+            user.full_name = message.from_user.full_name
+            await s.commit()
+
+            await state.clear()
+
+            await message.answer(
+                f"🎓 <b>Doniyor Academy</b>\n\n"
+                f"Assalomu alaykum, "
+                f"<b>{message.from_user.first_name}</b>!\n\n"
+                f"📚 Bilim oling • 📝 Test ishlang • 🏆 Reytingda yuqorilang",
+                reply_markup=main_menu(False),
+            )
+            return
+
+        # Tasdiqlanishini kutayotgan foydalanuvchi
+        if user.registration_status == "pending":
+            await s.commit()
+            await state.clear()
+
+            await message.answer(
+                "⏳ <b>Arizangiz hali tasdiqlanmagan.</b>\n\n"
+                "Administrator arizangizni ko‘rib chiqishini kuting."
+            )
+            return
+
+        # Rad etilgan foydalanuvchiga qayta ro‘yxatdan o‘tish imkoniyati
+        if user.registration_status == "rejected":
+            await s.commit()
+            await start_registration(message, state)
+            return
+
+        await s.commit()
+        await start_registration(message, state)
+
+
+@router.message(RegistrationState.first_name)
+async def registration_first_name(
+    message: Message,
+    state: FSMContext,
+):
+    first_name = (message.text or "").strip()
+
+    if not first_name:
+        await message.answer(
+            "❗ Iltimos, ismingizni matn ko‘rinishida kiriting."
+        )
+        return
+
+    await state.update_data(first_name=first_name)
+    await state.set_state(RegistrationState.last_name)
+
+    await message.answer(
+        "2️⃣ <b>Familiyangizni</b> kiriting:"
+    )
+
+
+@router.message(RegistrationState.last_name)
+async def registration_last_name(
+    message: Message,
+    state: FSMContext,
+):
+    last_name = (message.text or "").strip()
+
+    if not last_name:
+        await message.answer(
+            "❗ Iltimos, familiyangizni matn ko‘rinishida kiriting."
+        )
+        return
+
+    await state.update_data(last_name=last_name)
+    await state.set_state(RegistrationState.phone)
+
+    await message.answer(
+        "3️⃣ <b>Telefon raqamingizni</b> yuboring.\n\n"
+        "Quyidagi tugmani bosing:",
+        reply_markup=contact_kb(),
+    )
+
+
+@router.message(RegistrationState.phone, F.contact)
+async def registration_phone(
+    message: Message,
+    state: FSMContext,
+):
+    contact = message.contact
+
+    if contact is None:
+        await message.answer(
+            "❗ Kontakt ma'lumoti olinmadi."
+        )
+        return
+
+    # Foydalanuvchi faqat o‘z kontaktini yuborishi kerak
+    if contact.user_id != message.from_user.id:
+        await message.answer(
+            "❗ Iltimos, <b>o‘zingizning telefon raqamingizni</b> "
+            "Telegram kontakt tugmasi orqali yuboring."
+        )
+        return
+
+    await state.update_data(
+        phone_number=contact.phone_number
+    )
+    await state.set_state(RegistrationState.grade_course)
+
+    await message.answer(
+        "4️⃣ <b>Sinf yoki kursingizni</b> kiriting.\n\n"
+        "Masalan: <b>9-sinf</b>, <b>11-sinf</b>, "
+        "<b>1-kurs</b>.",
+        reply_markup=ReplyKeyboardRemove(),
+    )
+
+
+@router.message(RegistrationState.phone)
+async def registration_phone_invalid(
+    message: Message,
+):
+    await message.answer(
+        "❗ Telefon raqamingizni Telegram orqali yuboring.\n\n"
+        "📱 <b>Kontaktni yuborish</b> tugmasini bosing.",
+        reply_markup=contact_kb(),
+    )
+
+
+@router.message(RegistrationState.grade_course)
+async def registration_grade_course(
+    message: Message,
+    state: FSMContext,
+):
+    grade_course = (message.text or "").strip()
+
+    if not grade_course:
+        await message.answer(
+            "❗ Iltimos, sinf yoki kursingizni kiriting."
+        )
+        return
+
+    data = await state.get_data()
+
+    first_name = data.get("first_name")
+    last_name = data.get("last_name")
+    phone_number = data.get("phone_number")
+
+    if not first_name or not last_name or not phone_number:
+        await state.clear()
+        await message.answer(
+            "❗ Ro‘yxatdan o‘tish ma'lumotlarida xatolik yuz berdi.\n\n"
+            "Iltimos, /start buyrug‘ini qayta bosing."
+        )
+        return
+
+    full_name = f"{first_name} {last_name}"
 
     async with SessionLocal() as s:
         user = await s.scalar(
@@ -57,39 +297,57 @@ async def start_cmd(message: Message, state: FSMContext):
             user = User(
                 telegram_id=message.from_user.id,
                 username=message.from_user.username,
-                full_name=message.from_user.full_name,
+                full_name=full_name,
+                phone_number=phone_number,
+                grade_course=grade_course,
+                registration_status="pending",
+                is_blocked=False,
             )
             s.add(user)
         else:
             user.username = message.from_user.username
-            user.full_name = message.from_user.full_name
+            user.full_name = full_name
+            user.phone_number = phone_number
+            user.grade_course = grade_course
+            user.registration_status = "pending"
+            user.is_blocked = False
 
         await s.commit()
 
+    await state.clear()
+
     await message.answer(
-        f"🎓 <b>Doniyor Academy</b>\n\n"
-        f"Assalomu alaykum, <b>{message.from_user.first_name}</b>!\n\n"
-        f"📚 Bilim oling • 📝 Test ishlang • 🏆 Reytingda yuqorilang",
-        reply_markup=main_menu(
-            message.from_user.id in settings.admins
-        )
+        "✅ <b>Ro‘yxatdan o‘tish yakunlandi.</b>\n\n"
+        f"👤 Ism-familiya: <b>{full_name}</b>\n"
+        f"📱 Telefon: <b>{phone_number}</b>\n"
+        f"🎓 Sinf/kurs: <b>{grade_course}</b>\n\n"
+        "⏳ Ma'lumotlaringiz administratorga yuborildi.\n"
+        "Tasdiqlangandan so‘ng Doniyor Academy’dan "
+        "foydalanishingiz mumkin.",
+        reply_markup=ReplyKeyboardRemove(),
     )
 
 
 @router.callback_query(
     QuizState.active,
-    F.data == "start:continue"
+    F.data == "start:continue",
 )
-async def start_continue(c: CallbackQuery, state: FSMContext):
+async def start_continue(
+    c: CallbackQuery,
+    state: FSMContext,
+):
     await c.message.delete()
     await c.answer("↩️ Test davom etmoqda")
 
 
 @router.callback_query(
     QuizState.active,
-    F.data == "start:exit"
+    F.data == "start:exit",
 )
-async def start_exit(c: CallbackQuery, state: FSMContext):
+async def start_exit(
+    c: CallbackQuery,
+    state: FSMContext,
+):
     await state.clear()
 
     await c.message.edit_text(
@@ -97,7 +355,7 @@ async def start_exit(c: CallbackQuery, state: FSMContext):
         "Kerakli bo‘limni tanlang:",
         reply_markup=main_menu(
             c.from_user.id in settings.admins
-        )
+        ),
     )
 
     await c.answer("🚪 Testdan chiqildi")

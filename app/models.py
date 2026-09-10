@@ -1,12 +1,12 @@
-from datetime import datetime
-from sqlalchemy import String, Boolean, ForeignKey, DateTime, Integer, Text
+﻿from datetime import datetime
+from sqlalchemy import String, Boolean, ForeignKey, DateTime, Integer, Text, BigInteger
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from .db import Base
 
 class User(Base):
     __tablename__="users"
     id: Mapped[int]=mapped_column(primary_key=True)
-    telegram_id: Mapped[int]=mapped_column(unique=True,index=True)
+    telegram_id: Mapped[int]=mapped_column(BigInteger, unique=True,index=True)
     username: Mapped[str|None]=mapped_column(String(255))
     full_name: Mapped[str]=mapped_column(String(255))
     created_at: Mapped[datetime]=mapped_column(DateTime,default=datetime.utcnow)
@@ -15,6 +15,9 @@ class User(Base):
     correct_answers: Mapped[int]=mapped_column(Integer,default=0)
     total_score: Mapped[int]=mapped_column(Integer,default=0)
     is_blocked: Mapped[bool]=mapped_column(Boolean,default=False)
+    phone_number: Mapped[str | None]=mapped_column(String(30))
+    grade_course: Mapped[str | None]=mapped_column(String(100))
+    registration_status: Mapped[str]=mapped_column(String(20),default="pending")
 
 class Subject(Base):
     __tablename__="subjects"
@@ -63,3 +66,4 @@ class AnswerLog(Base):
     selected_option: Mapped[str]=mapped_column(String(1))
     is_correct: Mapped[bool]=mapped_column(Boolean)
     question: Mapped["Question"] = relationship()
+

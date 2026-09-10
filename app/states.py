@@ -1,6 +1,13 @@
 ﻿from aiogram.fsm.state import State, StatesGroup
 
 
+class RegistrationState(StatesGroup):
+    first_name = State()
+    last_name = State()
+    phone = State()
+    grade_course = State()
+
+
 class QuizState(StatesGroup):
     active = State()
 
