@@ -1,12 +1,12 @@
 from datetime import datetime
-from sqlalchemy import String, Boolean, ForeignKey, DateTime, Integer, Text, BigInteger, LargeBinary
+from sqlalchemy import String, Boolean, ForeignKey, DateTime, Integer, Text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from .db import Base
 
 class User(Base):
     __tablename__="users"
     id: Mapped[int]=mapped_column(primary_key=True)
-    telegram_id: Mapped[int]=mapped_column(BigInteger, unique=True,index=True)
+    telegram_id: Mapped[int]=mapped_column(unique=True,index=True)
     username: Mapped[str|None]=mapped_column(String(255))
     full_name: Mapped[str]=mapped_column(String(255))
     created_at: Mapped[datetime]=mapped_column(DateTime,default=datetime.utcnow)
@@ -15,9 +15,6 @@ class User(Base):
     correct_answers: Mapped[int]=mapped_column(Integer,default=0)
     total_score: Mapped[int]=mapped_column(Integer,default=0)
     is_blocked: Mapped[bool]=mapped_column(Boolean,default=False)
-    phone_number: Mapped[str | None]=mapped_column(String(30))
-    grade_course: Mapped[str | None]=mapped_column(String(100))
-    registration_status: Mapped[str]=mapped_column(String(20),default="pending")
 
 class Subject(Base):
     __tablename__="subjects"
@@ -36,51 +33,17 @@ class Topic(Base):
     questions: Mapped[list["Question"]]=relationship(back_populates="topic",cascade="all, delete-orphan")
 
 class Question(Base):
-    __tablename__ = "questions"
-
-    id: Mapped[int] = mapped_column(primary_key=True)
-
-    topic_id: Mapped[int] = mapped_column(
-        ForeignKey("topics.id", ondelete="CASCADE")
-    )
-
-    text: Mapped[str | None] = mapped_column(Text, nullable=True)
-
-    image_path: Mapped[str | None] = mapped_column(
-        String(500),
-        nullable=True
-    )
-
-
-    question_mode: Mapped[str] = mapped_column(
-        String(20),
-        default="closed"
-    )
-
-    option_a: Mapped[str | None] = mapped_column(Text, nullable=True)
-    option_b: Mapped[str | None] = mapped_column(Text, nullable=True)
-    option_c: Mapped[str | None] = mapped_column(Text, nullable=True)
-    option_d: Mapped[str | None] = mapped_column(Text, nullable=True)
-
-    correct_option: Mapped[str | None] = mapped_column(
-        String(1),
-        nullable=True
-    )
-
-    correct_answer: Mapped[str | None] = mapped_column(
-        Text,
-        nullable=True
-    )
-
-    explanation: Mapped[str | None] = mapped_column(
-        Text,
-        nullable=True
-    )
-
-    topic: Mapped["Topic"] = relationship(
-        back_populates="questions"
-    )
-
+    __tablename__="questions"
+    id: Mapped[int]=mapped_column(primary_key=True)
+    topic_id: Mapped[int]=mapped_column(ForeignKey("topics.id",ondelete="CASCADE"))
+    text: Mapped[str]=mapped_column(Text)
+    option_a: Mapped[str]=mapped_column(Text)
+    option_b: Mapped[str]=mapped_column(Text)
+    option_c: Mapped[str]=mapped_column(Text)
+    option_d: Mapped[str]=mapped_column(Text)
+    correct_option: Mapped[str]=mapped_column(String(1))
+    explanation: Mapped[str|None]=mapped_column(Text)
+    topic: Mapped["Topic"]=relationship(back_populates="questions")
 
 class TestAttempt(Base):
     __tablename__="test_attempts"
@@ -100,4 +63,3 @@ class AnswerLog(Base):
     selected_option: Mapped[str]=mapped_column(String(1))
     is_correct: Mapped[bool]=mapped_column(Boolean)
     question: Mapped["Question"] = relationship()
-

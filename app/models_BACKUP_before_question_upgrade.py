@@ -1,5 +1,5 @@
-from datetime import datetime
-from sqlalchemy import String, Boolean, ForeignKey, DateTime, Integer, Text, BigInteger, LargeBinary
+﻿from datetime import datetime
+from sqlalchemy import String, Boolean, ForeignKey, DateTime, Integer, Text, BigInteger
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from .db import Base
 
@@ -36,51 +36,17 @@ class Topic(Base):
     questions: Mapped[list["Question"]]=relationship(back_populates="topic",cascade="all, delete-orphan")
 
 class Question(Base):
-    __tablename__ = "questions"
-
-    id: Mapped[int] = mapped_column(primary_key=True)
-
-    topic_id: Mapped[int] = mapped_column(
-        ForeignKey("topics.id", ondelete="CASCADE")
-    )
-
-    text: Mapped[str | None] = mapped_column(Text, nullable=True)
-
-    image_path: Mapped[str | None] = mapped_column(
-        String(500),
-        nullable=True
-    )
-
-
-    question_mode: Mapped[str] = mapped_column(
-        String(20),
-        default="closed"
-    )
-
-    option_a: Mapped[str | None] = mapped_column(Text, nullable=True)
-    option_b: Mapped[str | None] = mapped_column(Text, nullable=True)
-    option_c: Mapped[str | None] = mapped_column(Text, nullable=True)
-    option_d: Mapped[str | None] = mapped_column(Text, nullable=True)
-
-    correct_option: Mapped[str | None] = mapped_column(
-        String(1),
-        nullable=True
-    )
-
-    correct_answer: Mapped[str | None] = mapped_column(
-        Text,
-        nullable=True
-    )
-
-    explanation: Mapped[str | None] = mapped_column(
-        Text,
-        nullable=True
-    )
-
-    topic: Mapped["Topic"] = relationship(
-        back_populates="questions"
-    )
-
+    __tablename__="questions"
+    id: Mapped[int]=mapped_column(primary_key=True)
+    topic_id: Mapped[int]=mapped_column(ForeignKey("topics.id",ondelete="CASCADE"))
+    text: Mapped[str]=mapped_column(Text)
+    option_a: Mapped[str]=mapped_column(Text)
+    option_b: Mapped[str]=mapped_column(Text)
+    option_c: Mapped[str]=mapped_column(Text)
+    option_d: Mapped[str]=mapped_column(Text)
+    correct_option: Mapped[str]=mapped_column(String(1))
+    explanation: Mapped[str|None]=mapped_column(Text)
+    topic: Mapped["Topic"]=relationship(back_populates="questions")
 
 class TestAttempt(Base):
     __tablename__="test_attempts"

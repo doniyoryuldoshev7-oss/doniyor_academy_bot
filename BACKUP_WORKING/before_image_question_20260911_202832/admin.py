@@ -1,7 +1,4 @@
-import sys
 import asyncio
-from pathlib import Path
-from uuid import uuid4
 from ..models import Subject, Topic, Question, User, TestAttempt, AnswerLog
 from ..keyboards import main_menu
 from aiogram import Router, F
@@ -19,39 +16,8 @@ from ..config import settings
 from ..db import SessionLocal
 from ..models import Subject, Topic, Question, User
 from ..states import AdminState
-from ..image_cropper import crop_questions
 
 router = Router()
-
-
-async def photo_bytes(m: Message):
-    if not m.photo:
-        return None
-
-    photo = m.photo[-1]
-    bot = m.bot
-
-    file = await bot.get_file(photo.file_id)
-
-    from io import BytesIO
-    data = BytesIO()
-    await bot.download_file(file.file_path, data)
-
-    return data.getvalue()
-
-
-async def save_question_image(image_data: bytes, question_id: int) -> str:
-    folder = Path("app/question_images")
-    folder.mkdir(parents=True, exist_ok=True)
-
-    filename = f"question_{question_id}.jpg"
-    path = folder / filename
-
-    path.write_bytes(image_data)
-
-    return path.as_posix()
-
-
 
 
 def is_admin(uid: int) -> bool:
@@ -356,175 +322,22 @@ async def add_question_topic(c: CallbackQuery, state: FSMContext):
 async def q_text(m: Message, state: FSMContext):
     if not is_admin(m.from_user.id):
         return
-
-    image_data = await photo_bytes(m)
-
-    if image_data:
-        session_id = uuid4().hex
-        temp_dir = Path("app/question_images/_crop_sessions") / session_id
-        temp_dir.mkdir(parents=True, exist_ok=True)
-
-        image_path = temp_dir / "source.jpg"
-        image_path.write_bytes(image_data)
-
-        await state.update_data(
-            text="",
-            image_data=None,
-            question_mode="image_multi",
-            image_source_path=str(image_path),
-            crop_dir=str(temp_dir),
-        )
-
-        await state.set_state(AdminState.add_question_image_count)
-
-        await m.answer(
-            "?? <b>Rasm qabul qilindi.</b>\n\n"
-            "Bu rasmda nechta savol bor?\n"
-            "Masalan: <b>3</b>",
-            reply_markup=cancel_kb(),
-        )
+    text = (m.text or "").strip()
+    if not text:
+        await m.answer("❗ Savol matni bo'sh bo'lishi mumkin emas.")
         return
-
-    value = (m.text or "").strip()
-
-    if not value:
-        await m.answer(
-            "? Savol sifatida matn yoki surat yuboring."
-        )
-        return
-
-    await state.update_data(
-        text=value,
-        image_data=None,
-        question_mode="closed"
-    )
-
+    await state.update_data(text=text)
     await state.set_state(AdminState.add_question_a)
-
-    await m.answer(
-        "2?? <b>A variant</b>ni yuboring:",
-        reply_markup=cancel_kb()
-    )
+    await m.answer("2️⃣ <b>A variant</b>ni yuboring:", reply_markup=cancel_kb())
 
 
-@router.message(AdminState.add_question_image_count)
-async def q_image_count(m: Message, state: FSMContext):
+async def save_option(m: Message, state: FSMContext, key: str, next_state, label: str):
     if not is_admin(m.from_user.id):
         return
-
     value = (m.text or "").strip()
-
-    try:
-        count = int(value)
-    except ValueError:
-        await m.answer(
-            "? Faqat savollar sonini raqam bilan yuboring.\n"
-            "Masalan: <b>3</b>"
-        )
-        return
-
-    if count < 1 or count > 50:
-        await m.answer(
-            "? Savollar soni 1 dan 50 gacha bo'lishi kerak."
-        )
-        return
-
-    data = await state.get_data()
-    image_path = data.get("image_source_path")
-    crop_dir = data.get("crop_dir")
-
-    if not image_path or not crop_dir:
-        await m.answer(
-            "? Rasm sessiyasi topilmadi. Iltimos, qaytadan boshlang."
-        )
-        await state.clear()
-        return
-
-    await state.update_data(
-        image_count=count,
-        current_image_index=0,
-        cropped_images=[],
-    )
-
-    await m.answer(
-        "?? <b>Rasmni belgilash oynasi ochiladi.</b>\n\n"
-        "Har bir savolni sichqoncha bilan to'rtburchak qilib belgilang.\n"
-        f"Jami: <b>{count}</b> ta savol."
-    )
-
-    process = await asyncio.create_subprocess_exec(
-        sys.executable,
-        "-m",
-        "app.image_cropper",
-        str(image_path),
-        str(crop_dir),
-        str(count),
-        stdout=asyncio.subprocess.PIPE,
-        stderr=asyncio.subprocess.PIPE,
-    )
-
-    stdout, stderr = await process.communicate()
-
-    if process.returncode != 0:
-        error_text = stderr.decode("utf-8", errors="replace").strip()
-        print(
-            f">>> IMAGE CROPPER ERROR: {error_text}",
-            flush=True,
-        )
-        await m.answer(
-            "? Rasmni belgilashda xatolik yuz berdi.\n"
-            "Jarayon bekor qilindi."
-        )
-        await state.clear()
-        return
-
-    crop_paths = []
-
-    for i in range(1, count + 1):
-        crop_path = Path(crop_dir) / f"crop_{i}.jpg"
-        if crop_path.exists():
-            crop_paths.append(str(crop_path))
-
-    if len(crop_paths) != count:
-        await m.answer(
-            "? Belgilangan savollar soni kutilgan songa teng emas.\n"
-            f"Kutilgan: {count}\n"
-            f"Topilgan: {len(crop_paths)}"
-        )
-        await state.clear()
-        return
-
-    await state.update_data(
-        cropped_images=crop_paths,
-        current_image_index=0,
-    )
-
-    await state.set_state(AdminState.add_question_correct)
-
-    await m.answer(
-        f"? <b>{count} ta savol rasmi tayyor.</b>\n\n"
-        "1-savol uchun to'g'ri javob harfini yuboring: "
-        "<b>A</b>, <b>B</b>, <b>C</b> yoki <b>D</b>",
-        reply_markup=cancel_kb(),
-    )
-
-
-async def save_option(
-    m: Message,
-    state: FSMContext,
-    key: str,
-    next_state,
-    label: str
-):
-    if not is_admin(m.from_user.id):
-        return
-
-    value = (m.text or "").strip()
-
     if not value:
-        await m.answer("? Variant bo'sh bo'lishi mumkin emas.")
+        await m.answer("❗ Variant bo'sh bo'lishi mumkin emas.")
         return
-
     await state.update_data(**{key: value})
     await state.set_state(next_state)
     await m.answer(label, reply_markup=cancel_kb())
@@ -537,7 +350,7 @@ async def q_a(m, state):
         state,
         "option_a",
         AdminState.add_question_b,
-        "3?? <b>B variant</b>ni yuboring:",
+        "3️⃣ <b>B variant</b>ni yuboring:",
     )
 
 
@@ -548,7 +361,7 @@ async def q_b(m, state):
         state,
         "option_b",
         AdminState.add_question_c,
-        "4?? <b>C variant</b>ni yuboring:",
+        "4️⃣ <b>C variant</b>ni yuboring:",
     )
 
 
@@ -559,7 +372,7 @@ async def q_c(m, state):
         state,
         "option_c",
         AdminState.add_question_d,
-        "5?? <b>D variant</b>ni yuboring:",
+        "5️⃣ <b>D variant</b>ni yuboring:",
     )
 
 
@@ -570,8 +383,7 @@ async def q_d(m, state):
         state,
         "option_d",
         AdminState.add_question_correct,
-        "6?? To'g'ri javob harfini yuboring: "
-        "<b>A</b>, <b>B</b>, <b>C</b> yoki <b>D</b>",
+        "6️⃣ To'g'ri javob harfini yuboring: <b>A</b>, <b>B</b>, <b>C</b> yoki <b>D</b>",
     )
 
 
@@ -579,51 +391,14 @@ async def q_d(m, state):
 async def q_correct(m: Message, state: FSMContext):
     if not is_admin(m.from_user.id):
         return
-
     correct = (m.text or "").strip().upper()
-
     if correct not in {"A", "B", "C", "D"}:
-        await m.answer(
-            "? Faqat A, B, C yoki D yuboring."
-        )
+        await m.answer("❌ Faqat A, B, C yoki D yuboring.")
         return
-
-    data = await state.get_data()
-
-    if data.get("question_mode") == "image_multi":
-        current_index = data.get("current_image_index", 0)
-        cropped_images = data.get("cropped_images", [])
-
-        if current_index >= len(cropped_images):
-            await m.answer(
-                "? Savol rasmi topilmadi. Jarayonni qaytadan boshlang."
-            )
-            await state.clear()
-            return
-
-        answers = data.get("image_correct_answers", [])
-        answers.append(correct)
-
-        await state.update_data(
-            image_correct_answers=answers,
-            current_correct_option=correct,
-        )
-
-        await state.set_state(AdminState.add_question_explanation)
-
-        await m.answer(
-            f"?? <b>{current_index + 1}-savol</b> uchun izohni yuboring.\n"
-            "Izoh kerak bo'lmasa <code>-</code> yuboring:",
-            reply_markup=cancel_kb(),
-        )
-        return
-
     await state.update_data(correct_option=correct)
     await state.set_state(AdminState.add_question_explanation)
-
     await m.answer(
-        "7?? <b>Izoh</b>ni yuboring. "
-        "Agar izoh kerak bo'lmasa, <code>-</code> yuboring:",
+        "7️⃣ <b>Izoh</b>ni yuboring. Agar izoh kerak bo'lmasa, <code>-</code> yuboring:",
         reply_markup=cancel_kb(),
     )
 
@@ -632,103 +407,11 @@ async def q_correct(m: Message, state: FSMContext):
 async def q_explanation(m: Message, state: FSMContext):
     if not is_admin(m.from_user.id):
         return
-
     explanation = (m.text or "").strip()
-    explanation = None if explanation == "-" else explanation
-
     data = await state.get_data()
-
-    if data.get("question_mode") == "image_multi":
-        current_index = data.get("current_image_index", 0)
-        cropped_images = data.get("cropped_images", [])
-        correct_answers = data.get("image_correct_answers", [])
-        topic_id = data["topic_id"]
-
-        if current_index >= len(cropped_images):
-            await m.answer(
-                "? Savol rasmi topilmadi. Jarayonni qaytadan boshlang."
-            )
-            await state.clear()
-            return
-
-        correct = correct_answers[current_index]
-        crop_path = Path(cropped_images[current_index])
-
-        if not crop_path.exists():
-            await m.answer(
-                "? Savol rasmi fayli topilmadi. Jarayon bekor qilindi."
-            )
-            await state.clear()
-            return
-
-        async with SessionLocal() as s:
-            topic = await s.get(Topic, topic_id)
-
-            if not topic:
-                await m.answer(
-                    "? Mavzu topilmadi."
-                )
-                await state.clear()
-                return
-
-            q = Question(
-                topic_id=topic.id,
-                text="",
-                option_a="",
-                option_b="",
-                option_c="",
-                option_d="",
-                correct_option=correct,
-                explanation=explanation,
-                question_mode="image",
-            )
-
-            s.add(q)
-            await s.commit()
-            qid = q.id
-
-            q.image_path = await save_question_image(
-                crop_path.read_bytes(),
-                qid,
-            )
-
-            await s.commit()
-
-        next_index = current_index + 1
-
-        if next_index < len(cropped_images):
-            await state.update_data(
-                current_image_index=next_index,
-            )
-
-            await state.set_state(
-                AdminState.add_question_correct
-            )
-
-            await m.answer(
-                f"? <b>{current_index + 1}-savol saqlandi.</b>\n\n"
-                f"?? <b>{next_index + 1}-savol</b> uchun "
-                "to'g'ri javobni yuboring: "
-                "<b>A</b>, <b>B</b>, <b>C</b> yoki <b>D</b>",
-                reply_markup=cancel_kb(),
-            )
-            return
-
-        total = len(cropped_images)
-        topic_name = topic.name
-
-        await state.clear()
-
-        await m.answer(
-            f"? <b>{total} ta savol muvaffaqiyatli qo'shildi!</b>\n\n"
-            f"?? Mavzu: <b>{topic_name}</b>",
-            reply_markup=admin_menu(),
-        )
-        return
-
+    explanation = None if explanation == "-" else explanation
     async with SessionLocal() as s:
         topic = await s.get(Topic, data["topic_id"])
-
         q = Question(
             topic_id=topic.id,
             text=data["text"],
@@ -739,26 +422,15 @@ async def q_explanation(m: Message, state: FSMContext):
             correct_option=data["correct_option"],
             explanation=explanation,
         )
-
         s.add(q)
         await s.commit()
         qid = q.id
-
-        if data.get("image_data"):
-            q.image_path = await save_question_image(
-                data["image_data"],
-                qid,
-            )
-            q.question_mode = "image"
-            await s.commit()
-
     await state.clear()
-
     await m.answer(
-        f"? <b>Savol muvaffaqiyatli qo'shildi!</b>\n\n"
-        f"?? ID: <code>{qid}</code>\n"
-        f"?? Mavzu: <b>{topic.name}</b>\n"
-        f"? To'g'ri javob: <b>{data['correct_option']}</b>",
+        f"✅ <b>Savol muvaffaqiyatli qo'shildi!</b>\n\n"
+        f"🆔 ID: <code>{qid}</code>\n"
+        f"📖 Mavzu: <b>{topic.name}</b>\n"
+        f"✅ To'g'ri javob: <b>{data['correct_option']}</b>",
         reply_markup=admin_menu(),
     )
 
@@ -1701,29 +1373,15 @@ async def edit_question_start(c: CallbackQuery, state: FSMContext):
         await c.answer("Savol topilmadi.", show_alert=True)
         return
 
-    await state.update_data(
-        question_id=q.id,
-        old_image_path=q.image_path,
-        old_question_mode=q.question_mode,
-    )
+    await state.update_data(question_id=q.id, text=q.text)
     await state.set_state(AdminState.edit_question_text)
 
-    if q.question_mode == "image" and q.image_path:
-        await c.message.answer_photo(
-            FSInputFile(q.image_path),
-            caption="??? <b>Hozirgi savol rasmi</b>\n\n"
-                    "Yangi rasm yuboring yoki matn yuboring.",
-            reply_markup=cancel_kb(),
-        )
-    else:
-        await c.message.answer(
-            "?? <b>SAVOLNI TAHRIRLASH</b>\n\n"
-            f"Eski savol:\n<b>{q.text or '?'}</b>\n\n"
-            "??? Rasm yuborsangiz ? rasmli savol bo'ladi.\n"
-            "?? Matn yuborsangiz ? matnli savol bo'ladi.",
-            reply_markup=cancel_kb(),
-        )
-
+    await c.message.edit_text(
+        "✏️ <b>SAVOLNI TAHRIRLASH</b>\n\n"
+        f"Eski savol:\n<b>{q.text}</b>\n\n"
+        "Yangi savol matnini yuboring:",
+        reply_markup=cancel_kb(),
+    )
     await c.answer()
 
 
@@ -1732,45 +1390,16 @@ async def edit_question_text_handler(m: Message, state: FSMContext):
     if not is_admin(m.from_user.id):
         return
 
-    # RASM yuborildi
-    image_data = await photo_bytes(m)
-
-    if image_data:
-        await state.update_data(
-            text="",
-            image_data=image_data,
-            question_mode="image",
-        )
-        await state.set_state(AdminState.edit_question_a)
-
-        await m.answer(
-            "??? <b>Rasm qabul qilindi.</b>\n\n"
-            "2?? <b>A variant</b>ni yuboring:",
-            reply_markup=cancel_kb(),
-        )
-        return
-
-    # MATN yuborildi
     value = (m.text or "").strip()
 
     if not value:
-        await m.answer(
-            "? Rasm yoki matn yuboring."
-        )
+        await m.answer("❗ Savol matni bo'sh bo'lishi mumkin emas.")
         return
 
-    await state.update_data(
-        text=value,
-        image_data=None,
-        question_mode="closed",
-    )
+    await state.update_data(text=value)
     await state.set_state(AdminState.edit_question_a)
 
-    await m.answer(
-        "?? <b>Matnli savol qabul qilindi.</b>\n\n"
-        "2?? <b>A variant</b>ni yuboring:",
-        reply_markup=cancel_kb(),
-    )
+    await m.answer("2️⃣ <b>A variant</b>ni yuboring:", reply_markup=cancel_kb())
 
 
 @router.message(AdminState.edit_question_a)
@@ -1781,13 +1410,13 @@ async def edit_question_a_handler(m: Message, state: FSMContext):
     value = (m.text or "").strip()
 
     if not value:
-        await m.answer("? A varianti bo'sh bo'lishi mumkin emas.")
+        await m.answer("❗ Variant bo'sh bo'lishi mumkin emas.")
         return
 
     await state.update_data(option_a=value)
     await state.set_state(AdminState.edit_question_b)
 
-    await m.answer("3?? <b>B variant</b>ni yuboring:", reply_markup=cancel_kb())
+    await m.answer("3️⃣ <b>B variant</b>ni yuboring:", reply_markup=cancel_kb())
 
 
 @router.message(AdminState.edit_question_b)
@@ -1798,13 +1427,13 @@ async def edit_question_b_handler(m: Message, state: FSMContext):
     value = (m.text or "").strip()
 
     if not value:
-        await m.answer("? B varianti bo'sh bo'lishi mumkin emas.")
+        await m.answer("❗ Variant bo'sh bo'lishi mumkin emas.")
         return
 
     await state.update_data(option_b=value)
     await state.set_state(AdminState.edit_question_c)
 
-    await m.answer("4?? <b>C variant</b>ni yuboring:", reply_markup=cancel_kb())
+    await m.answer("4️⃣ <b>C variant</b>ni yuboring:", reply_markup=cancel_kb())
 
 
 @router.message(AdminState.edit_question_c)
@@ -1815,13 +1444,13 @@ async def edit_question_c_handler(m: Message, state: FSMContext):
     value = (m.text or "").strip()
 
     if not value:
-        await m.answer("? C varianti bo'sh bo'lishi mumkin emas.")
+        await m.answer("❗ Variant bo'sh bo'lishi mumkin emas.")
         return
 
     await state.update_data(option_c=value)
     await state.set_state(AdminState.edit_question_d)
 
-    await m.answer("5?? <b>D variant</b>ni yuboring:", reply_markup=cancel_kb())
+    await m.answer("5️⃣ <b>D variant</b>ni yuboring:", reply_markup=cancel_kb())
 
 
 @router.message(AdminState.edit_question_d)
@@ -1832,48 +1461,50 @@ async def edit_question_d_handler(m: Message, state: FSMContext):
     value = (m.text or "").strip()
 
     if not value:
-        await m.answer("? D varianti bo'sh bo'lishi mumkin emas.")
+        await m.answer("❗ Variant bo'sh bo'lishi mumkin emas.")
         return
 
-    await state.update_data(option_d=value)
-
     data = await state.get_data()
-    qid = data.get("question_id")
 
     async with SessionLocal() as s:
-        q = await s.get(Question, qid)
+        q = await s.get(Question, data["question_id"])
 
         if not q:
             await state.clear()
-            await m.answer("? Savol topilmadi.")
+            await m.answer("❌ Savol topilmadi.", reply_markup=admin_menu())
             return
 
-        # Variantlarni yangilaymiz
-        q.option_a = data.get("option_a", q.option_a)
-        q.option_b = data.get("option_b", q.option_b)
-        q.option_c = data.get("option_c", q.option_c)
+        q.text = data["text"]
+        q.option_a = data["option_a"]
+        q.option_b = data["option_b"]
+        q.option_c = data["option_c"]
         q.option_d = value
 
-        # To'g'ri javob va izoh eski holatda qoladi
-        # Faqat savol turi: RASM yoki MATN
-        image_data = data.get("image_data")
-
-        if image_data:
-            q.text = ""
-            q.image_path = await save_question_image(image_data, q.id)
-            q.question_mode = "image"
-        else:
-            q.text = data.get("text", "").strip()
-            q.image_path = None
-            q.question_mode = "closed"
-
         await s.commit()
+
+        qid = q.id
+        topic_id = q.topic_id
 
     await state.clear()
 
     await m.answer(
-        "? <b>Savol muvaffaqiyatli tahrirlandi!</b>",
-        reply_markup=cancel_kb(),
+        "✅ <b>SAVOL MUVAFFAQIYATLI TAHRIRLANDI!</b>\n\n"
+        "Savol va barcha variantlar yangilandi.",
+        reply_markup=InlineKeyboardMarkup(
+            inline_keyboard=[
+                [
+                    InlineKeyboardButton(
+                        text="📋 Savolni ko'rish", callback_data=f"adm:question:{qid}"
+                    )
+                ],
+                [
+                    InlineKeyboardButton(
+                        text="⬅️ Savollar", callback_data=f"adm:questions:{topic_id}"
+                    )
+                ],
+                [InlineKeyboardButton(text="⚙️ Admin panel", callback_data="admin")],
+            ]
+        ),
     )
 
 
@@ -2593,6 +2224,3 @@ async def unblock_user(c: CallbackQuery):
     await c.answer("\U0001f513 Foydalanuvchi blokdan chiqarildi.")
 
     await admin_user_detail(c)
-
-
-

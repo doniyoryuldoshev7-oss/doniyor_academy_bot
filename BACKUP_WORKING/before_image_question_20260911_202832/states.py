@@ -1,4 +1,4 @@
-from aiogram.fsm.state import State, StatesGroup
+﻿from aiogram.fsm.state import State, StatesGroup
 
 
 class RegistrationState(StatesGroup):
@@ -23,8 +23,6 @@ class AdminState(StatesGroup):
     add_question_subject = State()
     add_question_topic = State()
     add_question_text = State()
-    add_question_image_count = State()
-    add_question_crop = State()
     add_question_a = State()
     add_question_b = State()
     add_question_c = State()

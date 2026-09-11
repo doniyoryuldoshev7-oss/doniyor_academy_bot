@@ -1,6 +1,6 @@
 import random
 from aiogram import Router, F
-from aiogram.types import CallbackQuery, InlineKeyboardMarkup, InlineKeyboardButton, FSInputFile
+from aiogram.types import CallbackQuery, InlineKeyboardMarkup, InlineKeyboardButton
 from aiogram.fsm.context import FSMContext
 from sqlalchemy import select
 from ..config import settings
@@ -10,15 +10,6 @@ from ..keyboards import main_menu, back_menu
 from ..states import QuizState
 
 router = Router()
-
-
-async def edit_or_answer(message, *args, **kwargs):
-    if message.photo:
-        await message.delete()
-        return await message.answer(*args, **kwargs)
-    return await message.edit_text(*args, **kwargs)
-
-
 
 def opt(q, l): 
     return {"A": q.option_a, "B": q.option_b, "C": q.option_c, "D": q.option_d}[l]
@@ -31,11 +22,7 @@ def answer_kb(tid, qid):
     ])
 
 async def render(call, state):
-    print(">>> RENDER ENTERED", flush=True)
-
     d = await state.get_data()
-    print(f">>> RENDER INDEX: {d.get("index")}", flush=True)
-    print(f">>> RENDER QIDS: {d.get("qids")}", flush=True)
 
     async with SessionLocal() as s:
         q = await s.get(Question, d["qids"][d["index"]])
@@ -45,52 +32,24 @@ async def render(call, state):
     total = len(d["qids"])
     progress = int(n / total * 100)
 
-    print(f">>> RENDER QUESTION ID: {q.id}", flush=True)
-    print(f">>> RENDER IMAGE PATH: {q.image_path!r}", flush=True)
-    print(f">>> RENDER MODE: {q.question_mode!r}", flush=True)
-
-    text = (
-        f"{chr(0x1F4DA)} <b>{topic.name}</b>\n\n"
-        f"{chr(0x2501) * 12}\n"
-        f"{chr(0x2753)} <b>Savol: {n}/{total}</b>\n"
-        f"{chr(0x1F4CA)} <b>Progress: {progress}%</b>\n"
-        f"{chr(0x2501) * 12}\n\n"
-        f"{q.text or ''}\n\n"
+    await call.message.edit_text(
+        f"📖 <b>{topic.name}</b>\n\n"
+        f"━━━━━━━━━━━━\n"
+        f"❓ <b>Savol: {n}/{total}</b>\n"
+        f"📊 <b>Progress: {progress}%</b>\n"
+        f"━━━━━━━━━━━━\n\n"
+        f"{q.text}\n\n"
         f"<b>A)</b> {q.option_a}\n"
         f"<b>B)</b> {q.option_b}\n"
         f"<b>C)</b> {q.option_c}\n"
-        f"<b>D)</b> {q.option_d}"
+        f"<b>D)</b> {q.option_d}",
+        reply_markup=answer_kb(topic.id, q.id)
     )
-
-    if q.image_path:
-        image_file = FSInputFile(q.image_path)
-        print(f">>> IMAGE SEND: {q.image_path}", flush=True)
-
-        try:
-            await call.message.delete()
-            print(">>> OLD MESSAGE DELETED", flush=True)
-
-            sent = await call.message.answer_photo(
-                photo=image_file,
-                caption=text,
-                reply_markup=answer_kb(topic.id, q.id)
-            )
-
-            print(f">>> PHOTO SENT: {sent.photo[-1].file_id}", flush=True)
-
-        except Exception as e:
-            print(f">>> PHOTO SEND ERROR: {type(e).__name__}: {e}", flush=True)
-            raise
-    else:
-        await call.message.edit_text(
-            text,
-            reply_markup=answer_kb(topic.id, q.id)
-        )
 
 @router.callback_query(F.data == 'home')
 async def home(c, state): 
     await state.clear()
-    await edit_or_answer(c.message, '🎓 <b>Doniyor Academy</b>\n\nBosh menyu:', reply_markup=main_menu(c.from_user.id in settings.admins))
+    await c.message.edit_text('🎓 <b>Doniyor Academy</b>\n\nBosh menyu:', reply_markup=main_menu(c.from_user.id in settings.admins))
     await c.answer()
 
 @router.callback_query(F.data == 'subjects')
@@ -100,7 +59,7 @@ async def subjects(c, state):
         xs = (await s.scalars(select(Subject).where(Subject.is_active.is_(True)).order_by(Subject.name))).all()
     kb = [[InlineKeyboardButton(text=f'📚 {x.name}', callback_data=f'sub:{x.id}')] for x in xs]
     kb.append([InlineKeyboardButton(text='⬅️ Bosh menyu', callback_data='home')])
-    await edit_or_answer(c.message, '📚 <b>Fanlar</b>\n\nFanni tanlang:', reply_markup=InlineKeyboardMarkup(inline_keyboard=kb))
+    await c.message.edit_text('📚 <b>Fanlar</b>\n\nFanni tanlang:', reply_markup=InlineKeyboardMarkup(inline_keyboard=kb))
     await c.answer()
 
 @router.callback_query(F.data.startswith('sub:'))
@@ -112,7 +71,7 @@ async def topics(c, state):
         xs = (await s.scalars(select(Topic).where(Topic.subject_id == sid).order_by(Topic.name))).all()
     kb = [[InlineKeyboardButton(text=f'📖 {x.name}', callback_data=f'topic:{x.id}')] for x in xs]
     kb.append([InlineKeyboardButton(text='⬅️ Fanlar', callback_data='subjects')])
-    await edit_or_answer(c.message, f'📚 <b>{sub.name}</b>\n\nMavzuni tanlang:', reply_markup=InlineKeyboardMarkup(inline_keyboard=kb))
+    await c.message.edit_text(f'📚 <b>{sub.name}</b>\n\nMavzuni tanlang:', reply_markup=InlineKeyboardMarkup(inline_keyboard=kb))
     await c.answer()
 
 @router.callback_query(F.data.startswith('topic:'))
@@ -134,23 +93,17 @@ async def choose(c, state):
     ]
 ]
     kb.append([InlineKeyboardButton(text='⬅️ Mavzular', callback_data=f'sub:{topic.subject_id}')])
-    await edit_or_answer(c.message, f'📖 <b>{topic.name}</b>\n\nJami savollar: <b>{count}</b>\n\nTest hajmini tanlang:', reply_markup=InlineKeyboardMarkup(inline_keyboard=kb))
+    await c.message.edit_text(f'📖 <b>{topic.name}</b>\n\nJami savollar: <b>{count}</b>\n\nTest hajmini tanlang:', reply_markup=InlineKeyboardMarkup(inline_keyboard=kb))
     await c.answer()
 
 @router.callback_query(F.data.startswith('quizsize:'))
 async def start(c, state):
-    print(">>> QUIZSIZE CALLBACK RECEIVED:", c.data, flush=True)
     _, tid, size = c.data.split(':')
     tid = int(tid)
     size = int(size)
     async with SessionLocal() as s: 
         qs = (await s.scalars(select(Question).where(Question.topic_id == tid))).all()
     qs = random.sample(qs, min(size, len(qs)))
-
-    print(">>> START HANDLER REACHED", flush=True)
-    print(">>> SELECTED QIDS:", [q.id for q in qs], flush=True)
-    print(">>> SELECTED IMAGES:", [(q.id, q.image_path, q.question_mode) for q in qs], flush=True)
-
     await state.set_state(QuizState.active)
     await state.update_data(topic_id=tid, qids=[q.id for q in qs], index=0, correct=0, answered=0, selected=[])
     await render(c, state)
@@ -188,33 +141,16 @@ async def answer(c, state):
                 ]
             )
 
-            retry_text = (
-                f"? <b>Yana bir bor urinib ko?ring!</b>\n\n"
-                f"? <b>{q.text}</b>\n\n"
+            await c.message.edit_text(
+                f"❌ <b>Yana bir bor urinib ko‘ring!</b>\n\n"
+                f"❓ <b>{q.text}</b>\n\n"
                 f"<b>A)</b> {q.option_a}\n"
                 f"<b>B)</b> {q.option_b}\n"
                 f"<b>C)</b> {q.option_c}\n"
                 f"<b>D)</b> {q.option_d}\n\n"
-                f"?? <i>To?g?ri javobni topmaguningizcha davom etamiz.</i>"
+                f"💡 <i>To‘g‘ri javobni topmaguningizcha davom etamiz.</i>",
+                reply_markup=keyboard
             )
-
-            if q.image_path:
-                try:
-                    await c.message.delete()
-                except Exception:
-                    pass
-
-                await c.message.answer_photo(
-                    FSInputFile(q.image_path),
-                    caption=retry_text,
-                    reply_markup=keyboard
-                )
-            else:
-                await edit_or_answer(
-                    c.message,
-                    retry_text,
-                    reply_markup=keyboard
-                )
             await c.answer("❌ Noto‘g‘ri. Yana urinib ko‘ring!")
             return
 
@@ -237,7 +173,7 @@ async def answer(c, state):
             await s.commit()
 
         await state.clear()
-        await edit_or_answer(c.message, 
+        await c.message.edit_text(
             f"🎉 <b>BARAKALLA!</b>\n"
             f"━━━━━━━━━━━━━━\n\n"
             f"✅ Siz savolga to‘g‘ri javob berdingiz!\n\n"
@@ -285,7 +221,7 @@ async def answer(c, state):
         ]
     )
 
-    await edit_or_answer(c.message, 
+    await c.message.edit_text(
         f"{result}\n\n📊 Hozirgi natija: <b>{correct}/{answered}</b>",
         reply_markup=InlineKeyboardMarkup(inline_keyboard=buttons)
     )
@@ -372,7 +308,7 @@ async def quiz_finish(c, state):
 
     await state.clear()
 
-    await edit_or_answer(c.message, 
+    await c.message.edit_text(
         f"🏆 <b>TEST NATIJASI</b>\n"
         f"━━━━━━━━━━━━━━\n\n"
         f"🎯 Natija: <b>{correct}/{total}</b>\n"
@@ -427,7 +363,7 @@ async def errors_page(c, state):
         errors_list = list(latest.values())
 
     if not errors_list:
-        await edit_or_answer(c.message, 
+        await c.message.edit_text(
             "❌ <b>Mening xatolarim</b>\n\n🎉 Xatolar mavjud emas!",
             reply_markup=back_menu()
         )
@@ -462,7 +398,7 @@ async def errors_page(c, state):
 
     buttons.append([InlineKeyboardButton(text="🏠 Bosh menyu", callback_data="home")])
 
-    await edit_or_answer(c.message, 
+    await c.message.edit_text(
         f"❌ <b>Mening xatolarim</b>\n\n"
         f"Jami: <b>{len(errors_list)}</b> ta xato\n"
         f"Sahifa: <b>{page + 1}/{total_pages}</b>\n\n"
@@ -497,38 +433,19 @@ async def retry_error(c, state):
         retry_mode=True
     )
 
-    retry_text = (
-        f"{chr(0x1F504)} <b>XATO SAVOLNI QAYTA ISHLASH</b>\n\n"
-        f"{chr(0x1F4DA)} <b>{topic.name}</b>\n\n"
-        f"{chr(0x2753)} <b>{q.text or ''}</b>\n\n"
+    await c.message.edit_text(
+        f"🔄 <b>XATO SAVOLNI QAYTA ISHLASH</b>\n\n"
+        f"📚 <b>{topic.name}</b>\n\n"
+        f"❓ <b>{q.text}</b>\n\n"
         f"<b>A)</b> {q.option_a}\n"
         f"<b>B)</b> {q.option_b}\n"
         f"<b>C)</b> {q.option_c}\n"
         f"<b>D)</b> {q.option_d}\n\n"
-        f"{chr(0x1F4A1)} <i>To'g'ri javobni toping.</i>"
+        f"💡 <i>To‘g‘ri javobni toping.</i>",
+        reply_markup=answer_kb(topic.id, q.id)
     )
 
-    if q.image_path:
-        try:
-            await c.message.delete()
-        except Exception:
-            pass
-
-        await c.message.answer_photo(
-            FSInputFile(q.image_path),
-            caption=retry_text,
-            reply_markup=answer_kb(topic.id, q.id)
-        )
-    else:
-        await edit_or_answer(
-            c.message,
-            retry_text,
-            reply_markup=answer_kb(topic.id, q.id)
-        )
-
-    await c.answer(f"{chr(0x1F504)} Savol qayta yuklandi.")
-
-
+    await c.answer("🔄 Savol qayta yuklandi.")
 @router.callback_query(F.data.startswith('errorq:'))
 async def error_question(c, state):
     await state.clear()
@@ -536,94 +453,50 @@ async def error_question(c, state):
 
     async with SessionLocal() as s:
         q = await s.get(Question, qid)
-
         if not q:
             await c.answer("Savol topilmadi.", show_alert=True)
             return
 
         topic = await s.get(Topic, q.topic_id)
-        u = await s.scalar(
-            select(User).where(User.telegram_id == c.from_user.id)
-        )
-
+        u = await s.scalar(select(User).where(User.telegram_id == c.from_user.id))
         log = await s.scalar(
             select(AnswerLog)
             .join(TestAttempt, AnswerLog.attempt_id == TestAttempt.id)
-            .where(
-                TestAttempt.user_id == u.id,
-                AnswerLog.question_id == qid
-            )
+            .where(TestAttempt.user_id == u.id, AnswerLog.question_id == qid)
             .order_by(AnswerLog.id.desc())
         )
-
-    if not log:
-        await c.answer("Javob tarixi topilmadi.", show_alert=True)
-        return
 
     selected_text = opt(q, log.selected_option)
     correct_text = opt(q, q.correct_option)
 
     text = (
-        f"{chr(0x274C)} <b>XATO SAVOL</b>\n"
-        f"{chr(0x2501) * 14}\n\n"
-        f"{chr(0x1F4DA)} <b>{topic.name}</b>\n\n"
-        f"{chr(0x2753)} <b>{q.text or ''}</b>\n\n"
+        f"❌ <b>XATO SAVOL</b>\n"
+        f"━━━━━━━━━━━━━━\n\n"
+        f"📚 <b>{topic.name}</b>\n\n"
+        f"❓ <b>{q.text}</b>\n\n"
         f"<b>A)</b> {q.option_a}\n"
         f"<b>B)</b> {q.option_b}\n"
         f"<b>C)</b> {q.option_c}\n"
         f"<b>D)</b> {q.option_d}\n\n"
-        f"{chr(0x274C)} Sizning javobingiz:\n"
+        f"❌ Sizning javobingiz:\n"
         f"<b>{log.selected_option}) {selected_text}</b>\n\n"
-        f"{chr(0x2705)} To'g'ri javob:\n"
+        f"✅ To'g'ri javob:\n"
         f"<b>{q.correct_option}) {correct_text}</b>"
     )
 
     if q.explanation:
-        text += f"\n\n{chr(0x1F4A1)} <b>Izoh:</b>\n{q.explanation}"
+        text += f"\n\n💡 <b>Izoh:</b>\n{q.explanation}"
 
     keyboard = InlineKeyboardMarkup(
         inline_keyboard=[
-            [
-                InlineKeyboardButton(
-                    text="🔄 Qayta ishlash",
-                    callback_data=f"retry_error:{q.id}"
-                )
-            ],
-            [
-                InlineKeyboardButton(
-                    text="⬅️ Xatolarimga qaytish",
-                    callback_data="my_errors"
-                )
-            ],
-            [
-                InlineKeyboardButton(
-                    text="🏠 Bosh menyu",
-                    callback_data="home"
-                )
-            ]
+            [InlineKeyboardButton(text="🔄 Qayta ishlash", callback_data=f"retry_error:{q.id}")],
+            [InlineKeyboardButton(text="⬅️ Xatolarimga qaytish", callback_data="my_errors")],
+            [InlineKeyboardButton(text="🏠 Bosh menyu", callback_data="home")]
         ]
     )
 
-    if q.image_path:
-        try:
-            await c.message.delete()
-        except Exception:
-            pass
-
-        await c.message.answer_photo(
-            FSInputFile(q.image_path),
-            caption=text,
-            reply_markup=keyboard
-        )
-    else:
-        await edit_or_answer(
-            c.message,
-            text,
-            reply_markup=keyboard
-        )
-
+    await c.message.edit_text(text, reply_markup=keyboard)
     await c.answer()
-
 
 @router.callback_query(F.data == 'profile')
 async def profile(c):
@@ -635,7 +508,7 @@ async def profile(c):
         [InlineKeyboardButton(text="⬅️ Bosh menyu", callback_data="home")]
     ])
 
-    await edit_or_answer(c.message, 
+    await c.message.edit_text(
         f"👤 <b>Profil</b>\n\n"
         f"Ism: {u.full_name}\n"
         f"Username: @{u.username or '—'}\n"
@@ -661,7 +534,7 @@ async def history(c):
         ).all()
 
         if not attempts:
-            await edit_or_answer(c.message, "📋 <b>Testlar tarixi</b>\n\nHozircha test ishlanmagan.", reply_markup=back_menu())
+            await c.message.edit_text("📋 <b>Testlar tarixi</b>\n\nHozircha test ishlanmagan.", reply_markup=back_menu())
             await c.answer()
             return
 
@@ -683,7 +556,7 @@ async def history(c):
 
         buttons.append([InlineKeyboardButton(text="↩️ Profil", callback_data="profile")])
 
-        await edit_or_answer(c.message, "\n".join(lines), reply_markup=InlineKeyboardMarkup(inline_keyboard=buttons))
+        await c.message.edit_text("\n".join(lines), reply_markup=InlineKeyboardMarkup(inline_keyboard=buttons))
     await c.answer()
 
 @router.callback_query(F.data.startswith('attempt:'))
@@ -766,7 +639,7 @@ async def attempt_detail(c):
     if unanswered > 0:
         lines.append(f"⚠️ <b>{unanswered} ta savolga javob berilmagan.</b>")
 
-    await edit_or_answer(c.message, 
+    await c.message.edit_text(
         "\n".join(lines),
         reply_markup=InlineKeyboardMarkup(
             inline_keyboard=[
@@ -783,7 +656,7 @@ async def stats(c):
     async with SessionLocal() as s: 
         u = await s.scalar(select(User).where(User.telegram_id == c.from_user.id))
     pct = u.correct_answers / u.total_questions * 100 if u.total_questions else 0
-    await edit_or_answer(c.message, f'📊 <b>Statistika</b>\n\n📝 Savollar: {u.total_questions}\n✅ To‘g‘ri: {u.correct_answers}\n❌ Xato: {u.total_questions-u.correct_answers}\n📈 Aniqlik: {pct:.1f}%\n⭐ Ball: {u.total_score}', reply_markup=back_menu())
+    await c.message.edit_text(f'📊 <b>Statistika</b>\n\n📝 Savollar: {u.total_questions}\n✅ To‘g‘ri: {u.correct_answers}\n❌ Xato: {u.total_questions-u.correct_answers}\n📈 Aniqlik: {pct:.1f}%\n⭐ Ball: {u.total_score}', reply_markup=back_menu())
     await c.answer()
 
 @router.callback_query(F.data == 'leaderboard')
@@ -794,12 +667,10 @@ async def leaderboard(c):
     medals = {1: '🥇', 2: '🥈', 3: '🥉'}
     for i, u in enumerate(us, 1): 
         lines.append(f"{medals.get(i, str(i) + '.')} {u.full_name} — <b>{u.total_score}</b> ball")
-    await edit_or_answer(c.message, '\n'.join(lines), reply_markup=back_menu())
+    await c.message.edit_text('\n'.join(lines), reply_markup=back_menu())
     await c.answer()
 
 @router.callback_query(F.data == 'announcements')
 async def announcements(c): 
-    await edit_or_answer(c.message, "📢 <b>E'lonlar</b>\n\nHozircha yangi e'lonlar mavjud emas.", reply_markup=back_menu())
+    await c.message.edit_text("📢 <b>E'lonlar</b>\n\nHozircha yangi e'lonlar mavjud emas.", reply_markup=back_menu())
     await c.answer()
-
-

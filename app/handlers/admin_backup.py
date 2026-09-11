@@ -1,7 +1,4 @@
-import sys
 import asyncio
-from pathlib import Path
-from uuid import uuid4
 from ..models import Subject, Topic, Question, User, TestAttempt, AnswerLog
 from ..keyboards import main_menu
 from aiogram import Router, F
@@ -19,39 +16,8 @@ from ..config import settings
 from ..db import SessionLocal
 from ..models import Subject, Topic, Question, User
 from ..states import AdminState
-from ..image_cropper import crop_questions
 
 router = Router()
-
-
-async def photo_bytes(m: Message):
-    if not m.photo:
-        return None
-
-    photo = m.photo[-1]
-    bot = m.bot
-
-    file = await bot.get_file(photo.file_id)
-
-    from io import BytesIO
-    data = BytesIO()
-    await bot.download_file(file.file_path, data)
-
-    return data.getvalue()
-
-
-async def save_question_image(image_data: bytes, question_id: int) -> str:
-    folder = Path("app/question_images")
-    folder.mkdir(parents=True, exist_ok=True)
-
-    filename = f"question_{question_id}.jpg"
-    path = folder / filename
-
-    path.write_bytes(image_data)
-
-    return path.as_posix()
-
-
 
 
 def is_admin(uid: int) -> bool:
@@ -63,27 +29,27 @@ def admin_menu():
         inline_keyboard=[
             [
                 InlineKeyboardButton(
-                    text="➕ Fan qo'shish", callback_data="adm:add_subject"
+                    text="вћ• Fan qo'shish", callback_data="adm:add_subject"
                 )
             ],
             [
                 InlineKeyboardButton(
-                    text="➕ Mavzu qo'shish", callback_data="adm:add_topic"
+                    text="вћ• Mavzu qo'shish", callback_data="adm:add_topic"
                 )
             ],
             [
                 InlineKeyboardButton(
-                    text="➕ Savol qo'shish", callback_data="adm:add_question"
+                    text="вћ• Savol qo'shish", callback_data="adm:add_question"
                 )
             ],
             [
                 InlineKeyboardButton(
-                    text="📥 Excel/CSV import", callback_data="adm:import"
+                    text="рџ“Ґ Excel/CSV import", callback_data="adm:import"
                 )
             ],
             [
                 InlineKeyboardButton(
-                    text="📚 Fanlar / mavzular", callback_data="adm:catalog"
+                    text="рџ“љ Fanlar / mavzular", callback_data="adm:catalog"
                 )
             ],
             [
@@ -97,9 +63,9 @@ def admin_menu():
                     text="\U0001f465 Foydalanuvchilar",
                     callback_data="adm:users",
                 )
-            ],            [InlineKeyboardButton(text="📊 Statistika", callback_data="adm:stats")],
-            [InlineKeyboardButton(text="📢 E'lonlar", callback_data="adm:send_ad")],
-            [InlineKeyboardButton(text="❌ Bekor qilish", callback_data="adm:cancel")],
+            ],            [InlineKeyboardButton(text="рџ“Љ Statistika", callback_data="adm:stats")],
+            [InlineKeyboardButton(text="рџ“ў E'lonlar", callback_data="adm:send_ad")],
+            [InlineKeyboardButton(text="вќЊ Bekor qilish", callback_data="adm:cancel")],
         ]
     )
 
@@ -107,38 +73,38 @@ def admin_menu():
 def cancel_kb():
     return InlineKeyboardMarkup(
         inline_keyboard=[
-            [InlineKeyboardButton(text="❌ Bekor qilish", callback_data="adm:cancel")]
+            [InlineKeyboardButton(text="вќЊ Bekor qilish", callback_data="adm:cancel")]
         ]
     )
 
 
 def subject_kb(subjects, prefix="adm:qsub"):
     rows = [
-        [InlineKeyboardButton(text=f"📚 {s.name}", callback_data=f"{prefix}:{s.id}")]
+        [InlineKeyboardButton(text=f"рџ“љ {s.name}", callback_data=f"{prefix}:{s.id}")]
         for s in subjects
     ]
     rows.append(
-        [InlineKeyboardButton(text="❌ Bekor qilish", callback_data="adm:cancel")]
+        [InlineKeyboardButton(text="вќЊ Bekor qilish", callback_data="adm:cancel")]
     )
     return InlineKeyboardMarkup(inline_keyboard=rows)
 
 
 def topic_kb(topics, prefix="adm:qtopic"):
     rows = [
-        [InlineKeyboardButton(text=f"📖 {t.name}", callback_data=f"{prefix}:{t.id}")]
+        [InlineKeyboardButton(text=f"рџ“– {t.name}", callback_data=f"{prefix}:{t.id}")]
         for t in topics
     ]
     rows.append(
-        [InlineKeyboardButton(text="⬅️ Fan tanlash", callback_data="adm:add_question")]
+        [InlineKeyboardButton(text="в¬…пёЏ Fan tanlash", callback_data="adm:add_question")]
     )
     rows.append(
-        [InlineKeyboardButton(text="❌ Bekor qilish", callback_data="adm:cancel")]
+        [InlineKeyboardButton(text="вќЊ Bekor qilish", callback_data="adm:cancel")]
     )
     return InlineKeyboardMarkup(inline_keyboard=rows)
 
 
 async def show_admin(target, answer=True):
-    text = "⚙️ <b>Doniyor Academy — Admin panel</b>\n\n" "Kerakli amalni tanlang:"
+    text = "вљ™пёЏ <b>Doniyor Academy вЂ” Admin panel</b>\n\n" "Kerakli amalni tanlang:"
 
     if isinstance(target, CallbackQuery):
         try:
@@ -188,13 +154,13 @@ async def cancel(c: CallbackQuery, state: FSMContext):
 
     # 3. Agar foydalanuvchi admin bo'lsa, menyuning eng tagiga "Admin panel" tugmasini qo'shamiz
     # inline_keyboard bu massiv, unga yangi qator qo'shamiz
-    admin_btn = [InlineKeyboardButton(text="⚙️ Admin panel", callback_data="admin")]
+    admin_btn = [InlineKeyboardButton(text="вљ™пёЏ Admin panel", callback_data="admin")]
     if admin_btn not in user_menu.inline_keyboard:
         user_menu.inline_keyboard.append(admin_btn)
 
     # 4. Xabarni yangilaymiz, endi "Admin panel" tugmasi joyida bo'ladi!
     await c.message.edit_text(
-        "🏠 <b>Doniyor Academy</b>\n\nBosh menyu:",
+        "рџЏ  <b>Doniyor Academy</b>\n\nBosh menyu:",
         reply_markup=user_menu,
         parse_mode="HTML",
     )
@@ -208,7 +174,7 @@ async def add_subject_start(c: CallbackQuery, state: FSMContext):
         return
     await state.set_state(AdminState.add_subject_name)
     await c.message.edit_text(
-        "➕ <b>Yangi fan</b>\n\nFan nomini yuboring:\n\nMasalan: <i>O'zbekiston tarixi</i>",
+        "вћ• <b>Yangi fan</b>\n\nFan nomini yuboring:\n\nMasalan: <i>O'zbekiston tarixi</i>",
         reply_markup=cancel_kb(),
     )
     await c.answer()
@@ -220,19 +186,19 @@ async def add_subject_finish(m: Message, state: FSMContext):
         return
     name = (m.text or "").strip()
     if not name:
-        await m.answer("❗ Fan nomi bo'sh bo'lishi mumkin emas.")
+        await m.answer("вќ— Fan nomi bo'sh bo'lishi mumkin emas.")
         return
     async with SessionLocal() as s:
         exists = await s.scalar(
             select(Subject).where(func.lower(Subject.name) == name.lower())
         )
         if exists:
-            await m.answer("⚠️ Bu fan allaqachon mavjud.")
+            await m.answer("вљ пёЏ Bu fan allaqachon mavjud.")
             return
         s.add(Subject(name=name))
         await s.commit()
     await state.clear()
-    await m.answer(f"✅ Fan qo'shildi: <b>{name}</b>", reply_markup=admin_menu())
+    await m.answer(f"вњ… Fan qo'shildi: <b>{name}</b>", reply_markup=admin_menu())
 
 
 # -------------------- TOPIC --------------------
@@ -247,7 +213,7 @@ async def add_topic_start(c: CallbackQuery, state: FSMContext):
         return
     await state.set_state(AdminState.add_topic_subject)
     await c.message.edit_text(
-        "📚 <b>Mavzu qo'shish</b>\n\nFanni tanlang:",
+        "рџ“љ <b>Mavzu qo'shish</b>\n\nFanni tanlang:",
         reply_markup=subject_kb(subjects, "adm:tsub"),
     )
     await c.answer()
@@ -260,7 +226,7 @@ async def add_topic_subject(c: CallbackQuery, state: FSMContext):
     sid = int(c.data.split(":")[2])
     await state.update_data(subject_id=sid)
     await state.set_state(AdminState.add_topic_name)
-    await c.message.edit_text("📖 Mavzu nomini yuboring:", reply_markup=cancel_kb())
+    await c.message.edit_text("рџ“– Mavzu nomini yuboring:", reply_markup=cancel_kb())
     await c.answer()
 
 
@@ -274,7 +240,7 @@ async def add_topic_finish(m: Message, state: FSMContext):
         subject = await s.get(Subject, data["subject_id"])
         if not subject:
             await state.clear()
-            await m.answer("❌ Fan topilmadi.", reply_markup=admin_menu())
+            await m.answer("вќЊ Fan topilmadi.", reply_markup=admin_menu())
             return
         exists = await s.scalar(
             select(Topic).where(
@@ -282,13 +248,13 @@ async def add_topic_finish(m: Message, state: FSMContext):
             )
         )
         if exists:
-            await m.answer("⚠️ Bu mavzu allaqachon mavjud.")
+            await m.answer("вљ пёЏ Bu mavzu allaqachon mavjud.")
             return
         s.add(Topic(subject_id=subject.id, name=name))
         await s.commit()
     await state.clear()
     await m.answer(
-        f"✅ <b>{subject.name}</b> faniga <b>{name}</b> mavzusi qo'shildi.",
+        f"вњ… <b>{subject.name}</b> faniga <b>{name}</b> mavzusi qo'shildi.",
         reply_markup=admin_menu(),
     )
 
@@ -305,7 +271,7 @@ async def add_question_start(c: CallbackQuery, state: FSMContext):
         return
     await state.set_state(AdminState.add_question_subject)
     await c.message.edit_text(
-        "📋 <b>Yangi test savoli</b>\n\nFanni tanlang:",
+        "рџ“‹ <b>Yangi test savoli</b>\n\nFanni tanlang:",
         reply_markup=subject_kb(subjects),
     )
     await c.answer()
@@ -331,7 +297,7 @@ async def add_question_subject(c: CallbackQuery, state: FSMContext):
     await state.update_data(subject_id=sid)
     await state.set_state(AdminState.add_question_topic)
     await c.message.edit_text(
-        f"📚 <b>{subject.name}</b>\n\nMavzuni tanlang:", reply_markup=topic_kb(topics)
+        f"рџ“љ <b>{subject.name}</b>\n\nMavzuni tanlang:", reply_markup=topic_kb(topics)
     )
     await c.answer()
 
@@ -346,7 +312,7 @@ async def add_question_topic(c: CallbackQuery, state: FSMContext):
     await state.update_data(topic_id=tid)
     await state.set_state(AdminState.add_question_text)
     await c.message.edit_text(
-        f"📖 <b>{topic.name}</b>\n\n1️⃣ Savol matnini yuboring:",
+        f"рџ“– <b>{topic.name}</b>\n\n1пёЏвѓЈ Savol matnini yuboring:",
         reply_markup=cancel_kb(),
     )
     await c.answer()
@@ -356,175 +322,22 @@ async def add_question_topic(c: CallbackQuery, state: FSMContext):
 async def q_text(m: Message, state: FSMContext):
     if not is_admin(m.from_user.id):
         return
-
-    image_data = await photo_bytes(m)
-
-    if image_data:
-        session_id = uuid4().hex
-        temp_dir = Path("app/question_images/_crop_sessions") / session_id
-        temp_dir.mkdir(parents=True, exist_ok=True)
-
-        image_path = temp_dir / "source.jpg"
-        image_path.write_bytes(image_data)
-
-        await state.update_data(
-            text="",
-            image_data=None,
-            question_mode="image_multi",
-            image_source_path=str(image_path),
-            crop_dir=str(temp_dir),
-        )
-
-        await state.set_state(AdminState.add_question_image_count)
-
-        await m.answer(
-            "?? <b>Rasm qabul qilindi.</b>\n\n"
-            "Bu rasmda nechta savol bor?\n"
-            "Masalan: <b>3</b>",
-            reply_markup=cancel_kb(),
-        )
+    text = (m.text or "").strip()
+    if not text:
+        await m.answer("вќ— Savol matni bo'sh bo'lishi mumkin emas.")
         return
-
-    value = (m.text or "").strip()
-
-    if not value:
-        await m.answer(
-            "? Savol sifatida matn yoki surat yuboring."
-        )
-        return
-
-    await state.update_data(
-        text=value,
-        image_data=None,
-        question_mode="closed"
-    )
-
+    await state.update_data(text=text)
     await state.set_state(AdminState.add_question_a)
-
-    await m.answer(
-        "2?? <b>A variant</b>ni yuboring:",
-        reply_markup=cancel_kb()
-    )
+    await m.answer("2пёЏвѓЈ <b>A variant</b>ni yuboring:", reply_markup=cancel_kb())
 
 
-@router.message(AdminState.add_question_image_count)
-async def q_image_count(m: Message, state: FSMContext):
+async def save_option(m: Message, state: FSMContext, key: str, next_state, label: str):
     if not is_admin(m.from_user.id):
         return
-
     value = (m.text or "").strip()
-
-    try:
-        count = int(value)
-    except ValueError:
-        await m.answer(
-            "? Faqat savollar sonini raqam bilan yuboring.\n"
-            "Masalan: <b>3</b>"
-        )
-        return
-
-    if count < 1 or count > 50:
-        await m.answer(
-            "? Savollar soni 1 dan 50 gacha bo'lishi kerak."
-        )
-        return
-
-    data = await state.get_data()
-    image_path = data.get("image_source_path")
-    crop_dir = data.get("crop_dir")
-
-    if not image_path or not crop_dir:
-        await m.answer(
-            "? Rasm sessiyasi topilmadi. Iltimos, qaytadan boshlang."
-        )
-        await state.clear()
-        return
-
-    await state.update_data(
-        image_count=count,
-        current_image_index=0,
-        cropped_images=[],
-    )
-
-    await m.answer(
-        "?? <b>Rasmni belgilash oynasi ochiladi.</b>\n\n"
-        "Har bir savolni sichqoncha bilan to'rtburchak qilib belgilang.\n"
-        f"Jami: <b>{count}</b> ta savol."
-    )
-
-    process = await asyncio.create_subprocess_exec(
-        sys.executable,
-        "-m",
-        "app.image_cropper",
-        str(image_path),
-        str(crop_dir),
-        str(count),
-        stdout=asyncio.subprocess.PIPE,
-        stderr=asyncio.subprocess.PIPE,
-    )
-
-    stdout, stderr = await process.communicate()
-
-    if process.returncode != 0:
-        error_text = stderr.decode("utf-8", errors="replace").strip()
-        print(
-            f">>> IMAGE CROPPER ERROR: {error_text}",
-            flush=True,
-        )
-        await m.answer(
-            "? Rasmni belgilashda xatolik yuz berdi.\n"
-            "Jarayon bekor qilindi."
-        )
-        await state.clear()
-        return
-
-    crop_paths = []
-
-    for i in range(1, count + 1):
-        crop_path = Path(crop_dir) / f"crop_{i}.jpg"
-        if crop_path.exists():
-            crop_paths.append(str(crop_path))
-
-    if len(crop_paths) != count:
-        await m.answer(
-            "? Belgilangan savollar soni kutilgan songa teng emas.\n"
-            f"Kutilgan: {count}\n"
-            f"Topilgan: {len(crop_paths)}"
-        )
-        await state.clear()
-        return
-
-    await state.update_data(
-        cropped_images=crop_paths,
-        current_image_index=0,
-    )
-
-    await state.set_state(AdminState.add_question_correct)
-
-    await m.answer(
-        f"? <b>{count} ta savol rasmi tayyor.</b>\n\n"
-        "1-savol uchun to'g'ri javob harfini yuboring: "
-        "<b>A</b>, <b>B</b>, <b>C</b> yoki <b>D</b>",
-        reply_markup=cancel_kb(),
-    )
-
-
-async def save_option(
-    m: Message,
-    state: FSMContext,
-    key: str,
-    next_state,
-    label: str
-):
-    if not is_admin(m.from_user.id):
-        return
-
-    value = (m.text or "").strip()
-
     if not value:
-        await m.answer("? Variant bo'sh bo'lishi mumkin emas.")
+        await m.answer("вќ— Variant bo'sh bo'lishi mumkin emas.")
         return
-
     await state.update_data(**{key: value})
     await state.set_state(next_state)
     await m.answer(label, reply_markup=cancel_kb())
@@ -537,7 +350,7 @@ async def q_a(m, state):
         state,
         "option_a",
         AdminState.add_question_b,
-        "3?? <b>B variant</b>ni yuboring:",
+        "3пёЏвѓЈ <b>B variant</b>ni yuboring:",
     )
 
 
@@ -548,7 +361,7 @@ async def q_b(m, state):
         state,
         "option_b",
         AdminState.add_question_c,
-        "4?? <b>C variant</b>ni yuboring:",
+        "4пёЏвѓЈ <b>C variant</b>ni yuboring:",
     )
 
 
@@ -559,7 +372,7 @@ async def q_c(m, state):
         state,
         "option_c",
         AdminState.add_question_d,
-        "5?? <b>D variant</b>ni yuboring:",
+        "5пёЏвѓЈ <b>D variant</b>ni yuboring:",
     )
 
 
@@ -570,8 +383,7 @@ async def q_d(m, state):
         state,
         "option_d",
         AdminState.add_question_correct,
-        "6?? To'g'ri javob harfini yuboring: "
-        "<b>A</b>, <b>B</b>, <b>C</b> yoki <b>D</b>",
+        "6пёЏвѓЈ To'g'ri javob harfini yuboring: <b>A</b>, <b>B</b>, <b>C</b> yoki <b>D</b>",
     )
 
 
@@ -579,51 +391,14 @@ async def q_d(m, state):
 async def q_correct(m: Message, state: FSMContext):
     if not is_admin(m.from_user.id):
         return
-
     correct = (m.text or "").strip().upper()
-
     if correct not in {"A", "B", "C", "D"}:
-        await m.answer(
-            "? Faqat A, B, C yoki D yuboring."
-        )
+        await m.answer("вќЊ Faqat A, B, C yoki D yuboring.")
         return
-
-    data = await state.get_data()
-
-    if data.get("question_mode") == "image_multi":
-        current_index = data.get("current_image_index", 0)
-        cropped_images = data.get("cropped_images", [])
-
-        if current_index >= len(cropped_images):
-            await m.answer(
-                "? Savol rasmi topilmadi. Jarayonni qaytadan boshlang."
-            )
-            await state.clear()
-            return
-
-        answers = data.get("image_correct_answers", [])
-        answers.append(correct)
-
-        await state.update_data(
-            image_correct_answers=answers,
-            current_correct_option=correct,
-        )
-
-        await state.set_state(AdminState.add_question_explanation)
-
-        await m.answer(
-            f"?? <b>{current_index + 1}-savol</b> uchun izohni yuboring.\n"
-            "Izoh kerak bo'lmasa <code>-</code> yuboring:",
-            reply_markup=cancel_kb(),
-        )
-        return
-
     await state.update_data(correct_option=correct)
     await state.set_state(AdminState.add_question_explanation)
-
     await m.answer(
-        "7?? <b>Izoh</b>ni yuboring. "
-        "Agar izoh kerak bo'lmasa, <code>-</code> yuboring:",
+        "7пёЏвѓЈ <b>Izoh</b>ni yuboring. Agar izoh kerak bo'lmasa, <code>-</code> yuboring:",
         reply_markup=cancel_kb(),
     )
 
@@ -632,103 +407,11 @@ async def q_correct(m: Message, state: FSMContext):
 async def q_explanation(m: Message, state: FSMContext):
     if not is_admin(m.from_user.id):
         return
-
     explanation = (m.text or "").strip()
-    explanation = None if explanation == "-" else explanation
-
     data = await state.get_data()
-
-    if data.get("question_mode") == "image_multi":
-        current_index = data.get("current_image_index", 0)
-        cropped_images = data.get("cropped_images", [])
-        correct_answers = data.get("image_correct_answers", [])
-        topic_id = data["topic_id"]
-
-        if current_index >= len(cropped_images):
-            await m.answer(
-                "? Savol rasmi topilmadi. Jarayonni qaytadan boshlang."
-            )
-            await state.clear()
-            return
-
-        correct = correct_answers[current_index]
-        crop_path = Path(cropped_images[current_index])
-
-        if not crop_path.exists():
-            await m.answer(
-                "? Savol rasmi fayli topilmadi. Jarayon bekor qilindi."
-            )
-            await state.clear()
-            return
-
-        async with SessionLocal() as s:
-            topic = await s.get(Topic, topic_id)
-
-            if not topic:
-                await m.answer(
-                    "? Mavzu topilmadi."
-                )
-                await state.clear()
-                return
-
-            q = Question(
-                topic_id=topic.id,
-                text="",
-                option_a="",
-                option_b="",
-                option_c="",
-                option_d="",
-                correct_option=correct,
-                explanation=explanation,
-                question_mode="image",
-            )
-
-            s.add(q)
-            await s.commit()
-            qid = q.id
-
-            q.image_path = await save_question_image(
-                crop_path.read_bytes(),
-                qid,
-            )
-
-            await s.commit()
-
-        next_index = current_index + 1
-
-        if next_index < len(cropped_images):
-            await state.update_data(
-                current_image_index=next_index,
-            )
-
-            await state.set_state(
-                AdminState.add_question_correct
-            )
-
-            await m.answer(
-                f"? <b>{current_index + 1}-savol saqlandi.</b>\n\n"
-                f"?? <b>{next_index + 1}-savol</b> uchun "
-                "to'g'ri javobni yuboring: "
-                "<b>A</b>, <b>B</b>, <b>C</b> yoki <b>D</b>",
-                reply_markup=cancel_kb(),
-            )
-            return
-
-        total = len(cropped_images)
-        topic_name = topic.name
-
-        await state.clear()
-
-        await m.answer(
-            f"? <b>{total} ta savol muvaffaqiyatli qo'shildi!</b>\n\n"
-            f"?? Mavzu: <b>{topic_name}</b>",
-            reply_markup=admin_menu(),
-        )
-        return
-
+    explanation = None if explanation == "-" else explanation
     async with SessionLocal() as s:
         topic = await s.get(Topic, data["topic_id"])
-
         q = Question(
             topic_id=topic.id,
             text=data["text"],
@@ -739,26 +422,15 @@ async def q_explanation(m: Message, state: FSMContext):
             correct_option=data["correct_option"],
             explanation=explanation,
         )
-
         s.add(q)
         await s.commit()
         qid = q.id
-
-        if data.get("image_data"):
-            q.image_path = await save_question_image(
-                data["image_data"],
-                qid,
-            )
-            q.question_mode = "image"
-            await s.commit()
-
     await state.clear()
-
     await m.answer(
-        f"? <b>Savol muvaffaqiyatli qo'shildi!</b>\n\n"
-        f"?? ID: <code>{qid}</code>\n"
-        f"?? Mavzu: <b>{topic.name}</b>\n"
-        f"? To'g'ri javob: <b>{data['correct_option']}</b>",
+        f"вњ… <b>Savol muvaffaqiyatli qo'shildi!</b>\n\n"
+        f"рџ†” ID: <code>{qid}</code>\n"
+        f"рџ“– Mavzu: <b>{topic.name}</b>\n"
+        f"вњ… To'g'ri javob: <b>{data['correct_option']}</b>",
         reply_markup=admin_menu(),
     )
 
@@ -768,19 +440,15 @@ async def q_explanation(m: Message, state: FSMContext):
 async def import_start(c: CallbackQuery, state: FSMContext):
     if not is_admin(c.from_user.id):
         return
-
     await state.set_state(AdminState.import_file)
-
     await c.message.edit_text(
-        "<b>Excel/CSV orqali test import</b>\n\n"
+        "рџ“Ґ <b>Excel/CSV orqali test import</b>\n\n"
         "Faylni yuboring: <b>.xlsx</b> yoki <b>.csv</b>\n\n"
-        "<b>Ustunlar:</b>\n"
-        "<code>Fan | Mavzu | Savol | Savol rasmi | A | B | C | D | "
-        "Savol turi | To'g'ri javob | To'g'ri javob matni | Izoh</code>\n\n"
-        "Eski oddiy format ham ishlaydi.\n"
-        "Savol turi: <code>closed</code> yoki <code>open</code>.\n"
-        "Savol matni yoki Savol rasmi bo'lishi kerak.\n"
-        "Open savolda A/B/C/D shart emas.",
+        "Ustunlar:\n"
+        "<code>Fan | Mavzu | Savol | A | B | C | D | To'g'ri javob | Izoh</code>\n\n"
+        "вЂў To'g'ri javob: A, B, C yoki D\n"
+        "вЂў Izoh ixtiyoriy\n"
+        "вЂў Fan va mavzu mavjud bo'lmasa, avtomatik yaratiladi",
         reply_markup=cancel_kb(),
     )
     await c.answer()
@@ -793,11 +461,9 @@ async def import_document(m: Message, state: FSMContext):
 
     doc = m.document
     filename = (doc.file_name or "").lower()
-
     if not (filename.endswith(".xlsx") or filename.endswith(".csv")):
         await m.answer(
-            "Faqat .xlsx yoki .csv fayl yuboring.",
-            reply_markup=cancel_kb(),
+            "вќЊ Faqat .xlsx yoki .csv fayl yuboring.", reply_markup=cancel_kb()
         )
         return
 
@@ -806,8 +472,7 @@ async def import_document(m: Message, state: FSMContext):
 
     path = (
         Path(tempfile.gettempdir())
-        / f"doniyor_import_{m.from_user.id}_"
-          f"{doc.file_unique_id}{Path(filename).suffix}"
+        / f"doniyor_import_{m.from_user.id}_{doc.file_unique_id}{Path(filename).suffix}"
     )
 
     try:
@@ -816,498 +481,180 @@ async def import_document(m: Message, state: FSMContext):
         if filename.endswith(".xlsx"):
             from openpyxl import load_workbook
 
-            wb = load_workbook(
-                path,
-                read_only=True,
-                data_only=True,
-            )
-            rows = list(
-                wb.active.iter_rows(values_only=True)
-            )
+            wb = load_workbook(path, read_only=True, data_only=True)
+            rows = list(wb.active.iter_rows(values_only=True))
             wb.close()
-
         else:
-            import csv
-            import io
+            import csv, io
 
             raw = path.read_bytes()
-            csv_text = None
-
-            for enc in (
-                "utf-8-sig",
-                "utf-8",
-                "cp1251",
-            ):
+            for enc in ("utf-8-sig", "utf-8", "cp1251"):
                 try:
-                    csv_text = raw.decode(enc)
+                    text = raw.decode(enc)
                     break
                 except UnicodeDecodeError:
-                    pass
-
-            if csv_text is None:
-                raise ValueError(
-                    "CSV kodlashini o'qib bo'lmadi."
-                )
-
-            rows = list(
-                csv.reader(io.StringIO(csv_text))
-            )
+                    text = None
+            if text is None:
+                raise ValueError("CSV kodlashini o'qib bo'lmadi.")
+            rows = list(csv.reader(io.StringIO(text)))
 
         if len(rows) < 2:
-            raise ValueError(
-                "Faylda savollar mavjud emas."
-            )
+            raise ValueError("Faylda savollar mavjud emas.")
 
         def normalize_header(value):
             if value is None:
                 return ""
-
             value = str(value).strip().lower()
+            for code in (0x2018, 0x2019, 0x02BB, 0x02BC, 0x0060):
+                value = value.replace(chr(code), "'")
+            value = value.replace(chr(0xFEFF), "")
+            value = " ".join(value.split())
+            return value
 
-            for code in (
-                0x2018,
-                0x2019,
-                0x02BB,
-                0x02BC,
-                0x0060,
-            ):
-                value = value.replace(
-                    chr(code),
-                    "'",
-                )
-
-            value = value.replace(
-                chr(0xFEFF),
-                "",
-            )
-
-            return " ".join(value.split())
-
-        headers = [
-            normalize_header(x)
-            for x in rows[0]
-        ]
+        headers = [normalize_header(x) for x in rows[0]]
 
         aliases = {
-            "fan": {
-                "fan",
-                "subject",
-            },
-            "mavzu": {
-                "mavzu",
-                "topic",
-            },
-            "savol": {
-                "savol",
-                "question",
-                "text",
-            },
-            "image": {
-                "savol rasmi",
-                "savol rasmi yo'li",
-                "savol rasmi yoli",
-                "image",
-                "image path",
-                "image_path",
-                "rasm",
-                "rasm yo'li",
-                "rasm yoli",
-            },
-            "a": {
-                "a",
-                "variant a",
-            },
-            "b": {
-                "b",
-                "variant b",
-            },
-            "c": {
-                "c",
-                "variant c",
-            },
-            "d": {
-                "d",
-                "variant d",
-            },
-            "mode": {
-                "savol turi",
-                "question type",
-                "question_type",
-                "type",
-                "mode",
-            },
-            "correct": {
-                "to'g'ri javob",
-                "tog'ri javob",
-                "togri javob",
-                "correct",
-                "correct option",
-                "correct answer",
-                "javob",
-                "to'g'ri",
-                "togri",
-            },
-            "correct_answer": {
-                "to'g'ri javob matni",
-                "tog'ri javob matni",
-                "togri javob matni",
-                "correct answer text",
-                "correct_answer",
-                "answer text",
-                "javob matni",
-            },
-            "izoh": {
-                "izoh",
-                "explanation",
-                "comment",
-            },
+            "fan": {"fan", "subject"},
+            "mavzu": {"mavzu", "topic"},
+            "savol": {"savol", "question", "text"},
+            "a": {"a", "variant a"},
+            "b": {"b", "variant b"},
+            "c": {"c", "variant c"},
+            "d": {"d", "variant d"},
+            "correct": {"to'g'ri javob", "tog'ri javob", "togri javob", "correct", "correct option", "correct answer", "javob", "to'g'ri", "togri"},
+            "izoh": {"izoh", "explanation", "comment"},
         }
 
         idx = {}
-
         for key, names in aliases.items():
-            normalized_names = {
-                normalize_header(x)
-                for x in names
-            }
-
-            for i, header in enumerate(headers):
-                if header in normalized_names:
+            normalized_names = {normalize_header(x) for x in names}
+            for i, h in enumerate(headers):
+                if h in normalized_names:
                     idx[key] = i
                     break
 
-        required = [
-            "fan",
-            "mavzu",
-        ]
-
-        missing = [
-            x for x in required
-            if x not in idx
-        ]
-
+        required = ["fan", "mavzu", "savol", "a", "b", "c", "d", "correct"]
+        missing = [x for x in required if x not in idx]
         if missing:
-            raise ValueError(
-                "Majburiy ustunlar topilmadi: "
-                + ", ".join(missing)
-            )
+            raise ValueError("Majburiy ustunlar topilmadi: " + ", ".join(missing))
 
         def cell(row, key):
             i = idx.get(key)
-
-            if i is None:
+            if i is None or i >= len(row) or row[i] is None:
                 return ""
-
-            if i >= len(row):
-                return ""
-
-            if row[i] is None:
-                return ""
-
             return str(row[i]).strip()
 
         valid = []
         errors = []
-
-        for row_no, row in enumerate(
-            rows[1:],
-            start=2,
-        ):
-            if not any(
-                x is not None
-                and str(x).strip()
-                for x in row
-            ):
+        for row_no, row in enumerate(rows[1:], start=2):
+            if not any(x is not None and str(x).strip() for x in row):
                 continue
-
-            subject_name = cell(row, "fan")
-            topic_name = cell(row, "mavzu")
-            question = cell(row, "savol")
-            image_value = cell(row, "image")
-
-            option_a = cell(row, "a")
-            option_b = cell(row, "b")
-            option_c = cell(row, "c")
-            option_d = cell(row, "d")
-
-            mode = cell(row, "mode").lower()
+            vals = [cell(row, k) for k in ("fan", "mavzu", "savol", "a", "b", "c", "d")]
             correct = cell(row, "correct").upper()
-            correct_answer = cell(
-                row,
-                "correct_answer",
-            )
-            explanation = (
-                cell(row, "izoh")
-                or None
-            )
-
-            if not mode:
-                mode = "closed"
-
-            if mode in {
-                "yopiq",
-                "variantli",
-                "test",
-            }:
-                mode = "closed"
-
-            if mode in {
-                "ochiq",
-                "free",
-                "free text",
-            }:
-                mode = "open"
-
-            if mode not in {
-                "closed",
-                "open",
-            }:
-                errors.append(
-                    f"{row_no}-qator: "
-                    "Savol turi closed yoki open "
-                    "bo'lishi kerak."
-                )
+            explanation = cell(row, "izoh") or None
+            if not all(vals):
+                errors.append(f"{row_no}-qator: majburiy maydon bo'sh.")
                 continue
-
-            if not subject_name:
-                errors.append(
-                    f"{row_no}-qator: Fan bo'sh."
-                )
+            if correct not in {"A", "B", "C", "D"}:
+                errors.append(f"{row_no}-qator: to'g'ri javob A/B/C/D bo'lishi kerak.")
                 continue
-
-            if not topic_name:
-                errors.append(
-                    f"{row_no}-qator: Mavzu bo'sh."
-                )
-                continue
-
-            if not question and not image_value:
-                errors.append(
-                    f"{row_no}-qator: Savol yoki "
-                    "Savol rasmi bo'lishi kerak."
-                )
-                continue
-
-            if mode == "closed":
-                if not all(
-                    [
-                        option_a,
-                        option_b,
-                        option_c,
-                        option_d,
-                    ]
-                ):
-                    errors.append(
-                        f"{row_no}-qator: closed savolda "
-                        "A/B/C/D to'liq bo'lishi kerak."
-                    )
-                    continue
-
-                if correct not in {
-                    "A",
-                    "B",
-                    "C",
-                    "D",
-                }:
-                    errors.append(
-                        f"{row_no}-qator: To'g'ri javob "
-                        "A/B/C/D bo'lishi kerak."
-                    )
-                    continue
-
-                correct_answer = None
-
-            else:
-                if not correct_answer:
-                    errors.append(
-                        f"{row_no}-qator: open savolda "
-                        "To'g'ri javob matni bo'lishi kerak."
-                    )
-                    continue
-
-                correct = None
-
-            valid.append(
-                {
-                    "subject": subject_name,
-                    "topic": topic_name,
-                    "question": question or None,
-                    "image": image_value or None,
-                    "mode": mode,
-                    "a": option_a or None,
-                    "b": option_b or None,
-                    "c": option_c or None,
-                    "d": option_d or None,
-                    "correct": correct,
-                    "correct_answer": correct_answer,
-                    "explanation": explanation,
-                }
-            )
+            valid.append((*vals, correct, explanation))
 
         if errors:
-            preview = "\n".join(
-                errors[:10]
-            )
-
-            more = ""
-
-            if len(errors) > 10:
-                more = (
-                    f"\n... yana "
-                    f"{len(errors) - 10} ta xato"
-                )
-
+            preview = "\n".join(errors[:10])
+            more = f"\n... yana {len(errors)-10} ta xato" if len(errors) > 10 else ""
             await m.answer(
-                "<b>Faylda xato bor.</b>\n\n"
-                f"{preview}{more}\n\n"
-                "Import bajarilmadi. "
-                "Faylni tuzatib qayta yuboring.",
+                f"вљ пёЏ <b>Faylda xato bor.</b>\n\n{preview}{more}\n\n"
+                "Import bajarilmadi. Faylni tuzatib qayta yuboring.",
                 reply_markup=cancel_kb(),
             )
             return
 
         if not valid:
-            raise ValueError(
-                "Import qilinadigan savol topilmadi."
-            )
+            raise ValueError("Import qilinadigan savol topilmadi.")
 
         async with SessionLocal() as s:
             subject_cache = {}
             topic_cache = {}
-
-            for item in valid:
-                subject_name = item["subject"]
-                topic_name = item["topic"]
-
+            for (
+                subject_name,
+                topic_name,
+                question,
+                a,
+                b,
+                copt,
+                d,
+                correct,
+                explanation,
+            ) in valid:
                 skey = subject_name.casefold()
-
-                subject = subject_cache.get(
-                    skey
-                )
-
+                subject = subject_cache.get(skey)
                 if not subject:
                     subject = await s.scalar(
                         select(Subject).where(
-                            func.lower(
-                                Subject.name
-                            )
-                            == subject_name.lower()
+                            func.lower(Subject.name) == subject_name.lower()
                         )
                     )
-
                     if not subject:
-                        subject = Subject(
-                            name=subject_name
-                        )
+                        subject = Subject(name=subject_name)
                         s.add(subject)
                         await s.flush()
-
                     subject_cache[skey] = subject
 
-                tkey = (
-                    subject.id,
-                    topic_name.casefold(),
-                )
-
+                tkey = (subject.id, topic_name.casefold())
                 topic = topic_cache.get(tkey)
-
                 if not topic:
                     topic = await s.scalar(
                         select(Topic).where(
-                            Topic.subject_id
-                            == subject.id,
-                            func.lower(
-                                Topic.name
-                            )
-                            == topic_name.lower(),
+                            Topic.subject_id == subject.id,
+                            func.lower(Topic.name) == topic_name.lower(),
                         )
                     )
-
                     if not topic:
-                        topic = Topic(
-                            subject_id=subject.id,
-                            name=topic_name,
-                        )
+                        topic = Topic(subject_id=subject.id, name=topic_name)
                         s.add(topic)
                         await s.flush()
-
                     topic_cache[tkey] = topic
-
-                image_path_value = None
-
-                if item["image"]:
-                    image_path_value = (
-                        Path(
-                            item["image"]
-                        ).name
-                    )
-
-                    image_path_value = (
-                        Path(
-                            "app/question_images"
-                        )
-                        / image_path_value
-                    ).as_posix()
 
                 s.add(
                     Question(
                         topic_id=topic.id,
-                        text=item["question"],
-                        image_path=image_path_value,
-                        question_mode=item["mode"],
-                        option_a=item["a"],
-                        option_b=item["b"],
-                        option_c=item["c"],
-                        option_d=item["d"],
-                        correct_option=item["correct"],
-                        correct_answer=item[
-                            "correct_answer"
-                        ],
-                        explanation=item[
-                            "explanation"
-                        ],
+                        text=question,
+                        option_a=a,
+                        option_b=b,
+                        option_c=copt,
+                        option_d=d,
+                        correct_option=correct,
+                        explanation=explanation,
                     )
                 )
-
             await s.commit()
 
         await state.clear()
-
         await m.answer(
-            "<b>IMPORT MUVAFFAQIYATLI!</b>\n\n"
-            f"Qo'shilgan savollar: "
-            f"<b>{len(valid)}</b>\n"
-            "Fan va mavzular avtomatik bog'landi.",
+            "рџЋ‰ <b>IMPORT MUVAFFAQIYATLI!</b>\n\n"
+            f"рџ“‹ Qo'shilgan savollar: <b>{len(valid)}</b>\n"
+            "рџ“љ Fan va mavzular avtomatik bog'landi.",
             reply_markup=admin_menu(),
         )
-
     except Exception as e:
         await m.answer(
-            "<b>Import amalga oshmadi.</b>\n\n"
-            f"Sabab: <code>{str(e)[:500]}</code>",
+            f"вќЊ <b>Import amalga oshmadi.</b>\n\nSabab: <code>{str(e)[:500]}</code>",
             reply_markup=cancel_kb(),
         )
-
     finally:
         try:
-            path.unlink(
-                missing_ok=True
-            )
+            path.unlink(missing_ok=True)
         except Exception:
             pass
 
 
 @router.message(AdminState.import_file)
-async def import_wrong_type(
-    m: Message,
-    state: FSMContext,
-):
+async def import_wrong_type(m: Message, state: FSMContext):
     if not is_admin(m.from_user.id):
         return
-
     await m.answer(
-        "Excel/CSV faylini hujjat sifatida "
-        "yuboring: <b>.xlsx</b> yoki <b>.csv</b>.",
+        "вќЊ Excel/CSV faylini hujjat sifatida yuboring: <b>.xlsx</b> yoki <b>.csv</b>.",
         reply_markup=cancel_kb(),
     )
 
@@ -1330,16 +677,16 @@ async def catalog(c: CallbackQuery):
     buttons = [
         [
             InlineKeyboardButton(
-                text=f"📚 {sub.name}", callback_data=f"adm:subject:{sub.id}"
+                text=f"рџ“љ {sub.name}", callback_data=f"adm:subject:{sub.id}"
             )
         ]
         for sub in subjects
     ]
 
-    buttons.append([InlineKeyboardButton(text="⬅️ Admin panel", callback_data="admin")])
+    buttons.append([InlineKeyboardButton(text="в¬…пёЏ Admin panel", callback_data="admin")])
 
     await c.message.edit_text(
-        "📚 <b>Fanlar</b>\n\nKerakli fanni tanlang:",
+        "рџ“љ <b>Fanlar</b>\n\nKerakli fanni tanlang:",
         reply_markup=InlineKeyboardMarkup(inline_keyboard=buttons),
     )
     await c.answer()
@@ -1370,7 +717,7 @@ async def catalog_subject(c: CallbackQuery):
     buttons = [
         [
             InlineKeyboardButton(
-                text=f"📖 {topic.name}", callback_data=f"adm:topic:{topic.id}"
+                text=f"рџ“– {topic.name}", callback_data=f"adm:topic:{topic.id}"
             )
         ]
         for topic in topics
@@ -1380,7 +727,7 @@ async def catalog_subject(c: CallbackQuery):
         buttons.append(
             [
                 InlineKeyboardButton(
-                    text="➕ Mavzu qo'shish", callback_data="adm:add_topic"
+                    text="вћ• Mavzu qo'shish", callback_data="adm:add_topic"
                 )
             ]
         )
@@ -1388,19 +735,19 @@ async def catalog_subject(c: CallbackQuery):
     buttons.append(
         [
             InlineKeyboardButton(
-                text="🗑 Fanni o'chirish",
+                text="рџ—‘ Fanni o'chirish",
                 callback_data=f"adm:delete_subject:{subject.id}",
             )
         ]
     )
 
     buttons.append(
-        [InlineKeyboardButton(text="⬅️ Fanlar", callback_data="adm:catalog")]
+        [InlineKeyboardButton(text="в¬…пёЏ Fanlar", callback_data="adm:catalog")]
     )
 
     await c.message.edit_text(
-        f"📚 <b>{subject.name}</b>\n\n"
-        f"📖 Mavzular: <b>{topic_count} ta</b>\n\n"
+        f"рџ“љ <b>{subject.name}</b>\n\n"
+        f"рџ“– Mavzular: <b>{topic_count} ta</b>\n\n"
         "Kerakli amalni tanlang:",
         reply_markup=InlineKeyboardMarkup(inline_keyboard=buttons),
         parse_mode="HTML",
@@ -1430,28 +777,28 @@ async def catalog_topic(c: CallbackQuery):
     buttons = [
         [
             InlineKeyboardButton(
-                text="📋 Savollarni ko'rish", callback_data=f"adm:questions:{tid}"
+                text="рџ“‹ Savollarni ko'rish", callback_data=f"adm:questions:{tid}"
             )
         ],
         [
             InlineKeyboardButton(
-                text="✏️ Mavzuni tahrirlash", callback_data=f"adm:edit_topic:{tid}"
+                text="вњЏпёЏ Mavzuni tahrirlash", callback_data=f"adm:edit_topic:{tid}"
             )
         ],
         [
             InlineKeyboardButton(
-                text="🗑 Mavzuni o'chirish", callback_data=f"adm:delete_topic:{tid}"
+                text="рџ—‘ Mavzuni o'chirish", callback_data=f"adm:delete_topic:{tid}"
             )
         ],
         [
             InlineKeyboardButton(
-                text="⬅️ Mavzular", callback_data=f"adm:subject:{topic.subject_id}"
+                text="в¬…пёЏ Mavzular", callback_data=f"adm:subject:{topic.subject_id}"
             )
         ],
     ]
 
     await c.message.edit_text(
-        f"📖 <b>{topic.name}</b>\n\n" f"📋 Savollar: <b>{count}</b>",
+        f"рџ“– <b>{topic.name}</b>\n\n" f"рџ“‹ Savollar: <b>{count}</b>",
         reply_markup=InlineKeyboardMarkup(inline_keyboard=buttons),
     )
     await c.answer()
@@ -1475,7 +822,7 @@ async def edit_topic_start(c: CallbackQuery, state: FSMContext):
     await state.set_state(AdminState.edit_topic_name)
 
     await c.message.edit_text(
-        "✏️ <b>MAVZUNI TAHRIRLASH</b>\n\n"
+        "вњЏпёЏ <b>MAVZUNI TAHRIRLASH</b>\n\n"
         f"Eski nom: <b>{topic.name}</b>\n\n"
         "Yangi mavzu nomini yuboring:",
         reply_markup=cancel_kb(),
@@ -1491,7 +838,7 @@ async def edit_topic_finish(m: Message, state: FSMContext):
     name = (m.text or "").strip()
 
     if not name:
-        await m.answer("❗ Mavzu nomi bo'sh bo'lishi mumkin emas.")
+        await m.answer("вќ— Mavzu nomi bo'sh bo'lishi mumkin emas.")
         return
 
     data = await state.get_data()
@@ -1502,7 +849,7 @@ async def edit_topic_finish(m: Message, state: FSMContext):
 
         if not topic:
             await state.clear()
-            await m.answer("❌ Mavzu topilmadi.", reply_markup=admin_menu())
+            await m.answer("вќЊ Mavzu topilmadi.", reply_markup=admin_menu())
             return
 
         topic.name = name
@@ -1513,20 +860,20 @@ async def edit_topic_finish(m: Message, state: FSMContext):
     await state.clear()
 
     await m.answer(
-        "✅ <b>MAVZU MUVAFFAQIYATLI TAHRIRLANDI!</b>\n\n" f"Yangi nom: <b>{name}</b>",
+        "вњ… <b>MAVZU MUVAFFAQIYATLI TAHRIRLANDI!</b>\n\n" f"Yangi nom: <b>{name}</b>",
         reply_markup=InlineKeyboardMarkup(
             inline_keyboard=[
                 [
                     InlineKeyboardButton(
-                        text="📖 Mavzuni ko'rish", callback_data=f"adm:topic:{tid}"
+                        text="рџ“– Mavzuni ko'rish", callback_data=f"adm:topic:{tid}"
                     )
                 ],
                 [
                     InlineKeyboardButton(
-                        text="⬅️ Mavzular", callback_data=f"adm:subject:{subject_id}"
+                        text="в¬…пёЏ Mavzular", callback_data=f"adm:subject:{subject_id}"
                     )
                 ],
-                [InlineKeyboardButton(text="⚙️ Admin panel", callback_data="admin")],
+                [InlineKeyboardButton(text="вљ™пёЏ Admin panel", callback_data="admin")],
             ]
         ),
     )
@@ -1552,15 +899,15 @@ async def delete_topic(c: CallbackQuery):
         await s.commit()
 
     await c.message.edit_text(
-        "🗑 <b>MAVZU O'CHIRILDI!</b>",
+        "рџ—‘ <b>MAVZU O'CHIRILDI!</b>",
         reply_markup=InlineKeyboardMarkup(
             inline_keyboard=[
                 [
                     InlineKeyboardButton(
-                        text="⬅️ Mavzular", callback_data=f"adm:subject:{subject_id}"
+                        text="в¬…пёЏ Mavzular", callback_data=f"adm:subject:{subject_id}"
                     )
                 ],
-                [InlineKeyboardButton(text="⚙️ Admin panel", callback_data="admin")],
+                [InlineKeyboardButton(text="вљ™пёЏ Admin panel", callback_data="admin")],
             ]
         ),
     )
@@ -1590,12 +937,12 @@ async def catalog_questions(c: CallbackQuery):
 
     if not questions:
         await c.message.edit_text(
-            f"📖 <b>{topic.name}</b>\n\n" "📋 Bu mavzuda hozircha savollar yo'q.",
+            f"рџ“– <b>{topic.name}</b>\n\n" "рџ“‹ Bu mavzuda hozircha savollar yo'q.",
             reply_markup=InlineKeyboardMarkup(
                 inline_keyboard=[
                     [
                         InlineKeyboardButton(
-                            text="⬅️ Mavzu", callback_data=f"adm:topic:{tid}"
+                            text="в¬…пёЏ Mavzu", callback_data=f"adm:topic:{tid}"
                         )
                     ]
                 ]
@@ -1604,7 +951,7 @@ async def catalog_questions(c: CallbackQuery):
         await c.answer()
         return
 
-    lines = [f"📖 <b>{topic.name}</b>", f"📋 Savollar: <b>{len(questions)}</b>", ""]
+    lines = [f"рџ“– <b>{topic.name}</b>", f"рџ“‹ Savollar: <b>{len(questions)}</b>", ""]
 
     buttons = []
 
@@ -1622,7 +969,7 @@ async def catalog_questions(c: CallbackQuery):
         )
 
     buttons.append(
-        [InlineKeyboardButton(text="⬅️ Mavzu", callback_data=f"adm:topic:{tid}")]
+        [InlineKeyboardButton(text="в¬…пёЏ Mavzu", callback_data=f"adm:topic:{tid}")]
     )
 
     await c.message.edit_text(
@@ -1648,18 +995,18 @@ async def catalog_question(c: CallbackQuery):
         topic = await s.get(Topic, q.topic_id)
 
     text = (
-        "📋 <b>SAVOL</b>\n"
-        "──────────────\n\n"
-        f"❓ <b>{q.text}</b>\n\n"
+        "рџ“‹ <b>SAVOL</b>\n"
+        "в”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђ\n\n"
+        f"вќ“ <b>{q.text}</b>\n\n"
         f"A) {q.option_a}\n"
         f"B) {q.option_b}\n"
         f"C) {q.option_c}\n"
         f"D) {q.option_d}\n\n"
-        f"✅ To'g'ri javob: <b>{q.correct_option}</b>"
+        f"вњ… To'g'ri javob: <b>{q.correct_option}</b>"
     )
 
     if q.explanation:
-        text += f"\n\n💡 <b>Izoh:</b> {q.explanation}"
+        text += f"\n\nрџ’Ў <b>Izoh:</b> {q.explanation}"
 
     await c.message.edit_text(
         text,
@@ -1667,20 +1014,20 @@ async def catalog_question(c: CallbackQuery):
             inline_keyboard=[
                 [
                     InlineKeyboardButton(
-                        text="✏️ Tahrirlash", callback_data=f"adm:edit_question:{q.id}"
+                        text="вњЏпёЏ Tahrirlash", callback_data=f"adm:edit_question:{q.id}"
                     )
                 ],
                 [
                     InlineKeyboardButton(
-                        text="🗑 O'chirish", callback_data=f"adm:delete_question:{q.id}"
+                        text="рџ—‘ O'chirish", callback_data=f"adm:delete_question:{q.id}"
                     )
                 ],
                 [
                     InlineKeyboardButton(
-                        text="⬅️ Savollar", callback_data=f"adm:questions:{q.topic_id}"
+                        text="в¬…пёЏ Savollar", callback_data=f"adm:questions:{q.topic_id}"
                     )
                 ],
-                [InlineKeyboardButton(text="⚙️ Admin panel", callback_data="admin")],
+                [InlineKeyboardButton(text="вљ™пёЏ Admin panel", callback_data="admin")],
             ]
         ),
     )
@@ -1701,29 +1048,15 @@ async def edit_question_start(c: CallbackQuery, state: FSMContext):
         await c.answer("Savol topilmadi.", show_alert=True)
         return
 
-    await state.update_data(
-        question_id=q.id,
-        old_image_path=q.image_path,
-        old_question_mode=q.question_mode,
-    )
+    await state.update_data(question_id=q.id, text=q.text)
     await state.set_state(AdminState.edit_question_text)
 
-    if q.question_mode == "image" and q.image_path:
-        await c.message.answer_photo(
-            FSInputFile(q.image_path),
-            caption="??? <b>Hozirgi savol rasmi</b>\n\n"
-                    "Yangi rasm yuboring yoki matn yuboring.",
-            reply_markup=cancel_kb(),
-        )
-    else:
-        await c.message.answer(
-            "?? <b>SAVOLNI TAHRIRLASH</b>\n\n"
-            f"Eski savol:\n<b>{q.text or '?'}</b>\n\n"
-            "??? Rasm yuborsangiz ? rasmli savol bo'ladi.\n"
-            "?? Matn yuborsangiz ? matnli savol bo'ladi.",
-            reply_markup=cancel_kb(),
-        )
-
+    await c.message.edit_text(
+        "вњЏпёЏ <b>SAVOLNI TAHRIRLASH</b>\n\n"
+        f"Eski savol:\n<b>{q.text}</b>\n\n"
+        "Yangi savol matnini yuboring:",
+        reply_markup=cancel_kb(),
+    )
     await c.answer()
 
 
@@ -1732,45 +1065,16 @@ async def edit_question_text_handler(m: Message, state: FSMContext):
     if not is_admin(m.from_user.id):
         return
 
-    # RASM yuborildi
-    image_data = await photo_bytes(m)
-
-    if image_data:
-        await state.update_data(
-            text="",
-            image_data=image_data,
-            question_mode="image",
-        )
-        await state.set_state(AdminState.edit_question_a)
-
-        await m.answer(
-            "??? <b>Rasm qabul qilindi.</b>\n\n"
-            "2?? <b>A variant</b>ni yuboring:",
-            reply_markup=cancel_kb(),
-        )
-        return
-
-    # MATN yuborildi
     value = (m.text or "").strip()
 
     if not value:
-        await m.answer(
-            "? Rasm yoki matn yuboring."
-        )
+        await m.answer("вќ— Savol matni bo'sh bo'lishi mumkin emas.")
         return
 
-    await state.update_data(
-        text=value,
-        image_data=None,
-        question_mode="closed",
-    )
+    await state.update_data(text=value)
     await state.set_state(AdminState.edit_question_a)
 
-    await m.answer(
-        "?? <b>Matnli savol qabul qilindi.</b>\n\n"
-        "2?? <b>A variant</b>ni yuboring:",
-        reply_markup=cancel_kb(),
-    )
+    await m.answer("2пёЏвѓЈ <b>A variant</b>ni yuboring:", reply_markup=cancel_kb())
 
 
 @router.message(AdminState.edit_question_a)
@@ -1781,13 +1085,13 @@ async def edit_question_a_handler(m: Message, state: FSMContext):
     value = (m.text or "").strip()
 
     if not value:
-        await m.answer("? A varianti bo'sh bo'lishi mumkin emas.")
+        await m.answer("вќ— Variant bo'sh bo'lishi mumkin emas.")
         return
 
     await state.update_data(option_a=value)
     await state.set_state(AdminState.edit_question_b)
 
-    await m.answer("3?? <b>B variant</b>ni yuboring:", reply_markup=cancel_kb())
+    await m.answer("3пёЏвѓЈ <b>B variant</b>ni yuboring:", reply_markup=cancel_kb())
 
 
 @router.message(AdminState.edit_question_b)
@@ -1798,13 +1102,13 @@ async def edit_question_b_handler(m: Message, state: FSMContext):
     value = (m.text or "").strip()
 
     if not value:
-        await m.answer("? B varianti bo'sh bo'lishi mumkin emas.")
+        await m.answer("вќ— Variant bo'sh bo'lishi mumkin emas.")
         return
 
     await state.update_data(option_b=value)
     await state.set_state(AdminState.edit_question_c)
 
-    await m.answer("4?? <b>C variant</b>ni yuboring:", reply_markup=cancel_kb())
+    await m.answer("4пёЏвѓЈ <b>C variant</b>ni yuboring:", reply_markup=cancel_kb())
 
 
 @router.message(AdminState.edit_question_c)
@@ -1815,13 +1119,13 @@ async def edit_question_c_handler(m: Message, state: FSMContext):
     value = (m.text or "").strip()
 
     if not value:
-        await m.answer("? C varianti bo'sh bo'lishi mumkin emas.")
+        await m.answer("вќ— Variant bo'sh bo'lishi mumkin emas.")
         return
 
     await state.update_data(option_c=value)
     await state.set_state(AdminState.edit_question_d)
 
-    await m.answer("5?? <b>D variant</b>ni yuboring:", reply_markup=cancel_kb())
+    await m.answer("5пёЏвѓЈ <b>D variant</b>ni yuboring:", reply_markup=cancel_kb())
 
 
 @router.message(AdminState.edit_question_d)
@@ -1832,48 +1136,50 @@ async def edit_question_d_handler(m: Message, state: FSMContext):
     value = (m.text or "").strip()
 
     if not value:
-        await m.answer("? D varianti bo'sh bo'lishi mumkin emas.")
+        await m.answer("вќ— Variant bo'sh bo'lishi mumkin emas.")
         return
 
-    await state.update_data(option_d=value)
-
     data = await state.get_data()
-    qid = data.get("question_id")
 
     async with SessionLocal() as s:
-        q = await s.get(Question, qid)
+        q = await s.get(Question, data["question_id"])
 
         if not q:
             await state.clear()
-            await m.answer("? Savol topilmadi.")
+            await m.answer("вќЊ Savol topilmadi.", reply_markup=admin_menu())
             return
 
-        # Variantlarni yangilaymiz
-        q.option_a = data.get("option_a", q.option_a)
-        q.option_b = data.get("option_b", q.option_b)
-        q.option_c = data.get("option_c", q.option_c)
+        q.text = data["text"]
+        q.option_a = data["option_a"]
+        q.option_b = data["option_b"]
+        q.option_c = data["option_c"]
         q.option_d = value
 
-        # To'g'ri javob va izoh eski holatda qoladi
-        # Faqat savol turi: RASM yoki MATN
-        image_data = data.get("image_data")
-
-        if image_data:
-            q.text = ""
-            q.image_path = await save_question_image(image_data, q.id)
-            q.question_mode = "image"
-        else:
-            q.text = data.get("text", "").strip()
-            q.image_path = None
-            q.question_mode = "closed"
-
         await s.commit()
+
+        qid = q.id
+        topic_id = q.topic_id
 
     await state.clear()
 
     await m.answer(
-        "? <b>Savol muvaffaqiyatli tahrirlandi!</b>",
-        reply_markup=cancel_kb(),
+        "вњ… <b>SAVOL MUVAFFAQIYATLI TAHRIRLANDI!</b>\n\n"
+        "Savol va barcha variantlar yangilandi.",
+        reply_markup=InlineKeyboardMarkup(
+            inline_keyboard=[
+                [
+                    InlineKeyboardButton(
+                        text="рџ“‹ Savolni ko'rish", callback_data=f"adm:question:{qid}"
+                    )
+                ],
+                [
+                    InlineKeyboardButton(
+                        text="в¬…пёЏ Savollar", callback_data=f"adm:questions:{topic_id}"
+                    )
+                ],
+                [InlineKeyboardButton(text="вљ™пёЏ Admin panel", callback_data="admin")],
+            ]
+        ),
     )
 
 
@@ -1897,15 +1203,15 @@ async def delete_question(c: CallbackQuery):
         await s.commit()
 
     await c.message.edit_text(
-        "🗑 <b>SAVOL O'CHIRILDI!</b>",
+        "рџ—‘ <b>SAVOL O'CHIRILDI!</b>",
         reply_markup=InlineKeyboardMarkup(
             inline_keyboard=[
                 [
                     InlineKeyboardButton(
-                        text="⬅️ Savollar", callback_data=f"adm:questions:{topic_id}"
+                        text="в¬…пёЏ Savollar", callback_data=f"adm:questions:{topic_id}"
                     )
                 ],
-                [InlineKeyboardButton(text="⚙️ Admin panel", callback_data="admin")],
+                [InlineKeyboardButton(text="вљ™пёЏ Admin panel", callback_data="admin")],
             ]
         ),
     )
@@ -1970,27 +1276,27 @@ async def admin_statistics(c: CallbackQuery):
         top_user_res = (await s.execute(top_user_stmt)).fetchone()
 
         if top_user_res:
-            top_student_text = f"🏆 <b>{top_user_res[0]}</b> ({top_user_res[1]} ball)"
+            top_student_text = f"рџЏ† <b>{top_user_res[0]}</b> ({top_user_res[1]} ball)"
         else:
             top_student_text = "Hali mavjud emas"
 
-    # 📋 STATISTIKA MATNINI SHAKLLANTIRISH
+    # рџ“‹ STATISTIKA MATNINI SHAKLLANTIRISH
     stats_text = (
-        "📊 <b>Doniyor Academy — Tizim statistikasi</b>\n"
-        "────────────────────\n\n"
-        "👥 <b>Foydalanuvchilar faolligi:</b>\n"
-        f"• Jami o'quvchilar: <b>{total_users} ta</b>\n"
-        f"• Bugun qo'shilganlar: <b>+{new_users_today} ta</b>\n"
-        f"• Haftalik faol (aktiv): <b>{active_users_7d} ta</b>\n\n"
-        "📋 <b>Testlar sifati tahlili:</b>\n"
-        f"• Jami yakunlangan testlar: <b>{total_attempts} marta</b>\n"
-        f"• To'g'ri javoblar foizi: <b>{success_pct:.1f}%</b>\n"
-        f"• ✅ To'g'ri: {correct_answers} ta | ❌ Xato: {wrong_answers} ta\n\n"
-        "📢 <b>E'lonlar va kontent samaradorligi:</b>\n"
-        f"• Mavzularni ko'rishlar soni: <b>{total_views} marta</b>\n\n"
-        "🏆 <b>Reyting va rag'batlantirish:</b>\n"
-        f"• Eng yuqori balli talaba: {top_student_text}\n"
-        "────────────────────"
+        "рџ“Љ <b>Doniyor Academy вЂ” Tizim statistikasi</b>\n"
+        "в”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђ\n\n"
+        "рџ‘Ґ <b>Foydalanuvchilar faolligi:</b>\n"
+        f"вЂў Jami o'quvchilar: <b>{total_users} ta</b>\n"
+        f"вЂў Bugun qo'shilganlar: <b>+{new_users_today} ta</b>\n"
+        f"вЂў Haftalik faol (aktiv): <b>{active_users_7d} ta</b>\n\n"
+        "рџ“‹ <b>Testlar sifati tahlili:</b>\n"
+        f"вЂў Jami yakunlangan testlar: <b>{total_attempts} marta</b>\n"
+        f"вЂў To'g'ri javoblar foizi: <b>{success_pct:.1f}%</b>\n"
+        f"вЂў вњ… To'g'ri: {correct_answers} ta | вќЊ Xato: {wrong_answers} ta\n\n"
+        "рџ“ў <b>E'lonlar va kontent samaradorligi:</b>\n"
+        f"вЂў Mavzularni ko'rishlar soni: <b>{total_views} marta</b>\n\n"
+        "рџЏ† <b>Reyting va rag'batlantirish:</b>\n"
+        f"вЂў Eng yuqori balli talaba: {top_student_text}\n"
+        "в”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђ"
     )
 
     # Statistika oynasining tagida faqat orqaga qaytish (Bekor qilish) tugmasi turadi
@@ -2016,11 +1322,11 @@ async def addsubject_command(m: Message):
             select(Subject).where(func.lower(Subject.name) == name.lower())
         )
         if exists:
-            await m.answer("⚠️ Bu fan allaqachon mavjud.")
+            await m.answer("вљ пёЏ Bu fan allaqachon mavjud.")
             return
         s.add(Subject(name=name))
         await s.commit()
-    await m.answer(f"✅ Fan qo'shildi: <b>{name}</b>")
+    await m.answer(f"вњ… Fan qo'shildi: <b>{name}</b>")
 
 
 @router.message(Command("addtopic"))
@@ -2039,7 +1345,7 @@ async def addtopic_command(m: Message):
             return
         s.add(Topic(subject_id=sub.id, name=tn))
         await s.commit()
-    await m.answer(f"✅ Mavzu qo'shildi: <b>{tn}</b>")
+    await m.answer(f"вњ… Mavzu qo'shildi: <b>{tn}</b>")
 
 
 @router.message(Command("users"))
@@ -2048,7 +1354,7 @@ async def users(m: Message):
         return
     async with SessionLocal() as s:
         n = await s.scalar(select(func.count(User.id)))
-    await m.answer(f"👥 Foydalanuvchilar: <b>{n}</b>")
+    await m.answer(f"рџ‘Ґ Foydalanuvchilar: <b>{n}</b>")
 
 
 @router.message(Command("broadcast"))
@@ -2068,7 +1374,7 @@ async def broadcast(m: Message):
             sent += 1
         except Exception:
             pass
-    await m.answer(f"📢 Yuborildi: {sent}/{len(us)}")
+    await m.answer(f"рџ“ў Yuborildi: {sent}/{len(us)}")
 
 
 from aiogram.fsm.state import StatesGroup, State
@@ -2079,7 +1385,7 @@ class AdState(StatesGroup):
     waiting_for_ad = State()
 
 
-# 1. Admin panelda "📢 E'lonlar" tugmasi bosilganda ishlaydi
+# 1. Admin panelda "рџ“ў E'lonlar" tugmasi bosilganda ishlaydi
 @router.callback_query(F.data == "adm:send_ad")
 async def start_ad(c: CallbackQuery, state: FSMContext):
     if not is_admin(c.from_user.id):
@@ -2089,7 +1395,7 @@ async def start_ad(c: CallbackQuery, state: FSMContext):
 
     # edit_text o'rniga answer ishlatamiz, shunda xato bermaydi
     await c.message.answer(
-        "📢 E'lon bo'limi faollashdi! O'quvchilarga yubormoqchi bo'lgan xabaringizni yozib yuboring."
+        "рџ“ў E'lon bo'limi faollashdi! O'quvchilarga yubormoqchi bo'lgan xabaringizni yozib yuboring."
     )
     await c.answer()
 
@@ -2100,7 +1406,7 @@ async def send_ad_to_all_users(m: Message, state: FSMContext):
     if not is_admin(m.from_user.id):
         return
     await state.clear()
-    status_msg = await m.answer("📢 E'lon barcha o'quvchilarga yuborilmoqda...")
+    status_msg = await m.answer("рџ“ў E'lon barcha o'quvchilarga yuborilmoqda...")
 
     async with SessionLocal() as s:
         users = (await s.scalars(select(User.telegram_id))).all()
@@ -2118,9 +1424,9 @@ async def send_ad_to_all_users(m: Message, state: FSMContext):
             fail_count += 1
 
     await status_msg.edit_text(
-        f"📢 <b>E'lon tarqatish yakunlandi!</b>\n\n"
-        f"✅ Yetkazildi: <b>{success_count} ta</b>\n"
-        f"❌ Yetkazilmadi: <b>{fail_count} ta</b>",
+        f"рџ“ў <b>E'lon tarqatish yakunlandi!</b>\n\n"
+        f"вњ… Yetkazildi: <b>{success_count} ta</b>\n"
+        f"вќЊ Yetkazilmadi: <b>{fail_count} ta</b>",
         reply_markup=admin_menu(),
         parse_mode="HTML",
     )
@@ -2160,11 +1466,11 @@ async def delete_subject_confirm(c: CallbackQuery):
         subject_name = subject.name
 
     await c.message.edit_text(
-        "⚠️ <b>FANNI O'CHIRISH</b>\n\n"
-        f"📚 Fan: <b>{subject_name}</b>\n\n"
-        f"📖 Mavzular: <b>{topic_count} ta</b>\n"
-        f"📋 Savollar: <b>{question_count} ta</b>\n\n"
-        "❌ <b>DIQQAT!</b>\n"
+        "вљ пёЏ <b>FANNI O'CHIRISH</b>\n\n"
+        f"рџ“љ Fan: <b>{subject_name}</b>\n\n"
+        f"рџ“– Mavzular: <b>{topic_count} ta</b>\n"
+        f"рџ“‹ Savollar: <b>{question_count} ta</b>\n\n"
+        "вќЊ <b>DIQQAT!</b>\n"
         "Bu fanni o'chirsangiz, unga tegishli "
         "barcha mavzular va savollar ham o'chiriladi.\n\n"
         "Rostdan ham o'chirmoqchimisiz?",
@@ -2172,13 +1478,13 @@ async def delete_subject_confirm(c: CallbackQuery):
             inline_keyboard=[
                 [
                     InlineKeyboardButton(
-                        text="✅ Ha, o'chirish",
+                        text="вњ… Ha, o'chirish",
                         callback_data=f"adm:delete_subject_confirm:{sid}",
                     )
                 ],
                 [
                     InlineKeyboardButton(
-                        text="❌ Bekor qilish", callback_data=f"adm:subject:{sid}"
+                        text="вќЊ Bekor qilish", callback_data=f"adm:subject:{sid}"
                     )
                 ],
             ]
@@ -2209,14 +1515,14 @@ async def delete_subject(c: CallbackQuery):
         await s.commit()
 
     await c.message.edit_text(
-        "🗑 <b>FAN O'CHIRILDI!</b>\n\n"
-        f"📚 <b>{subject_name}</b>\n\n"
+        "рџ—‘ <b>FAN O'CHIRILDI!</b>\n\n"
+        f"рџ“љ <b>{subject_name}</b>\n\n"
         "Fan va unga tegishli mavzular hamda savollar "
         "muvaffaqiyatli o'chirildi.",
         reply_markup=InlineKeyboardMarkup(
             inline_keyboard=[
-                [InlineKeyboardButton(text="📚 Fanlar", callback_data="adm:catalog")],
-                [InlineKeyboardButton(text="⚙️ Admin panel", callback_data="admin")],
+                [InlineKeyboardButton(text="рџ“љ Fanlar", callback_data="adm:catalog")],
+                [InlineKeyboardButton(text="вљ™пёЏ Admin panel", callback_data="admin")],
             ]
         ),
         parse_mode="HTML",
@@ -2243,17 +1549,17 @@ async def delete_subject_menu(c: CallbackQuery):
     buttons = [
         [
             InlineKeyboardButton(
-                text=f"📚 {subject.name}",
+                text=f"рџ“љ {subject.name}",
                 callback_data=f"adm:delete_subject:{subject.id}",
             )
         ]
         for subject in subjects
     ]
 
-    buttons.append([InlineKeyboardButton(text="⬅️ Admin panel", callback_data="admin")])
+    buttons.append([InlineKeyboardButton(text="в¬…пёЏ Admin panel", callback_data="admin")])
 
     await c.message.edit_text(
-        "🗑 <b>FANNI O'CHIRISH</b>\n\n" "O'chirmoqchi bo'lgan fanni tanlang:",
+        "рџ—‘ <b>FANNI O'CHIRISH</b>\n\n" "O'chirmoqchi bo'lgan fanni tanlang:",
         reply_markup=InlineKeyboardMarkup(inline_keyboard=buttons),
         parse_mode="HTML",
     )
@@ -2378,221 +1684,31 @@ async def admin_users(c: CallbackQuery):
         await c.answer()
         return
 
-    keyboard = []
+    lines = ["<b>FOYDALANUVCHILAR</b>\n"]
 
-    for user in users:
-        status_icon = {
-            "approved": "\u2705",
-            "pending": "\u23f3",
-            "rejected": "\u274c",
-        }.get(user.registration_status, "\u2753")
+    for i, user in enumerate(users, 1):
+        status = {
+            "approved": "Tasdiqlangan",
+            "pending": "Kutilmoqda",
+            "rejected": "Rad etilgan",
+        }.get(user.registration_status, user.registration_status)
 
-        name = user.full_name or "Nomsiz"
-
-        keyboard.append(
-            [
-                InlineKeyboardButton(
-                    text=f"{status_icon} {name}",
-                    callback_data=f"adm:user:{user.telegram_id}",
-                )
-            ]
+        lines.append(
+            f"{i}. <b>{user.full_name or 'Nomsiz'}</b>\n"
+            f"   ID: <code>{user.telegram_id}</code>\n"
+            f"   Telefon: {user.phone_number or '-'}\n"
+            f"   Sinf/Kurs: {user.grade_course or '-'}\n"
+            f"   Holat: <b>{status}</b>\n"
         )
 
-    keyboard.append(
-        [
-            InlineKeyboardButton(
-                text="Admin panel",
-                callback_data="admin",
-            )
-        ]
-    )
-
     await c.message.edit_text(
-        "<b>\U0001f465 FOYDALANUVCHILAR</b>\n\n"
-        "Kerakli foydalanuvchini tanlang:",
+        "\n".join(lines),
         reply_markup=InlineKeyboardMarkup(
-            inline_keyboard=keyboard
+            inline_keyboard=[
+                [InlineKeyboardButton(text="Admin panel", callback_data="admin")]
+            ]
         ),
         parse_mode="HTML",
     )
 
     await c.answer()
-@router.callback_query(F.data.startswith("adm:user:"))
-async def admin_user_detail(c: CallbackQuery):
-    if not is_admin(c.from_user.id):
-        return
-
-    telegram_id = int(c.data.split(":")[2])
-
-    async with SessionLocal() as s:
-        user = await s.scalar(
-            select(User).where(User.telegram_id == telegram_id)
-        )
-
-    if not user:
-        await c.answer(
-            "Foydalanuvchi topilmadi.",
-            show_alert=True,
-        )
-        return
-
-    status = {
-        "approved": "\u2705 Tasdiqlangan",
-        "pending": "\u23f3 Kutilmoqda",
-        "rejected": "\u274c Rad etilgan",
-    }.get(
-        user.registration_status,
-        user.registration_status,
-    )
-
-    blocked = "\U0001f6ab Bloklangan" if user.is_blocked else "\u2705 Faol"
-
-    text = (
-        "<b>\U0001f464 FOYDALANUVCHI MA'LUMOTLARI</b>\n\n"
-        f"\U0001f464 Ism-familiya: <b>{user.full_name or 'Nomsiz'}</b>\n"
-        f"\U0001f4f1 Username: @{user.username or '-'}\n"
-        f"\U0001f194 Telegram ID: <code>{user.telegram_id}</code>\n"
-        f"\U0001f4de Telefon: {user.phone_number or '-'}\n"
-        f"\U0001f393 Sinf/Kurs: {user.grade_course or '-'}\n"
-        f"\U0001f4cc Holat: <b>{status}</b>\n"
-        f"\U0001f512 Hisob: <b>{blocked}</b>"
-    )
-
-    buttons = []
-
-    if user.registration_status != "approved":
-        buttons.append(
-            [
-                InlineKeyboardButton(
-                    text="\u2705 Tasdiqlash",
-                    callback_data=f"adm:approve_user:{user.telegram_id}",
-                )
-            ]
-        )
-
-    if user.registration_status != "rejected":
-        buttons.append(
-            [
-                InlineKeyboardButton(
-                    text="\u274c Rad etish",
-                    callback_data=f"adm:reject_user:{user.telegram_id}",
-                )
-            ]
-        )
-
-    if user.is_blocked:
-        buttons.append(
-            [
-                InlineKeyboardButton(
-                    text="\U0001f513 Blokdan chiqarish",
-                    callback_data=f"adm:unblock_user:{user.telegram_id}",
-                )
-            ]
-        )
-    else:
-        buttons.append(
-            [
-                InlineKeyboardButton(
-                    text="\U0001f6ab Bloklash",
-                    callback_data=f"adm:block_user:{user.telegram_id}",
-                )
-            ]
-        )
-
-    buttons.append(
-        [
-            InlineKeyboardButton(
-                text="\U0001f465 Foydalanuvchilar",
-                callback_data="adm:users",
-            )
-        ]
-    )
-
-    buttons.append(
-        [
-            InlineKeyboardButton(
-                text="Admin panel",
-                callback_data="admin",
-            )
-        ]
-    )
-
-    await c.message.edit_text(
-        text,
-        reply_markup=InlineKeyboardMarkup(
-            inline_keyboard=buttons
-        ),
-        parse_mode="HTML",
-    )
-
-    await c.answer()
-
-@router.callback_query(F.data.startswith("adm:block_user:"))
-async def block_user(c: CallbackQuery):
-    if not is_admin(c.from_user.id):
-        return
-
-    telegram_id = int(c.data.split(":")[2])
-
-    async with SessionLocal() as s:
-        user = await s.scalar(
-            select(User).where(User.telegram_id == telegram_id)
-        )
-
-        if not user:
-            await c.answer(
-                "Foydalanuvchi topilmadi.",
-                show_alert=True,
-            )
-            return
-
-        if user.is_blocked:
-            await c.answer(
-                "Bu foydalanuvchi allaqachon bloklangan.",
-                show_alert=True,
-            )
-            return
-
-        user.is_blocked = True
-        await s.commit()
-
-    await c.answer("\U0001f6ab Foydalanuvchi bloklandi.")
-
-    await admin_user_detail(c)
-
-
-@router.callback_query(F.data.startswith("adm:unblock_user:"))
-async def unblock_user(c: CallbackQuery):
-    if not is_admin(c.from_user.id):
-        return
-
-    telegram_id = int(c.data.split(":")[2])
-
-    async with SessionLocal() as s:
-        user = await s.scalar(
-            select(User).where(User.telegram_id == telegram_id)
-        )
-
-        if not user:
-            await c.answer(
-                "Foydalanuvchi topilmadi.",
-                show_alert=True,
-            )
-            return
-
-        if not user.is_blocked:
-            await c.answer(
-                "Bu foydalanuvchi bloklanmagan.",
-                show_alert=True,
-            )
-            return
-
-        user.is_blocked = False
-        await s.commit()
-
-    await c.answer("\U0001f513 Foydalanuvchi blokdan chiqarildi.")
-
-    await admin_user_detail(c)
-
-
-

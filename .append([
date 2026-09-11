@@ -1,0 +1,422 @@
+[1mdiff --git a/app/handlers/admin.py b/app/handlers/admin.py[m
+[1mindex a38a582..df586bc 100644[m
+[1m--- a/app/handlers/admin.py[m
+[1m+++ b/app/handlers/admin.py[m
+[36m@@ -1,8 +1,14 @@[m
+[32m+[m[32mimport asyncio[m
+ from ..models import Subject, Topic, Question, User, TestAttempt, AnswerLog[m
+ from ..keyboards import main_menu[m
+ from aiogram import Router, F[m
+ from aiogram.filters import Command[m
+[31m-from aiogram.types import Message, CallbackQuery, InlineKeyboardMarkup, InlineKeyboardButton[m
+[32m+[m[32mfrom aiogram.types import ([m
+[32m+[m[32m    Message,[m
+[32m+[m[32m    CallbackQuery,[m
+[32m+[m[32m    InlineKeyboardMarkup,[m
+[32m+[m[32m    InlineKeyboardButton,[m
+[32m+[m[32m)[m
+ from aiogram.fsm.context import FSMContext[m
+ from sqlalchemy import select, func[m
+ [m
+[36m@@ -19,50 +25,85 @@[m [mdef is_admin(uid: int) -> bool:[m
+ [m
+ [m
+ def admin_menu():[m
+[31m-    return InlineKeyboardMarkup(inline_keyboard=[[m
+[31m-        [InlineKeyboardButton(text="➕ Fan qo‘shish", callback_data="adm:add_subject")],[m
+[31m-        [InlineKeyboardButton(text="➕ Mavzu qo‘shish", callback_data="adm:add_topic")],[m
+[31m-        [InlineKeyboardButton(text="➕ Savol qo‘shish", callback_data="adm:add_question")],[m
+[31m-        [InlineKeyboardButton(text="📥 Excel/CSV import", callback_data="adm:import")],[m
+[31m-        [InlineKeyboardButton(text="📚 Fanlar / mavzular", callback_data="adm:catalog")],[m
+[31m-        [InlineKeyboardButton(text="📊 Statistika", callback_data="adm:stats")],[m
+[31m-        [InlineKeyboardButton(text="📢 E'lonlar", callback_data="adm:send_ad")],[m
+[31m-	[InlineKeyboardButton(text="❌ Bekor qilish", callback_data="adm:cancel")],[m
+[31m-[m
+[31m-    ])[m
+[32m+[m[32m    return InlineKeyboardMarkup([m
+[32m+[m[32m        inline_keyboard=[[m
+[32m+[m[32m            [[m
+[32m+[m[32m                InlineKeyboardButton([m
+[32m+[m[32m                    text="➕ Fan qo‘shish", callback_data="adm:add_subject"[m
+[32m+[m[32m                )[m
+[32m+[m[32m            ],[m
+[32m+[m[32m            [[m
+[32m+[m[32m                InlineKeyboardButton([m
+[32m+[m[32m                    text="➕ Mavzu qo‘shish", callback_data="adm:add_topic"[m
+[32m+[m[32m                )[m
+[32m+[m[32m            ],[m
+[32m+[m[32m            [[m
+[32m+[m[32m                InlineKeyboardButton([m
+[32m+[m[32m                    text="➕ Savol qo‘shish", callback_data="adm:add_question"[m
+[32m+[m[32m                )[m
+[32m+[m[32m            ],[m
+[32m+[m[32m            [[m
+[32m+[m[32m                InlineKeyboardButton([m
+[32m+[m[32m                    text="📥 Excel/CSV import", callback_data="adm:import"[m
+[32m+[m[32m                )[m
+[32m+[m[32m            ],[m
+[32m+[m[32m            [[m
+[32m+[m[32m                InlineKeyboardButton([m
+[32m+[m[32m                    text="📚 Fanlar / mavzular", callback_data="adm:catalog"[m
+[32m+[m[32m                )[m
+[32m+[m[32m            ],[m
+[32m+[m[32m            [[m
+[32m+[m[32m                InlineKeyboardButton([m
+[32m+[m[32m                    text="\U0001f5d1 Fanni o\u2018chirish",[m
+[32m+[m[32m                    callback_data="adm:delete_subject_menu",[m
+[32m+[m[32m                )[m
+[32m+[m[32m            ],[m
+[32m+[m[32m            [InlineKeyboardButton(text="📊 Statistika", callback_data="adm:stats")],[m
+[32m+[m[32m            [InlineKeyboardButton(text="📢 E'lonlar", callback_data="adm:send_ad")],[m
+[32m+[m[32m            [InlineKeyboardButton(text="❌ Bekor qilish", callback_data="adm:cancel")],[m
+[32m+[m[32m        ][m
+[32m+[m[32m    )[m
+ [m
+ [m
+ def cancel_kb():[m
+[31m-    return InlineKeyboardMarkup(inline_keyboard=[[m
+[31m-        [InlineKeyboardButton(text="❌ Bekor qilish", callback_data="adm:cancel")][m
+[31m-    ])[m
+[32m+[m[32m    return InlineKeyboardMarkup([m
+[32m+[m[32m        inline_keyboard=[[m
+[32m+[m[32m            [InlineKeyboardButton(text="❌ Bekor qilish", callback_data="adm:cancel")][m
+[32m+[m[32m        ][m
+[32m+[m[32m    )[m
+ [m
+ [m
+ def subject_kb(subjects, prefix="adm:qsub"):[m
+[31m-    rows = [[InlineKeyboardButton(text=f"📚 {s.name}", callback_data=f"{prefix}:{s.id}")] for s in subjects][m
+[31m-    rows.append([InlineKeyboardButton(text="❌ Bekor qilish", callback_data="adm:cancel")])[m
+[32m+[m[32m    rows = [[m
+[32m+[m[32m        [InlineKeyboardButton(text=f"📚 {s.name}", callback_data=f"{prefix}:{s.id}")][m
+[32m+[m[32m        for s in subjects[m
+[32m+[m[32m    ][m
+[32m+[m[32m    rows.append([m
+[32m+[m[32m        [InlineKeyboardButton(text="❌ Bekor qilish", callback_data="adm:cancel")][m
+[32m+[m[32m    )[m
+     return InlineKeyboardMarkup(inline_keyboard=rows)[m
+ [m
+ [m
+ def topic_kb(topics, prefix="adm:qtopic"):[m
+[31m-    rows = [[InlineKeyboardButton(text=f"📖 {t.name}", callback_data=f"{prefix}:{t.id}")] for t in topics][m
+[31m-    rows.append([InlineKeyboardButton(text="⬅️ Fan tanlash", callback_data="adm:add_question")])[m
+[31m-    rows.append([InlineKeyboardButton(text="❌ Bekor qilish", callback_data="adm:cancel")])[m
+[32m+[m[32m    rows = [[m
+[32m+[m[32m        [InlineKeyboardButton(text=f"📖 {t.name}", callback_data=f"{prefix}:{t.id}")][m
+[32m+[m[32m        for t in topics[m
+[32m+[m[32m    ][m
+[32m+[m[32m    rows.append([m
+[32m+[m[32m        [InlineKeyboardButton(text="⬅️ Fan tanlash", callback_data="adm:add_question")][m
+[32m+[m[32m    )[m
+[32m+[m[32m    rows.append([m
+[32m+[m[32m        [InlineKeyboardButton(text="❌ Bekor qilish", callback_data="adm:cancel")][m
+[32m+[m[32m    )[m
+     return InlineKeyboardMarkup(inline_keyboard=rows)[m
+ [m
+ [m
+ async def show_admin(target, answer=True):[m
+[31m-    text = ([m
+[31m-        "⚙️ <b>Doniyor Academy — Admin panel</b>\n\n"[m
+[31m-        "Kerakli amalni tanlang:"[m
+[31m-    )[m
+[32m+[m[32m    text = "⚙️ <b>Doniyor Academy — Admin panel</b>\n\n" "Kerakli amalni tanlang:"[m
+ [m
+     if isinstance(target, CallbackQuery):[m
+         try:[m
+[31m-            await target.message.edit_text([m
+[31m-                text,[m
+[31m-                reply_markup=admin_menu()[m
+[31m-            )[m
+[32m+[m[32m            await target.message.edit_text(text, reply_markup=admin_menu())[m
+         except Exception as e:[m
+             if "message is not modified" not in str(e):[m
+                 raise[m
+[36m@@ -71,10 +112,7 @@[m [masync def show_admin(target, answer=True):[m
+             await target.answer()[m
+ [m
+     else:[m
+[31m-        await target.answer([m
+[31m-            text,[m
+[31m-            reply_markup=admin_menu()[m
+[31m-        )[m
+[32m+[m[32m        await target.answer(text, reply_markup=admin_menu())[m
+ [m
+ [m
+ @router.message(Command("admin"))[m
+[36m@@ -94,41 +132,32 @@[m [masync def cb_admin(c: CallbackQuery, state: FSMContext):[m
+     await show_admin(c)[m
+ [m
+ [m
+[31m-from aiogram.types import ReplyKeyboardMarkup, KeyboardButton[m
+[31m-[m
+[31m-from aiogram.types import ReplyKeyboardMarkup, KeyboardButton, ReplyKeyboardRemove[m
+[31m-[m
+[31m-from aiogram.types import ReplyKeyboardMarkup, KeyboardButton, InlineKeyboardMarkup, InlineKeyboardButton[m
+[31m-[m
+[31m-from aiogram.types import ReplyKeyboardMarkup, KeyboardButton, InlineKeyboardMarkup, InlineKeyboardButton[m
+[31m-[m
+[31m-from aiogram.types import ReplyKeyboardRemove, InlineKeyboardMarkup, InlineKeyboardButton[m
+[31m-[m
+ # Admin faylingizning tepasida main_menu import qilinganiga ishonch hosil qiling:[m
+ # from ..keyboards import main_menu[m
+ [m
+[32m+[m
+ @router.callback_query(F.data == "adm:cancel")[m
+ async def cancel(c: CallbackQuery, state: FSMContext):[m
+     if not is_admin(c.from_user.id):[m
+         return[m
+[31m-    [m
+[32m+[m
+     # 1. Admin holatlarini tozalaymiz[m
+     await state.clear()[m
+[31m-    [m
+[32m+[m
+     # 2. Sizning asl bosh menyu tugmalaringizni olamiz[m
+     user_menu = main_menu()[m
+[31m-    [m
+[32m+[m
+     # 3. Agar foydalanuvchi admin bo'lsa, menyuning eng tagiga "Admin panel" tugmasini qo'shamiz[m
+     # inline_keyboard bu massiv, unga yangi qator qo'shamiz[m
+     admin_btn = [InlineKeyboardButton(text="⚙️ Admin panel", callback_data="admin")][m
+     if admin_btn not in user_menu.inline_keyboard:[m
+         user_menu.inline_keyboard.append(admin_btn)[m
+[31m-    [m
+[32m+[m
+     # 4. Xabarni yangilaymiz, endi "Admin panel" tugmasi joyida bo'ladi![m
+     await c.message.edit_text([m
+[31m-        "🎓 <b>Doniyor Academy</b>\n\nBosh menyu:",[m
+[32m+[m[32m        "рџЋ“ <b>Doniyor Academy</b>\n\nBosh menyu:",[m
+         reply_markup=user_menu,[m
+[31m-        parse_mode="HTML"[m
+[32m+[m[32m        parse_mode="HTML",[m
+     )[m
+     await c.answer()[m
+ [m
+[36m@@ -136,7 +165,8 @@[m [masync def cancel(c: CallbackQuery, state: FSMContext):[m
+ # -------------------- SUBJECT --------------------[m
+ @router.callback_query(F.data == "adm:add_subject")[m
+ async def add_subject_start(c: CallbackQuery, state: FSMContext):[m
+[31m-    if not is_admin(c.from_user.id): return[m
+[32m+[m[32m    if not is_admin(c.from_user.id):[m
+[32m+[m[32m        return[m
+     await state.set_state(AdminState.add_subject_name)[m
+     await c.message.edit_text([m
+         "➕ <b>Yangi fan</b>\n\nFan nomini yuboring:\n\nMasalan: <i>O‘zbekiston tarixi</i>",[m
+[36m@@ -147,13 +177,16 @@[m [masync def add_subject_start(c: CallbackQuery, state: FSMContext):[m
+ [m
+ @router.message(AdminState.add_subject_name)[m
+ async def add_subject_finish(m: Message, state: FSMContext):[m
+[31m-    if not is_admin(m.from_user.id): return[m
+[32m+[m[32m    if not is_admin(m.from_user.id):[m
+[32m+[m[32m        return[m
+     name = (m.text or "").strip()[m
+     if not name:[m
+         await m.answer("❗ Fan nomi bo‘sh bo‘lishi mumkin emas.")[m
+         return[m
+     async with SessionLocal() as s:[m
+[31m-        exists = await s.scalar(select(Subject).where(func.lower(Subject.name) == name.lower()))[m
+[32m+[m[32m        exists = await s.scalar([m
+[32m+[m[32m            select(Subject).where(func.lower(Subject.name) == name.lower())[m
+[32m+[m[32m        )[m
+         if exists:[m
+             await m.answer("⚠️ Bu fan allaqachon mavjud.")[m
+             return[m
+[36m@@ -166,20 +199,25 @@[m [masync def add_subject_finish(m: Message, state: FSMContext):[m
+ # -------------------- TOPIC --------------------[m
+ @router.callback_query(F.data == "adm:add_topic")[m
+ async def add_topic_start(c: CallbackQuery, state: FSMContext):[m
+[31m-    if not is_admin(c.from_user.id): return[m
+[32m+[m[32m    if not is_admin(c.from_user.id):[m
+[32m+[m[32m        return[m
+     async with SessionLocal() as s:[m
+         subjects = (await s.scalars(select(Subject).order_by(Subject.name))).all()[m
+     if not subjects:[m
+         await c.answer("Avval fan qo‘shing.", show_alert=True)[m
+         return[m
+     await state.set_state(AdminState.add_topic_subject)[m
+[31m-    await c.message.edit_text("📚 <b>Mavzu qo‘shish</b>\n\nFanni tanlang:", reply_markup=subject_kb(subjects, "adm:tsub"))[m
+[32m+[m[32m    await c.message.edit_text([m
+[32m+[m[32m        "📚 <b>Mavzu qo‘shish</b>\n\nFanni tanlang:",[m
+[32m+[m[32m        reply_markup=subject_kb(subjects, "adm:tsub"),[m
+[32m+[m[32m    )[m
+     await c.answer()[m
+ [m
+ [m
+ @router.callback_query(F.data.startswith("adm:tsub:"))[m
+ async def add_topic_subject(c: CallbackQuery, state: FSMContext):[m
+[31m-    if not is_admin(c.from_user.id): return[m
+[32m+[m[32m    if not is_admin(c.from_user.id):[m
+[32m+[m[32m        return[m
+     sid = int(c.data.split(":")[2])[m
+     await state.update_data(subject_id=sid)[m
+     await state.set_state(AdminState.add_topic_name)[m
+[36m@@ -189,111 +227,181 @@[m [masync def add_topic_subject(c: CallbackQuery, state: FSMContext):[m
+ [m
+ @router.message(AdminState.add_topic_name)[m
+ async def add_topic_finish(m: Message, state: FSMContext):[m
+[31m-    if not is_admin(m.from_user.id): return[m
+[32m+[m[32m    if not is_admin(m.from_user.id):[m
+[32m+[m[32m        return[m
+     name = (m.text or "").strip()[m
+     data = await state.get_data()[m
+     async with SessionLocal() as s:[m
+         subject = await s.get(Subject, data["subject_id"])[m
+         if not subject:[m
+[31m-            await state.clear(); await m.answer("❌ Fan topilmadi.", reply_markup=admin_menu()); return[m
+[31m-        exists = await s.scalar(select(Topic).where(Topic.subject_id == subject.id, func.lower(Topic.name) == name.lower()))[m
+[32m+[m[32m            await state.clear()[m
+[32m+[m[32m            await m.answer("❌ Fan topilmadi.", reply_markup=admin_menu())[m
+[32m+[m[32m            return[m
+[32m+[m[32m        exists = await s.scalar([m
+[32m+[m[32m            select(Topic).where([m
+[32m+[m[32m                Topic.subject_id == subject.id, func.lower(Topic.name) == name.lower()[m
+[32m+[m[32m            )[m
+[32m+[m[32m        )[m
+         if exists:[m
+             await m.answer("⚠️ Bu mavzu allaqachon mavjud.")[m
+             return[m
+         s.add(Topic(subject_id=subject.id, name=name))[m
+         await s.commit()[m
+     await state.clear()[m
+[31m-    await m.answer(f"✅ <b>{subject.name}</b> faniga <b>{name}</b> mavzusi qo‘shildi.", reply_markup=admin_menu())[m
+[32m+[m[32m    await m.answer([m
+[32m+[m[32m        f"✅ <b>{subject.name}</b> faniga <b>{name}</b> mavzusi qo‘shildi.",[m
+[32m+[m[32m        reply_markup=admin_menu(),[m
+[32m+[m[32m    )[m
+ [m
+ [m
+ # -------------------- QUESTION --------------------[m
+ @router.callback_query(F.data == "adm:add_question")[m
+ async def add_question_start(c: CallbackQuery, state: FSMContext):[m
+[31m-    if not is_admin(c.from_user.id): return[m
+[32m+[m[32m    if not is_admin(c.from_user.id):[m
+[32m+[m[32m        return[m
+     async with SessionLocal() as s:[m
+         subjects = (await s.scalars(select(Subject).order_by(Subject.name))).all()[m
+     if not subjects:[m
+[31m-        await c.answer("Avval fan qo‘shing.", show_alert=True); return[m
+[32m+[m[32m        await c.answer("Avval fan qo‘shing.", show_alert=True)[m
+[32m+[m[32m        return[m
+     await state.set_state(AdminState.add_question_subject)[m
+[31m-    await c.message.edit_text("📝 <b>Yangi test savoli</b>\n\nFanni tanlang:", reply_markup=subject_kb(subjects))[m
+[32m+[m[32m    await c.message.edit_text([m
+[32m+[m[32m        "📋 <b>Yangi test savoli</b>\n\nFanni tanlang:",[m
+[32m+[m[32m        reply_markup=subject_kb(subjects),[m
+[32m+[m[32m    )[m
+     await c.answer()[m
+ [m
+ [m
+ @router.callback_query(F.data.startswith("adm:qsub:"))[m
+ async def add_question_subject(c: CallbackQuery, state: FSMContext):[m
+[31m-    if not is_admin(c.from_user.id): return[m
+[32m+[m[32m    if not is_admin(c.from_user.id):[m
+[32m+[m[32m        return[m
+     sid = int(c.data.split(":")[2])[m
+     async with SessionLocal() as s:[m
+[31m-        topics = (await s.scalars(select(Topic).where(Topic.subject_id == sid).order_by(Topic.name))).all()[m
+[32m+[m[32m        topics = ([m
+[32m+[m[32m            await s.scalars([m
+[32m+[m[32m                select(Topic).where(Topic.subject_id == sid).order_by(Topic.name)[m
+[32m+[m[32m            )[m
+[32m+[m[32m        ).all()[m
+         subject = await s.get(Subject, sid)[m
+     if not topics:[m
+[31m-        await c.answer("Bu fanda hali mavzu yo‘q. Avval mavzu qo‘shing.", show_alert=True); return[m
+[32m+[m[32m        await c.answer([m
+[32m+[m[32m            "Bu fanda hali mavzu yo‘q. Avval mavzu qo‘shing.", show_alert=True[m
+[32m+[m[32m        )[m
+[32m+[m[32m        return[m
+     await state.update_data(subject_id=sid)[m
+     await state.set_state(AdminState.add_question_topic)[m
+[31m-    await c.message.edit_text(f"📚 <b>{subject.name}</b>\n\nMavzuni tanlang:", reply_markup=topic_kb(topics))[m
+[32m+[m[32m    await c.message.edit_text([m
+[32m+[m[32m        f"📚 <b>{subject.name}</b>\n\nMavzuni tanlang:", reply_markup=topic_kb(topics)[m
+[32m+[m[32m    )[m
+     await c.answer()[m
+ [m
+ [m
+ @router.callback_query(F.data.startswith("adm:qtopic:"))[m
+ async def add_question_topic(c: CallbackQuery, state: FSMContext):[m
+[31m-    if not is_admin(c.from_user.id): return[m
+[32m+[m[32m    if not is_admin(c.from_user.id):[m
+[32m+[m[32m        return[m
+     tid = int(c.data.split(":")[2])[m
+     async with SessionLocal() as s:[m
+         topic = await s.get(Topic, tid)[m
+     await state.update_data(topic_id=tid)[m
+     await state.set_state(AdminState.add_question_text)[m
+[31m-    await c.message.edit_text(f"📖 <b>{topic.name}</b>\n\n1️⃣ Savol matnini yuboring:", reply_markup=cancel_kb())[m
+[32m+[m[32m    await c.message.edit_text([m
+[32m+[m[32m        f"📖 <b>{topic.name}</b>\n\n1️⃣ Savol matnini yuboring:",[m
+[32m+[m[32m        reply_markup=cancel_kb(),[m
+[32m+[m[32m    )[m
+     await c.answer()[m
+ [m
+ [m
+ @router.message(AdminState.add_question_text)[m
+ async def q_text(m: Message, state: FSMContext):[m
+[31m-    if not is_admin(m.from_user.id): return[m
+[32m+[m[32m    if not is_admin(m.from_user.id):[m
+[32m+[m[32m        return[m
+     text = (m.text or "").strip()[m
+     if not text:[m
+[31m-        await m.answer("❗ Savol matni bo‘sh bo‘lishi mumkin emas."); return[m
+[32m+[m[32m        await m.answer("❗ Savol matni bo‘sh bo‘lishi mumkin emas.")[m
+[32m+[m[32m        return[m
+     await state.update_data(text=text)[m
+     await state.set_state(AdminState.add_question_a)[m
+     await m.answer("2️⃣ <b>A variant</b>ni yuboring:", reply_markup=cancel_kb())[m
+ [m
+ [m
+ async def save_option(m: Message, state: FSMContext, key: str, next_state, label: str):[m
+[31m-    if not is_admin(m.from_user.id): return[m
+[32m+[m[32m    if not is_admin(m.from_user.id):[m
+[32m+[m[32m        return[m
+     value = (m.text or "").strip()[m
+     if not value:[m
+[31m-        await m.answer("❗ Variant bo‘sh bo‘lishi mumkin emas."); return[m
+[32m+[m[32m        await m.answer("❗ Variant bo‘sh bo‘lishi mumkin emas.")[m
+[32m+[m[32m        return[m
+     await state.update_data(**{key: value})[m
+     await state.set_state(next_state)[m
+     await m.answer(label, reply_markup=cancel_kb())[m
+ [m
+ [m
+ @router.message(AdminState.add_question_a)[m
+[31m-async def q_a(m, state): await save_option(m, state, "option_a", AdminState.add_question_b, "3️⃣ <b>B variant</b>ni yuboring:")[m
+[32m+[m[32masync def q_a(m, state):[m
+[32m+[m[32m    await save_option([m
+[32m+[m[32m        m,[m
+[32m+[m[32m        state,[m
+[32m+[m[32m        "option_a",[m
+[32m+[m[32m        AdminState.add_question_b,[m
+[32m+[m[32m        "3️⃣ <b>B variant</b>ni yuboring:",[m
+[32m+[m[32m    )[m
+[32m+[m
+ [m
+ @router.message(AdminState.add_question_b)[m
+[31m-async def q_b(m, state): await save_option(m, state, "option_b", AdminState.add_question_c, "4️⃣ <b>C variant</b>ni yuboring:")[m
+[32m+[m[32masync def q_b(m, state):[m
+[32m+[m[32m    await save_option([m
+[32m+[m[32m        m,[m
+[32m+[m[32m        state,[m
+[32m+[m[32m        "option_b",[m
+[32m+[m[32m        AdminState.add_question_c,[m
+[32m+[m[32m        "4️⃣ <b>C variant</b>ni yuboring:",[m
+[32m+[m[32m    )[m
+[32m+[m
+ [m
+ @router.message(AdminState.add_question_c)[m
+[31m-async def q_c(m, state): await save_option(m, state, "option_c", AdminState.add_question_d, "5️⃣ <b>D variant</b>ni yuboring:")[m
+[32m+[m[32masync def q_c(m, state):[m
+[32m+[m[32m    await save_option([m
+[32m+[m[32m        m,[m
+[32m+[m[32m        state,[m
+[32m+[m[32m        "option_c",[m
+[32m+[m[32m        AdminState.add_question_d,[m
+[32m+[m[32m        "5️⃣ <b>D variant</b>ni yuboring:",[m
+[32m+[m[32m    )[m
+[32m+[m
+ [m
+ @router.message(AdminState.add_question_d)[m
+[31m-async def q_d
