@@ -1,5 +1,6 @@
 import sys
 import asyncio
+import json
 from pathlib import Path
 from uuid import uuid4
 from ..models import Subject, Topic, Question, User, TestAttempt, AnswerLog
@@ -11,6 +12,10 @@ from aiogram.types import (
     CallbackQuery,
     InlineKeyboardMarkup,
     InlineKeyboardButton,
+    ReplyKeyboardMarkup,
+    KeyboardButton,
+    WebAppInfo,
+    ReplyKeyboardRemove,
 )
 from aiogram.fsm.context import FSMContext
 from sqlalchemy import select, func
@@ -20,6 +25,7 @@ from ..db import SessionLocal
 from ..models import Subject, Topic, Question, User
 from ..states import AdminState
 from ..image_cropper import crop_questions
+from ..web_crop import create_session, web_app_url, finish_session, get_session
 
 router = Router()
 
@@ -440,59 +446,114 @@ async def q_image_count(m: Message, state: FSMContext):
         await state.clear()
         return
 
+    session_id = create_session(
+        admin_id=m.from_user.id,
+        image_path=image_path,
+        crop_dir=crop_dir,
+        count=count,
+    )
+
+    app_url = web_app_url(session_id)
+
+    if not app_url:
+        await m.answer(
+            "? Web App manzili sozlanmagan.\n\n"
+            "Railway'da Public Domain yarating yoki "
+            "<b>WEB_APP_URL</b> environment variable o'rnating."
+        )
+        finish_session(session_id)
+        await state.clear()
+        return
+
     await state.update_data(
         image_count=count,
         current_image_index=0,
         cropped_images=[],
+        crop_session_id=session_id,
     )
+
+    keyboard = ReplyKeyboardMarkup(
+        keyboard=[
+            [
+                KeyboardButton(
+                    text="?? Savollarni belgilash",
+                    web_app=WebAppInfo(url=app_url),
+                )
+            ]
+        ],
+        resize_keyboard=True,
+        one_time_keyboard=False,
+    )
+
+    await state.set_state(AdminState.add_question_crop)
 
     await m.answer(
-        "?? <b>Rasmni belgilash oynasi ochiladi.</b>\n\n"
-        "Har bir savolni sichqoncha bilan to'rtburchak qilib belgilang.\n"
-        f"Jami: <b>{count}</b> ta savol."
+        "?? <b>Rasm tayyor.</b>\n\n"
+        f"Jami: <b>{count}</b> ta savol.\n\n"
+        "Quyidagi tugmani bosing va har bir savolni "
+        "to'rtburchak qilib belgilang.",
+        reply_markup=keyboard,
     )
 
-    process = await asyncio.create_subprocess_exec(
-        sys.executable,
-        "-m",
-        "app.image_cropper",
-        str(image_path),
-        str(crop_dir),
-        str(count),
-        stdout=asyncio.subprocess.PIPE,
-        stderr=asyncio.subprocess.PIPE,
-    )
 
-    stdout, stderr = await process.communicate()
+@router.message(AdminState.add_question_crop, F.web_app_data)
+async def q_image_crop_done(m: Message, state: FSMContext):
+    if not is_admin(m.from_user.id):
+        return
 
-    if process.returncode != 0:
-        error_text = stderr.decode("utf-8", errors="replace").strip()
-        print(
-            f">>> IMAGE CROPPER ERROR: {error_text}",
-            flush=True,
-        )
+    try:
+        payload = json.loads(m.web_app_data.data)
+    except Exception:
         await m.answer(
-            "? Rasmni belgilashda xatolik yuz berdi.\n"
-            "Jarayon bekor qilindi."
+            "? Web App ma'lumoti noto'g'ri."
+        )
+        return
+
+    if payload.get("action") != "done":
+        return
+
+    session_id = payload.get("session_id")
+
+    data = await state.get_data()
+
+    if session_id != data.get("crop_session_id"):
+        await m.answer(
+            "? Crop sessiyasi mos kelmadi."
+        )
+        return
+
+    session = get_session(session_id)
+
+    if not session:
+        await m.answer(
+            "? Crop sessiyasi topilmadi yoki muddati tugagan."
         )
         await state.clear()
+        return
+
+    if int(session["admin_id"]) != int(m.from_user.id):
+        await m.answer(
+            "? Bu crop sessiyasi sizga tegishli emas."
+        )
         return
 
     crop_paths = []
 
-    for i in range(1, count + 1):
-        crop_path = Path(crop_dir) / f"crop_{i}.jpg"
+    for i in range(1, int(session["count"]) + 1):
+        crop_path = Path(session["crop_dir"]) / f"crop_{i}.jpg"
+
         if crop_path.exists():
             crop_paths.append(str(crop_path))
 
-    if len(crop_paths) != count:
+    if len(crop_paths) != int(session["count"]):
         await m.answer(
             "? Belgilangan savollar soni kutilgan songa teng emas.\n"
-            f"Kutilgan: {count}\n"
+            f"Kutilgan: {session['count']}\n"
             f"Topilgan: {len(crop_paths)}"
         )
-        await state.clear()
         return
+
+    finish_session(session_id)
 
     await state.update_data(
         cropped_images=crop_paths,
@@ -502,11 +563,12 @@ async def q_image_count(m: Message, state: FSMContext):
     await state.set_state(AdminState.add_question_correct)
 
     await m.answer(
-        f"? <b>{count} ta savol rasmi tayyor.</b>\n\n"
+        f"? <b>{len(crop_paths)} ta savol rasmi tayyor.</b>\n\n"
         "1-savol uchun to'g'ri javob harfini yuboring: "
         "<b>A</b>, <b>B</b>, <b>C</b> yoki <b>D</b>",
-        reply_markup=cancel_kb(),
+        reply_markup=ReplyKeyboardRemove(),
     )
+
 
 
 async def save_option(

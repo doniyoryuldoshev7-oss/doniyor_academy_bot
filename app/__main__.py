@@ -15,6 +15,7 @@ from .db import init_db
 from .handlers import start, student, admin
 from .models import User
 from .db import SessionLocal
+from .web_crop import start_web_server
 
 
 class BlockedUserMiddleware(BaseMiddleware):
@@ -55,6 +56,8 @@ async def main():
     logging.basicConfig(level=logging.INFO)
 
     await init_db()
+
+    await start_web_server()
 
     session = AiohttpSession()
 
