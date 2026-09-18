@@ -1,0 +1,26 @@
+.env
+.venv/
+__pycache__/
+*.pyc
+.idea/
+.vscode/
+.pytest_cache/
+venv/
+
+*.bak
+*.backup*
+*.BEFORE_*
+*.HISTORY_*
+backups/
+BACKUP_WORKING*/
+backup_admin/
+test_crops/
+test_big_image.jpg
+.append*
+= p.read_text*
+**/*BACKUP*
+**/*_backup.py
+**/*.emoji_backup
+app/question_images/_crop_sessions/
+**/*_before_*
+**/*BEFORE*
