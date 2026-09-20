@@ -27,12 +27,12 @@ def valid_required(value):
 
     return bool(value) and value.lower() not in {
         "-",
-        "?",
-        "?",
+        "—",
+        "–",
         "_",
         ".",
         "yo'q",
-        "yo?q",
+        "yo‘q",
         "yoq",
         "none",
         "null",
