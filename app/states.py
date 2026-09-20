@@ -32,6 +32,12 @@ class AdminState(StatesGroup):
     add_question_correct = State()
     add_question_explanation = State()
 
+    # Bir nechta savolni bir xabarda qo'shish
+    bulk_question_subject = State()
+    bulk_question_topic = State()
+    bulk_question_text = State()
+    bulk_question_confirm = State()
+
     edit_question_text = State()
     edit_question_a = State()
     edit_question_b = State()
