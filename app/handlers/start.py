@@ -289,7 +289,7 @@ async def start_cmd(message: Message, state: FSMContext):
             await state.clear()
 
             await message.answer(
-                "вЏі <b>Arizangiz hali tasdiqlanmagan.</b>\n\n"
+                "⏳ <b>Arizangiz hali tasdiqlanmagan.</b>\n\n"
                 "Administrator arizangizni ko‘rib chiqishini kuting."
             )
             return
@@ -504,7 +504,7 @@ async def registration_group_name(
         f"👤 Ism-familiya: <b>{full_name}</b>\n"
         f"📱 Telefon: <b>{phone_number}</b>\n"
         f"👥 Guruh: <b>{group_name}</b>\n\n"
-        "вЏі Ma'lumotlaringiz administratorga yuborildi.\n"
+        "⏳ Ma'lumotlaringiz administratorga yuborildi.\n"
         "Tasdiqlangandan so‘ng Doniyor Academy’dan "
         "foydalanishingiz mumkin.",
         reply_markup=ReplyKeyboardRemove(),
