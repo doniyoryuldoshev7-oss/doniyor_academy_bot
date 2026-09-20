@@ -2340,6 +2340,45 @@ async def approve_user(c: CallbackQuery):
             await c.answer("Foydalanuvchi topilmadi.", show_alert=True)
             return
 
+        invalid_values = {
+            "",
+            "-",
+            "?",
+            "?",
+            "_",
+            ".",
+            "yo'q",
+            "yo?q",
+            "yoq",
+            "none",
+            "null",
+            "n/a",
+            "na",
+        }
+
+        missing = []
+
+        full_name = (user.full_name or "").strip()
+        phone_number = (user.phone_number or "").strip()
+        group_name = (user.group_name or "").strip()
+
+        if len(full_name.split()) < 2:
+            missing.append("ism-familiya")
+
+        if phone_number.lower() in invalid_values:
+            missing.append("telefon")
+
+        if group_name.lower() in invalid_values:
+            missing.append("guruh")
+
+        if missing:
+            await c.answer(
+                "Ma'lumotlar to'liq emas: "
+                + ", ".join(missing),
+                show_alert=True,
+            )
+            return
+
         user.registration_status = "approved"
         await s.commit()
 
@@ -2515,7 +2554,7 @@ async def admin_user_detail(c: CallbackQuery):
         f"\U0001f4f1 Username: @{user.username or '-'}\n"
         f"\U0001f194 Telegram ID: <code>{user.telegram_id}</code>\n"
         f"\U0001f4de Telefon: {user.phone_number or '-'}\n"
-        f"\U0001f393 Sinf/Kurs: {user.grade_course or '-'}\n"
+        f"\U0001f465 Guruh: {user.group_name or '-'}\n"
         f"\U0001f4cc Holat: <b>{status}</b>\n"
         f"\U0001f512 Hisob: <b>{blocked}</b>"
     )

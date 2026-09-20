@@ -32,6 +32,28 @@ async def init_db():
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
 
+        # users jadvaliga group_name ustunini qo'shish
+        if database_url.startswith("postgresql+asyncpg://"):
+            await conn.execute(
+                text(
+                    "ALTER TABLE users "
+                    "ADD COLUMN IF NOT EXISTS group_name VARCHAR(100)"
+                )
+            )
+        else:
+            rows = await conn.execute(
+                text("PRAGMA table_info(users)")
+            )
+            existing = {row[1] for row in rows.fetchall()}
+
+            if "group_name" not in existing:
+                await conn.execute(
+                    text(
+                        "ALTER TABLE users "
+                        "ADD COLUMN group_name VARCHAR(100)"
+                    )
+                )
+
         # questions jadvaliga yangi ustunlarni qo'shish
         if database_url.startswith("postgresql+asyncpg://"):
             await conn.execute(text("""

@@ -5,7 +5,7 @@ class RegistrationState(StatesGroup):
     first_name = State()
     last_name = State()
     phone = State()
-    grade_course = State()
+    group_name = State()
 
 
 class QuizState(StatesGroup):

@@ -22,6 +22,33 @@ from ..states import QuizState, RegistrationState
 router = Router()
 
 
+def valid_required(value):
+    value = (value or "").strip()
+
+    return bool(value) and value.lower() not in {
+        "-",
+        "?",
+        "?",
+        "_",
+        ".",
+        "yo'q",
+        "yo?q",
+        "yoq",
+        "none",
+        "null",
+        "n/a",
+        "na",
+    }
+
+
+def registration_complete(user):
+    return (
+        len((user.full_name or "").strip().split()) >= 2
+        and valid_required(user.phone_number)
+        and valid_required(user.group_name)
+    )
+
+
 def contact_kb() -> ReplyKeyboardMarkup:
     return ReplyKeyboardMarkup(
         keyboard=[
@@ -216,12 +243,28 @@ async def start_cmd(message: Message, state: FSMContext):
             )
             return
 
+        # Majburiy ma'lumotlari to'liq bo'lmasa
+        # foydalanuvchi qayta ro'yxatdan o'tadi.
+        if not registration_complete(user):
+            if user.registration_status == "approved":
+                user.registration_status = "pending"
+
+            await s.commit()
+
+            await message.answer(
+                "? <b>Profil ma'lumotlaringiz to'liq emas.</b>\n\n"
+                "Iltimos, ism, familiya, o'zingizning Telegram "
+                "kontaktingiz va guruhingizni to'liq kiriting."
+            )
+
+            await start_registration(message, state)
+            return
+
         # Foydalanuvchi ma'lumotlarini yangilab turamiz
         user.username = message.from_user.username
 
         # Tasdiqlangan foydalanuvchi
         if user.registration_status == "approved":
-            user.full_name = message.from_user.full_name
             await s.commit()
 
             await state.clear()
@@ -268,7 +311,7 @@ async def registration_first_name(
 ):
     first_name = (message.text or "").strip()
 
-    if not first_name:
+    if not valid_required(first_name):
         await message.answer(
             "❗ Iltimos, ismingizni matn ko‘rinishida kiriting."
         )
@@ -289,7 +332,7 @@ async def registration_last_name(
 ):
     last_name = (message.text or "").strip()
 
-    if not last_name:
+    if not valid_required(last_name):
         await message.answer(
             "❗ Iltimos, familiyangizni matn ko‘rinishida kiriting."
         )
@@ -326,15 +369,24 @@ async def registration_phone(
         )
         return
 
+    phone_number = (contact.phone_number or "").strip()
+
+    if not valid_required(phone_number):
+        await message.answer(
+            "? Telefon raqamingiz olinmadi.\n\n"
+            "?? <b>Kontaktni yuborish</b> tugmasini bosing.",
+            reply_markup=contact_kb(),
+        )
+        return
+
     await state.update_data(
-        phone_number=contact.phone_number
+        phone_number=phone_number
     )
-    await state.set_state(RegistrationState.grade_course)
+    await state.set_state(RegistrationState.group_name)
 
     await message.answer(
-        "4️⃣ <b>Sinf yoki kursingizni</b> kiriting.\n\n"
-        "Masalan: <b>9-sinf</b>, <b>11-sinf</b>, "
-        "<b>1-kurs</b>.",
+        "4️⃣ <b>Guruhingiz qaysi?</b>\n\n"
+        "Masalan: <b>Tarix-01</b> yoki <b>Abituriyent A</b>.",
         reply_markup=ReplyKeyboardRemove(),
     )
 
@@ -350,16 +402,16 @@ async def registration_phone_invalid(
     )
 
 
-@router.message(RegistrationState.grade_course)
-async def registration_grade_course(
+@router.message(RegistrationState.group_name)
+async def registration_group_name(
     message: Message,
     state: FSMContext,
 ):
-    grade_course = (message.text or "").strip()
+    group_name = (message.text or "").strip()
 
-    if not grade_course:
+    if not valid_required(group_name):
         await message.answer(
-            "❗ Iltimos, sinf yoki kursingizni kiriting."
+            "❗ Iltimos, guruhingizni kiriting."
         )
         return
 
@@ -369,7 +421,15 @@ async def registration_grade_course(
     last_name = data.get("last_name")
     phone_number = data.get("phone_number")
 
-    if not first_name or not last_name or not phone_number:
+    if not all(
+        valid_required(value)
+        for value in (
+            first_name,
+            last_name,
+            phone_number,
+            group_name,
+        )
+    ):
         await state.clear()
         await message.answer(
             "❗ Ro‘yxatdan o‘tish ma'lumotlarida xatolik yuz berdi.\n\n"
@@ -392,7 +452,7 @@ async def registration_grade_course(
                 username=message.from_user.username,
                 full_name=full_name,
                 phone_number=phone_number,
-                grade_course=grade_course,
+                group_name=group_name,
                 registration_status="pending",
                 is_blocked=False,
             )
@@ -401,7 +461,7 @@ async def registration_grade_course(
             user.username = message.from_user.username
             user.full_name = full_name
             user.phone_number = phone_number
-            user.grade_course = grade_course
+            user.group_name = group_name
             user.registration_status = "pending"
 
         await s.commit()
@@ -422,7 +482,7 @@ async def registration_grade_course(
         "🔔 <b>Yangi ro‘yxatdan o‘tish arizasi!</b>\n\n"
         f"👤 Ism-familiya: <b>{full_name}</b>\n"
         f"📱 Telefon: <b>{phone_number}</b>\n"
-        f"🎓 Sinf/kurs: <b>{grade_course}</b>\n"
+        f"🎓 Guruh: <b>{group_name}</b>\n"
         f"🆔 Telegram ID: <code>{message.from_user.id}</code>\n"
         f"👤 Username: <b>{username}</b>"
     )
@@ -443,7 +503,7 @@ async def registration_grade_course(
         "✅ <b>Ro‘yxatdan o‘tish yakunlandi.</b>\n\n"
         f"👤 Ism-familiya: <b>{full_name}</b>\n"
         f"📱 Telefon: <b>{phone_number}</b>\n"
-        f"🎓 Sinf/kurs: <b>{grade_course}</b>\n\n"
+        f"🎓 Guruh: <b>{group_name}</b>\n\n"
         "вЏі Ma'lumotlaringiz administratorga yuborildi.\n"
         "Tasdiqlangandan so‘ng Doniyor Academy’dan "
         "foydalanishingiz mumkin.",

@@ -16,7 +16,7 @@ class User(Base):
     total_score: Mapped[int]=mapped_column(Integer,default=0)
     is_blocked: Mapped[bool]=mapped_column(Boolean,default=False)
     phone_number: Mapped[str | None]=mapped_column(String(30))
-    grade_course: Mapped[str | None]=mapped_column(String(100))
+    group_name: Mapped[str | None]=mapped_column(String(100))
     registration_status: Mapped[str]=mapped_column(String(20),default="pending")
 
 class Subject(Base):
