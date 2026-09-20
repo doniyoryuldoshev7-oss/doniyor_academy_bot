@@ -252,7 +252,7 @@ async def start_cmd(message: Message, state: FSMContext):
             await s.commit()
 
             await message.answer(
-                "? <b>Profil ma'lumotlaringiz to'liq emas.</b>\n\n"
+                "❗ <b>Profil ma'lumotlaringiz to'liq emas.</b>\n\n"
                 "Iltimos, ism, familiya, o'zingizning Telegram "
                 "kontaktingiz va guruhingizni to'liq kiriting."
             )
@@ -373,8 +373,8 @@ async def registration_phone(
 
     if not valid_required(phone_number):
         await message.answer(
-            "? Telefon raqamingiz olinmadi.\n\n"
-            "?? <b>Kontaktni yuborish</b> tugmasini bosing.",
+            "❗ Telefon raqamingiz olinmadi.\n\n"
+            "📱 <b>Kontaktni yuborish</b> tugmasini bosing.",
             reply_markup=contact_kb(),
         )
         return
