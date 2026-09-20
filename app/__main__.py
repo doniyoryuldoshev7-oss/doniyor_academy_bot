@@ -1,5 +1,8 @@
 import asyncio
 import logging
+import os
+
+from aiohttp import web
 
 from aiogram import Bot, Dispatcher
 from aiogram.client.default import DefaultBotProperties
@@ -7,15 +10,18 @@ from aiogram.client.session.aiohttp import AiohttpSession
 from aiogram.enums import ParseMode
 from aiogram.fsm.storage.memory import MemoryStorage
 from aiogram.dispatcher.middlewares.base import BaseMiddleware
+from aiogram.webhook.aiohttp_server import (
+    SimpleRequestHandler,
+    setup_application,
+)
 
 from sqlalchemy import select
 
 from .config import settings
-from .db import init_db
+from .db import init_db, SessionLocal
 from .handlers import start, student, admin, group_quiz
 from .models import User
-from .db import SessionLocal
-from .web_crop import start_web_server
+from .web_crop import create_app
 
 
 class BlockedUserMiddleware(BaseMiddleware):
@@ -39,12 +45,12 @@ class BlockedUserMiddleware(BaseMiddleware):
             if hasattr(event, "answer"):
                 if event.__class__.__name__ == "CallbackQuery":
                     await event.answer(
-                        "?? Hisobingiz bloklangan.",
+                        "Hisobingiz bloklangan.",
                         show_alert=True,
                     )
                 else:
                     await event.answer(
-                        "?? <b>Sizning hisobingiz bloklangan.</b>\n\n"
+                        "<b>Sizning hisobingiz bloklangan.</b>\n\n"
                         "Botdan foydalanish uchun administratorga murojaat qiling."
                     )
             return
@@ -56,8 +62,6 @@ async def main():
     logging.basicConfig(level=logging.INFO)
 
     await init_db()
-
-    await start_web_server()
 
     session = AiohttpSession()
 
@@ -82,11 +86,60 @@ async def main():
     dp.include_router(group_quiz.router)
     dp.include_router(admin.router)
 
-    await bot.delete_webhook(
-        drop_pending_updates=True
+    app = create_app()
+
+    webhook_path = "/telegram/webhook"
+
+    webhook_handler = SimpleRequestHandler(
+        dispatcher=dp,
+        bot=bot,
+        handle_in_background=True,
+    )
+    webhook_handler.register(
+        app,
+        path=webhook_path,
     )
 
-    await dp.start_polling(bot)
+    setup_application(
+        app,
+        dp,
+        bot=bot,
+    )
+
+    runner = web.AppRunner(app)
+    await runner.setup()
+
+    port = int(os.getenv("PORT", "8080"))
+
+    site = web.TCPSite(
+        runner,
+        host="0.0.0.0",
+        port=port,
+    )
+
+    await site.start()
+
+    webhook_url = (
+        settings.web_app_url.rstrip("/")
+        + webhook_path
+    )
+
+    await bot.set_webhook(
+        webhook_url,
+        drop_pending_updates=True,
+    )
+
+    print(
+        f">>> WEBHOOK SERVER STARTED: 0.0.0.0:{port}",
+        flush=True,
+    )
+
+    print(
+        f">>> TELEGRAM WEBHOOK: {webhook_url}",
+        flush=True,
+    )
+
+    await asyncio.Event().wait()
 
 
 if __name__ == "__main__":

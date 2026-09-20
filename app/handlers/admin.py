@@ -384,7 +384,7 @@ async def q_text(m: Message, state: FSMContext):
         await state.set_state(AdminState.add_question_image_count)
 
         await m.answer(
-            "?? <b>Rasm qabul qilindi.</b>\n\n"
+            "🖼️ <b>Rasm qabul qilindi.</b>\n\n"
             "Bu rasmda nechta savol bor?\n"
             "Masalan: <b>3</b>",
             reply_markup=cancel_kb(),
@@ -408,7 +408,7 @@ async def q_text(m: Message, state: FSMContext):
     await state.set_state(AdminState.add_question_a)
 
     await m.answer(
-        "2?? <b>A variant</b>ni yuboring:",
+        "2️⃣ <b>A variant</b>ni yuboring:",
         reply_markup=cancel_kb()
     )
 
@@ -476,7 +476,7 @@ async def q_image_count(m: Message, state: FSMContext):
         keyboard=[
             [
                 KeyboardButton(
-                    text="?? Savollarni belgilash",
+                    text="✂️ Savollarni belgilash",
                     web_app=WebAppInfo(url=app_url),
                 )
             ]
@@ -488,7 +488,7 @@ async def q_image_count(m: Message, state: FSMContext):
     await state.set_state(AdminState.add_question_crop)
 
     await m.answer(
-        "?? <b>Rasm tayyor.</b>\n\n"
+        "✅ <b>Rasm tayyor.</b>\n\n"
         f"Jami: <b>{count}</b> ta savol.\n\n"
         "Quyidagi tugmani bosing va har bir savolni "
         "to'rtburchak qilib belgilang.",
@@ -599,7 +599,7 @@ async def q_a(m, state):
         state,
         "option_a",
         AdminState.add_question_b,
-        "3?? <b>B variant</b>ni yuboring:",
+        "3️⃣ <b>B variant</b>ni yuboring:",
     )
 
 
@@ -610,7 +610,7 @@ async def q_b(m, state):
         state,
         "option_b",
         AdminState.add_question_c,
-        "4?? <b>C variant</b>ni yuboring:",
+        "4️⃣ <b>C variant</b>ni yuboring:",
     )
 
 
@@ -621,7 +621,7 @@ async def q_c(m, state):
         state,
         "option_c",
         AdminState.add_question_d,
-        "5?? <b>D variant</b>ni yuboring:",
+        "5️⃣ <b>D variant</b>ni yuboring:",
     )
 
 
@@ -632,7 +632,7 @@ async def q_d(m, state):
         state,
         "option_d",
         AdminState.add_question_correct,
-        "6?? To'g'ri javob harfini yuboring: "
+        "6️⃣ To'g'ri javob harfini yuboring: "
         "<b>A</b>, <b>B</b>, <b>C</b> yoki <b>D</b>",
     )
 
@@ -674,7 +674,7 @@ async def q_correct(m: Message, state: FSMContext):
         await state.set_state(AdminState.add_question_explanation)
 
         await m.answer(
-            f"?? <b>{current_index + 1}-savol</b> uchun izohni yuboring.\n"
+            f"📝 <b>{current_index + 1}-savol</b> uchun izohni yuboring.\n"
             "Izoh kerak bo'lmasa <code>-</code> yuboring:",
             reply_markup=cancel_kb(),
         )
@@ -684,7 +684,7 @@ async def q_correct(m: Message, state: FSMContext):
     await state.set_state(AdminState.add_question_explanation)
 
     await m.answer(
-        "7?? <b>Izoh</b>ni yuboring. "
+        "7️⃣ <b>Izoh</b>ni yuboring. "
         "Agar izoh kerak bo'lmasa, <code>-</code> yuboring:",
         reply_markup=cancel_kb(),
     )
@@ -769,7 +769,7 @@ async def q_explanation(m: Message, state: FSMContext):
 
             await m.answer(
                 f"? <b>{current_index + 1}-savol saqlandi.</b>\n\n"
-                f"?? <b>{next_index + 1}-savol</b> uchun "
+                f"🎯 <b>{next_index + 1}-savol</b> uchun "
                 "to'g'ri javobni yuboring: "
                 "<b>A</b>, <b>B</b>, <b>C</b> yoki <b>D</b>",
                 reply_markup=cancel_kb(),
@@ -782,8 +782,8 @@ async def q_explanation(m: Message, state: FSMContext):
         await state.clear()
 
         await m.answer(
-            f"? <b>{total} ta savol muvaffaqiyatli qo'shildi!</b>\n\n"
-            f"?? Mavzu: <b>{topic_name}</b>",
+            f"✅ <b>{total} ta savol muvaffaqiyatli qo'shildi!</b>\n\n"
+            f"📖 Mavzu: <b>{topic_name}</b>",
             reply_markup=admin_menu(),
         )
         return
@@ -817,10 +817,10 @@ async def q_explanation(m: Message, state: FSMContext):
     await state.clear()
 
     await m.answer(
-        f"? <b>Savol muvaffaqiyatli qo'shildi!</b>\n\n"
-        f"?? ID: <code>{qid}</code>\n"
-        f"?? Mavzu: <b>{topic.name}</b>\n"
-        f"? To'g'ri javob: <b>{data['correct_option']}</b>",
+        f"✅ <b>Savol muvaffaqiyatli qo'shildi!</b>\n\n"
+        f"🆔 ID: <code>{qid}</code>\n"
+        f"📖 Mavzu: <b>{topic.name}</b>\n"
+        f"✅ To'g'ri javob: <b>{data['correct_option']}</b>",
         reply_markup=admin_menu(),
     )
 
@@ -1773,16 +1773,16 @@ async def edit_question_start(c: CallbackQuery, state: FSMContext):
     if q.question_mode == "image" and q.image_path:
         await c.message.answer_photo(
             FSInputFile(q.image_path),
-            caption="??? <b>Hozirgi savol rasmi</b>\n\n"
+            caption="🖼️ <b>Hozirgi savol rasmi</b>\n\n"
                     "Yangi rasm yuboring yoki matn yuboring.",
             reply_markup=cancel_kb(),
         )
     else:
         await c.message.answer(
-            "?? <b>SAVOLNI TAHRIRLASH</b>\n\n"
+            "✏️ <b>SAVOLNI TAHRIRLASH</b>\n\n"
             f"Eski savol:\n<b>{q.text or '?'}</b>\n\n"
-            "??? Rasm yuborsangiz ? rasmli savol bo'ladi.\n"
-            "?? Matn yuborsangiz ? matnli savol bo'ladi.",
+            "📷 Rasm yuborsangiz → rasmli savol bo'ladi.\n"
+            "📝 Matn yuborsangiz → matnli savol bo'ladi.",
             reply_markup=cancel_kb(),
         )
 
@@ -1806,8 +1806,8 @@ async def edit_question_text_handler(m: Message, state: FSMContext):
         await state.set_state(AdminState.edit_question_a)
 
         await m.answer(
-            "??? <b>Rasm qabul qilindi.</b>\n\n"
-            "2?? <b>A variant</b>ni yuboring:",
+            "🖼️ <b>Rasm qabul qilindi.</b>\n\n"
+            "2️⃣ <b>A variant</b>ni yuboring:",
             reply_markup=cancel_kb(),
         )
         return
@@ -1829,8 +1829,8 @@ async def edit_question_text_handler(m: Message, state: FSMContext):
     await state.set_state(AdminState.edit_question_a)
 
     await m.answer(
-        "?? <b>Matnli savol qabul qilindi.</b>\n\n"
-        "2?? <b>A variant</b>ni yuboring:",
+        "📝 <b>Matnli savol qabul qilindi.</b>\n\n"
+        "2️⃣ <b>A variant</b>ni yuboring:",
         reply_markup=cancel_kb(),
     )
 
@@ -1849,7 +1849,7 @@ async def edit_question_a_handler(m: Message, state: FSMContext):
     await state.update_data(option_a=value)
     await state.set_state(AdminState.edit_question_b)
 
-    await m.answer("3?? <b>B variant</b>ni yuboring:", reply_markup=cancel_kb())
+    await m.answer("3️⃣ <b>B variant</b>ni yuboring:", reply_markup=cancel_kb())
 
 
 @router.message(AdminState.edit_question_b)
@@ -1866,7 +1866,7 @@ async def edit_question_b_handler(m: Message, state: FSMContext):
     await state.update_data(option_b=value)
     await state.set_state(AdminState.edit_question_c)
 
-    await m.answer("4?? <b>C variant</b>ni yuboring:", reply_markup=cancel_kb())
+    await m.answer("4️⃣ <b>C variant</b>ni yuboring:", reply_markup=cancel_kb())
 
 
 @router.message(AdminState.edit_question_c)
@@ -1883,7 +1883,7 @@ async def edit_question_c_handler(m: Message, state: FSMContext):
     await state.update_data(option_c=value)
     await state.set_state(AdminState.edit_question_d)
 
-    await m.answer("5?? <b>D variant</b>ni yuboring:", reply_markup=cancel_kb())
+    await m.answer("5️⃣ <b>D variant</b>ni yuboring:", reply_markup=cancel_kb())
 
 
 @router.message(AdminState.edit_question_d)

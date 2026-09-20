@@ -69,7 +69,7 @@ async def start_cmd(message: Message, state: FSMContext):
             topic_id = int(payload[3:])
         except ValueError:
             await message.answer(
-                "? Guruh testi havolasi noto?g?ri."
+                "Guruh testi havolasi noto‘g‘ri."
             )
             return
 
@@ -211,7 +211,7 @@ async def start_cmd(message: Message, state: FSMContext):
         if user.is_blocked:
             await state.clear()
             await message.answer(
-                "?? <b>Sizning hisobingiz bloklangan.</b>\n\n"
+                "<b>Sizning hisobingiz bloklangan.</b>\n\n"
                 "Botdan foydalanish uchun administratorga murojaat qiling."
             )
             return
@@ -231,6 +231,11 @@ async def start_cmd(message: Message, state: FSMContext):
                 f"Assalomu alaykum, "
                 f"<b>{message.from_user.first_name}</b>!\n\n"
                 f"📚 Bilim oling • 📝 Test ishlang • 🏆 Reytingda yuqorilang",
+                reply_markup=ReplyKeyboardRemove(),
+            )
+
+            await message.answer(
+                "Bosh menyu",
                 reply_markup=main_menu(False),
             )
             return
@@ -241,7 +246,7 @@ async def start_cmd(message: Message, state: FSMContext):
             await state.clear()
 
             await message.answer(
-                "⏳ <b>Arizangiz hali tasdiqlanmagan.</b>\n\n"
+                "вЏі <b>Arizangiz hali tasdiqlanmagan.</b>\n\n"
                 "Administrator arizangizni ko‘rib chiqishini kuting."
             )
             return
@@ -439,7 +444,7 @@ async def registration_grade_course(
         f"👤 Ism-familiya: <b>{full_name}</b>\n"
         f"📱 Telefon: <b>{phone_number}</b>\n"
         f"🎓 Sinf/kurs: <b>{grade_course}</b>\n\n"
-        "⏳ Ma'lumotlaringiz administratorga yuborildi.\n"
+        "вЏі Ma'lumotlaringiz administratorga yuborildi.\n"
         "Tasdiqlangandan so‘ng Doniyor Academy’dan "
         "foydalanishingiz mumkin.",
         reply_markup=ReplyKeyboardRemove(),

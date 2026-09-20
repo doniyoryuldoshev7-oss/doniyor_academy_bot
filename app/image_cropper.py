@@ -1,4 +1,4 @@
-﻿from pathlib import Path
+from pathlib import Path
 from PIL import Image, ImageTk
 import tkinter as tk
 from tkinter import messagebox

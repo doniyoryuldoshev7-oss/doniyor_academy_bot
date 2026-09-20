@@ -227,13 +227,13 @@ async def answer(c, state):
             )
 
             retry_text = (
-                f"? <b>Yana bir bor urinib ko?ring!</b>\n\n"
+                f"❌ <b>Yana bir bor urinib ko‘ring!</b>\n\n"
                 f"? <b>{q.text}</b>\n\n"
                 f"<b>A)</b> {q.option_a}\n"
                 f"<b>B)</b> {q.option_b}\n"
                 f"<b>C)</b> {q.option_c}\n"
                 f"<b>D)</b> {q.option_d}\n\n"
-                f"?? <i>To?g?ri javobni topmaguningizcha davom etamiz.</i>"
+                f"💡 <i>To‘g‘ri javobni topmaguningizcha davom etamiz.</i>"
             )
 
             if q.image_path:

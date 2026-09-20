@@ -7,6 +7,10 @@ from uuid import uuid4
 from aiohttp import web
 from PIL import Image
 
+from aiogram.webhook.aiohttp_server import SimpleRequestHandler, setup_application
+
+from .config import settings
+
 
 SESSIONS = {}
 SESSION_TTL = 3600
@@ -24,7 +28,7 @@ def _cleanup_sessions():
 
 
 def public_base_url():
-    value = os.getenv("WEB_APP_URL", "").strip()
+    value = settings.web_app_url.strip()
 
     if value:
         return value.rstrip("/")

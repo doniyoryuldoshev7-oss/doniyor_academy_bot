@@ -1,3 +1,4 @@
+from pathlib import Path
 import asyncio
 import html
 import json
@@ -9,6 +10,7 @@ from aiogram.fsm.context import FSMContext
 from aiogram.types import (
     CallbackQuery,
     ForceReply,
+    FSInputFile,
     InlineKeyboardButton,
     InlineKeyboardMarkup,
     Message,
@@ -44,6 +46,21 @@ def _group_start_lock(chat_id: int) -> asyncio.Lock:
 
 
 def _valid_question(question: Question) -> bool:
+    correct = (question.correct_option or "").strip().upper()
+
+    if question.image_path:
+        try:
+            image_exists = Path(
+                question.image_path
+            ).is_file()
+        except (OSError, TypeError):
+            image_exists = False
+
+        return bool(
+            image_exists
+            and correct in {"A", "B", "C", "D"}
+        )
+
     text = (question.text or "").strip()
     options = [
         (question.option_a or "").strip(),
@@ -51,7 +68,6 @@ def _valid_question(question: Question) -> bool:
         (question.option_c or "").strip(),
         (question.option_d or "").strip(),
     ]
-    correct = (question.correct_option or "").strip().upper()
 
     return bool(
         text
@@ -64,15 +80,23 @@ def _poll_payload(question: Question):
     if not _valid_question(question):
         return None
 
-    option_map = {
-        "A": (question.option_a or "").strip(),
-        "B": (question.option_b or "").strip(),
-        "C": (question.option_c or "").strip(),
-        "D": (question.option_d or "").strip(),
-    }
-
-    order = list(option_map)
-    random.shuffle(order)
+    if question.image_path:
+        order = ["A", "B", "C", "D"]
+        option_map = {
+            "A": "A",
+            "B": "B",
+            "C": "C",
+            "D": "D",
+        }
+    else:
+        option_map = {
+            "A": (question.option_a or "").strip(),
+            "B": (question.option_b or "").strip(),
+            "C": (question.option_c or "").strip(),
+            "D": (question.option_d or "").strip(),
+        }
+        order = list(option_map)
+        random.shuffle(order)
 
     options = [option_map[key] for key in order]
     correct_idx = order.index(
@@ -305,15 +329,28 @@ async def _send_group_poll(
 
     options, correct_idx = payload
 
+    if question.image_path:
+        await bot.send_photo(
+            chat_id=group_quiz.chat_id,
+            photo=FSInputFile(
+                question.image_path
+            ),
+        )
+        poll_question = "Rasmga qarab javobni tanlang."
+    else:
+        poll_question = (
+            (question.text or "").strip()[:300]
+        )
+
     poll = await bot.send_poll(
         chat_id=group_quiz.chat_id,
-        question=(question.text or "").strip()[:300],
+        question=poll_question,
         options=options,
         type="quiz",
         is_anonymous=False,
         correct_option_id=correct_idx,
         explanation=(
-            "Doniyor Academy • "
+            "Doniyor Academy - "
             "Javob berilgach keyingi savol chiqadi."
         ),
         allows_multiple_answers=False,
@@ -344,15 +381,110 @@ async def _send_next_poll(
             value,
         )
 
+    question_ids = json.loads(
+        group_quiz.question_ids_json or "[]"
+    )
+
+    if index >= len(question_ids):
+        return None
+
+    question_id = int(
+        question_ids[index]
+    )
+
+    async with SessionLocal() as session:
+        question = await session.get(
+            Question,
+            question_id,
+        )
+
+    if not question:
+        return None
+
+    payload = _poll_payload(question)
+
+    if not payload:
+        return None
+
+    options, correct_idx = payload
+
+    if question.image_path:
+        network_attempt = 0
+        retry_after_attempt = 0
+
+        while True:
+            try:
+                await bot.send_photo(
+                    chat_id=group_quiz.chat_id,
+                    photo=FSInputFile(
+                        question.image_path
+                    ),
+                )
+                break
+
+            except TelegramRetryAfter as exc:
+                retry_after_attempt += 1
+
+                if retry_after_attempt >= 2:
+                    raise
+
+                await asyncio.sleep(
+                    max(
+                        1,
+                        int(exc.retry_after),
+                    )
+                )
+
+            except TelegramNetworkError as exc:
+                network_attempt += 1
+
+                delay = min(
+                    10,
+                    2 * network_attempt,
+                )
+
+                print(
+                    ">>> GROUP IMAGE NETWORK RETRY: "
+                    f"{type(exc).__name__}: {exc} "
+                    f"| retry={network_attempt} "
+                    f"| delay={delay}s",
+                    flush=True,
+                )
+
+                await asyncio.sleep(delay)
+
+        poll_question = (
+            "Rasmga qarab javobni tanlang."
+        )
+    else:
+        poll_question = (
+            (question.text or "").strip()[:300]
+        )
+
     retry_after_attempt = 0
     network_attempt = 0
 
     while True:
         try:
-            return await _send_group_poll(
-                bot,
-                group_quiz,
-                index,
+            poll = await bot.send_poll(
+                chat_id=group_quiz.chat_id,
+                question=poll_question,
+                options=options,
+                type="quiz",
+                is_anonymous=False,
+                correct_option_id=correct_idx,
+                explanation=(
+                    "Doniyor Academy - "
+                    "Javob berilgach keyingi savol chiqadi."
+                ),
+                allows_multiple_answers=False,
+            )
+
+            return (
+                poll.poll.id,
+                poll.message_id,
+                question_id,
+                correct_idx,
             )
 
         except TelegramRetryAfter as exc:

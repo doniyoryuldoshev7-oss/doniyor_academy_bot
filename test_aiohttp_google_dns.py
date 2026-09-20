@@ -1,4 +1,4 @@
-﻿import asyncio
+import asyncio
 import aiohttp
 from aiohttp.resolver import AsyncResolver
 

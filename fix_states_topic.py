@@ -1,4 +1,4 @@
-﻿from pathlib import Path
+from pathlib import Path
 
 p = Path(r"C:\doniyor_academy_bot\app\states.py")
 text = p.read_text(encoding="utf-8")

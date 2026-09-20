@@ -1,4 +1,4 @@
-﻿import asyncio
+import asyncio
 from app.db import SessionLocal
 from app.models import Question, Topic
 from sqlalchemy import select
