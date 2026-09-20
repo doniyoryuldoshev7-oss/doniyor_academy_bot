@@ -127,6 +127,7 @@ async def main():
     await bot.set_webhook(
         webhook_url,
         drop_pending_updates=True,
+        allowed_updates=dp.resolve_used_update_types(),
     )
 
     print(

@@ -31,7 +31,8 @@ def answer_kb(tid, qid):
         [InlineKeyboardButton(text="⛔ Testni tugatish", callback_data="quiz:finish")]
     ])
 
-async def render(call, state):
+async def render(call, state, message=None):
+    target_message = message or call.message
     print(">>> RENDER ENTERED", flush=True)
 
     d = await state.get_data()
@@ -68,10 +69,10 @@ async def render(call, state):
         print(f">>> IMAGE SEND: {q.image_path}", flush=True)
 
         try:
-            await call.message.delete()
+            await target_message.delete()
             print(">>> OLD MESSAGE DELETED", flush=True)
 
-            sent = await call.message.answer_photo(
+            sent = await target_message.answer_photo(
                 photo=image_file,
                 caption=text,
                 reply_markup=answer_kb(topic.id, q.id)
@@ -83,7 +84,8 @@ async def render(call, state):
             print(f">>> PHOTO SEND ERROR: {type(e).__name__}: {e}", flush=True)
             raise
     else:
-        await call.message.edit_text(
+        await edit_or_answer(
+            target_message,
             text,
             reply_markup=answer_kb(topic.id, q.id)
         )
@@ -325,7 +327,7 @@ async def answer(c, state):
         await c.answer()
         return
 
-    await edit_or_answer(
+    transition_message = await edit_or_answer(
         c.message,
         f"{result}\n\n📊 Hozirgi natija: <b>{correct}/{answered}</b>"
     )
@@ -333,7 +335,11 @@ async def answer(c, state):
     await asyncio.sleep(1.2)
 
     await state.update_data(index=d["index"] + 1)
-    await render(c, state)
+    await render(
+        c,
+        state,
+        message=transition_message,
+    )
     return
 @router.callback_query(QuizState.active, F.data == "quiz:next")
 async def quiz_next(c, state):
