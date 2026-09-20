@@ -107,7 +107,7 @@ async def crop_page(request):
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
-<title>Doniyor Academy ? Savol belgilash</title>
+<title>Doniyor Academy — Savol belgilash</title>
 <script src="https://telegram.org/js/telegram-web-app.js"></script>
 <style>
 * { box-sizing: border-box; }
@@ -190,7 +190,7 @@ button:disabled {
 <body>
 
 <div class="header">
-    <div class="title">Doniyor Academy ? Savol belgilash</div>
+    <div class="title">Doniyor Academy — Savol belgilash</div>
     <div class="info" id="counter"></div>
 </div>
 

@@ -395,7 +395,7 @@ async def q_text(m: Message, state: FSMContext):
 
     if not value:
         await m.answer(
-            "? Savol sifatida matn yoki surat yuboring."
+            "❗ Savol sifatida matn yoki surat yuboring."
         )
         return
 
@@ -424,14 +424,14 @@ async def q_image_count(m: Message, state: FSMContext):
         count = int(value)
     except ValueError:
         await m.answer(
-            "? Faqat savollar sonini raqam bilan yuboring.\n"
+            "❗ Faqat savollar sonini raqam bilan yuboring.\n"
             "Masalan: <b>3</b>"
         )
         return
 
     if count < 1 or count > 50:
         await m.answer(
-            "? Savollar soni 1 dan 50 gacha bo'lishi kerak."
+            "❗ Savollar soni 1 dan 50 gacha bo'lishi kerak."
         )
         return
 
@@ -441,7 +441,7 @@ async def q_image_count(m: Message, state: FSMContext):
 
     if not image_path or not crop_dir:
         await m.answer(
-            "? Rasm sessiyasi topilmadi. Iltimos, qaytadan boshlang."
+            "❗ Rasm sessiyasi topilmadi. Iltimos, qaytadan boshlang."
         )
         await state.clear()
         return
@@ -457,7 +457,7 @@ async def q_image_count(m: Message, state: FSMContext):
 
     if not app_url:
         await m.answer(
-            "? Web App manzili sozlanmagan.\n\n"
+            "❗ Web App manzili sozlanmagan.\n\n"
             "Railway'da Public Domain yarating yoki "
             "<b>WEB_APP_URL</b> environment variable o'rnating."
         )
@@ -505,7 +505,7 @@ async def q_image_crop_done(m: Message, state: FSMContext):
         payload = json.loads(m.web_app_data.data)
     except Exception:
         await m.answer(
-            "? Web App ma'lumoti noto'g'ri."
+            "❗ Web App ma'lumoti noto'g'ri."
         )
         return
 
@@ -518,7 +518,7 @@ async def q_image_crop_done(m: Message, state: FSMContext):
 
     if session_id != data.get("crop_session_id"):
         await m.answer(
-            "? Crop sessiyasi mos kelmadi."
+            "❗ Crop sessiyasi mos kelmadi."
         )
         return
 
@@ -526,14 +526,14 @@ async def q_image_crop_done(m: Message, state: FSMContext):
 
     if not session:
         await m.answer(
-            "? Crop sessiyasi topilmadi yoki muddati tugagan."
+            "❗ Crop sessiyasi topilmadi yoki muddati tugagan."
         )
         await state.clear()
         return
 
     if int(session["admin_id"]) != int(m.from_user.id):
         await m.answer(
-            "? Bu crop sessiyasi sizga tegishli emas."
+            "❗ Bu crop sessiyasi sizga tegishli emas."
         )
         return
 
@@ -547,7 +547,7 @@ async def q_image_crop_done(m: Message, state: FSMContext):
 
     if len(crop_paths) != int(session["count"]):
         await m.answer(
-            "? Belgilangan savollar soni kutilgan songa teng emas.\n"
+            "❗ Belgilangan savollar soni kutilgan songa teng emas.\n"
             f"Kutilgan: {session['count']}\n"
             f"Topilgan: {len(crop_paths)}"
         )
@@ -563,7 +563,7 @@ async def q_image_crop_done(m: Message, state: FSMContext):
     await state.set_state(AdminState.add_question_correct)
 
     await m.answer(
-        f"? <b>{len(crop_paths)} ta savol rasmi tayyor.</b>\n\n"
+        f"✅ <b>{len(crop_paths)} ta savol rasmi tayyor.</b>\n\n"
         "1-savol uchun to'g'ri javob harfini yuboring: "
         "<b>A</b>, <b>B</b>, <b>C</b> yoki <b>D</b>",
         reply_markup=ReplyKeyboardRemove(),
@@ -584,7 +584,7 @@ async def save_option(
     value = (m.text or "").strip()
 
     if not value:
-        await m.answer("? Variant bo'sh bo'lishi mumkin emas.")
+        await m.answer("❗ Variant bo'sh bo'lishi mumkin emas.")
         return
 
     await state.update_data(**{key: value})
@@ -646,7 +646,7 @@ async def q_correct(m: Message, state: FSMContext):
 
     if correct not in {"A", "B", "C", "D"}:
         await m.answer(
-            "? Faqat A, B, C yoki D yuboring."
+            "❗ Faqat A, B, C yoki D yuboring."
         )
         return
 
@@ -658,7 +658,7 @@ async def q_correct(m: Message, state: FSMContext):
 
         if current_index >= len(cropped_images):
             await m.answer(
-                "? Savol rasmi topilmadi. Jarayonni qaytadan boshlang."
+                "❗ Savol rasmi topilmadi. Jarayonni qaytadan boshlang."
             )
             await state.clear()
             return
@@ -708,7 +708,7 @@ async def q_explanation(m: Message, state: FSMContext):
 
         if current_index >= len(cropped_images):
             await m.answer(
-                "? Savol rasmi topilmadi. Jarayonni qaytadan boshlang."
+                "❗ Savol rasmi topilmadi. Jarayonni qaytadan boshlang."
             )
             await state.clear()
             return
@@ -718,7 +718,7 @@ async def q_explanation(m: Message, state: FSMContext):
 
         if not crop_path.exists():
             await m.answer(
-                "? Savol rasmi fayli topilmadi. Jarayon bekor qilindi."
+                "❗ Savol rasmi fayli topilmadi. Jarayon bekor qilindi."
             )
             await state.clear()
             return
@@ -728,7 +728,7 @@ async def q_explanation(m: Message, state: FSMContext):
 
             if not topic:
                 await m.answer(
-                    "? Mavzu topilmadi."
+                    "❗ Mavzu topilmadi."
                 )
                 await state.clear()
                 return
@@ -768,7 +768,7 @@ async def q_explanation(m: Message, state: FSMContext):
             )
 
             await m.answer(
-                f"? <b>{current_index + 1}-savol saqlandi.</b>\n\n"
+                f"✅ <b>{current_index + 1}-savol saqlandi.</b>\n\n"
                 f"🎯 <b>{next_index + 1}-savol</b> uchun "
                 "to'g'ri javobni yuboring: "
                 "<b>A</b>, <b>B</b>, <b>C</b> yoki <b>D</b>",
@@ -1817,7 +1817,7 @@ async def edit_question_text_handler(m: Message, state: FSMContext):
 
     if not value:
         await m.answer(
-            "? Rasm yoki matn yuboring."
+            "❗ Rasm yoki matn yuboring."
         )
         return
 
@@ -1843,7 +1843,7 @@ async def edit_question_a_handler(m: Message, state: FSMContext):
     value = (m.text or "").strip()
 
     if not value:
-        await m.answer("? A varianti bo'sh bo'lishi mumkin emas.")
+        await m.answer("❗ A varianti bo'sh bo'lishi mumkin emas.")
         return
 
     await state.update_data(option_a=value)
@@ -1860,7 +1860,7 @@ async def edit_question_b_handler(m: Message, state: FSMContext):
     value = (m.text or "").strip()
 
     if not value:
-        await m.answer("? B varianti bo'sh bo'lishi mumkin emas.")
+        await m.answer("❗ B varianti bo'sh bo'lishi mumkin emas.")
         return
 
     await state.update_data(option_b=value)
@@ -1877,7 +1877,7 @@ async def edit_question_c_handler(m: Message, state: FSMContext):
     value = (m.text or "").strip()
 
     if not value:
-        await m.answer("? C varianti bo'sh bo'lishi mumkin emas.")
+        await m.answer("❗ C varianti bo'sh bo'lishi mumkin emas.")
         return
 
     await state.update_data(option_c=value)
@@ -1894,7 +1894,7 @@ async def edit_question_d_handler(m: Message, state: FSMContext):
     value = (m.text or "").strip()
 
     if not value:
-        await m.answer("? D varianti bo'sh bo'lishi mumkin emas.")
+        await m.answer("❗ D varianti bo'sh bo'lishi mumkin emas.")
         return
 
     await state.update_data(option_d=value)
@@ -1907,7 +1907,7 @@ async def edit_question_d_handler(m: Message, state: FSMContext):
 
         if not q:
             await state.clear()
-            await m.answer("? Savol topilmadi.")
+            await m.answer("❗ Savol topilmadi.")
             return
 
         # Variantlarni yangilaymiz
@@ -1934,7 +1934,7 @@ async def edit_question_d_handler(m: Message, state: FSMContext):
     await state.clear()
 
     await m.answer(
-        "? <b>Savol muvaffaqiyatli tahrirlandi!</b>",
+        "✅ <b>Savol muvaffaqiyatli tahrirlandi!</b>",
         reply_markup=cancel_kb(),
     )
 
