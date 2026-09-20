@@ -2387,7 +2387,7 @@ async def approve_user(c: CallbackQuery):
     try:
         await c.bot.send_message(
             telegram_id,
-            "<b>Royxatdan otishingiz tasdiqlandi!</b>\n\n"
+            "<b>Ro'yxatdan o'tishingiz tasdiqlandi!</b>\n\n"
             f"Ism-familiya: <b>{full_name}</b>\n\n"
             "Endi Doniyor Academy dan toliq foydalanishingiz mumkin.",
             reply_markup=main_menu(False),

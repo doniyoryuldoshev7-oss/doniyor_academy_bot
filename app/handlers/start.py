@@ -482,7 +482,7 @@ async def registration_group_name(
         "🔔 <b>Yangi ro‘yxatdan o‘tish arizasi!</b>\n\n"
         f"👤 Ism-familiya: <b>{full_name}</b>\n"
         f"📱 Telefon: <b>{phone_number}</b>\n"
-        f"🎓 Guruh: <b>{group_name}</b>\n"
+        f"👥 Guruh: <b>{group_name}</b>\n"
         f"🆔 Telegram ID: <code>{message.from_user.id}</code>\n"
         f"👤 Username: <b>{username}</b>"
     )
@@ -503,7 +503,7 @@ async def registration_group_name(
         "✅ <b>Ro‘yxatdan o‘tish yakunlandi.</b>\n\n"
         f"👤 Ism-familiya: <b>{full_name}</b>\n"
         f"📱 Telefon: <b>{phone_number}</b>\n"
-        f"🎓 Guruh: <b>{group_name}</b>\n\n"
+        f"👥 Guruh: <b>{group_name}</b>\n\n"
         "вЏі Ma'lumotlaringiz administratorga yuborildi.\n"
         "Tasdiqlangandan so‘ng Doniyor Academy’dan "
         "foydalanishingiz mumkin.",
