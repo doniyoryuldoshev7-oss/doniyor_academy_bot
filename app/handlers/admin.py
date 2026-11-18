@@ -386,6 +386,13 @@ def _bulk_normalize_text(value):
 
 
 def _bulk_parse_questions(raw_text):
+    from app.bulk_format_normalizer import normalize_bulk_questions
+
+    canonical, format_errors = normalize_bulk_questions(raw_text)
+    if format_errors:
+        return [], format_errors
+
+    raw_text = canonical
     raw_text = (
         (raw_text or "")
         .replace("\r\n", "\n")
