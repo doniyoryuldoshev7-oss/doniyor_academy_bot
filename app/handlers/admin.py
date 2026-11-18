@@ -62,6 +62,15 @@ async def save_question_image(image_data: bytes, question_id: int) -> str:
 
 
 
+
+def natural_topic_key(topic):
+    parts = re.split(r"(\d+)", topic.name.casefold())
+    return tuple(
+        (0, int(part)) if part.isdigit() else (1, part)
+        for part in parts
+    )
+
+
 def is_admin(uid: int) -> bool:
     return uid in settings.admins
 
@@ -1043,6 +1052,7 @@ async def add_question_subject(c: CallbackQuery, state: FSMContext):
                 select(Topic).where(Topic.subject_id == sid).order_by(Topic.name)
             )
         ).all()
+        topics = sorted(topics, key=natural_topic_key)
         subject = await s.get(Subject, sid)
     if not topics:
         await c.answer(
@@ -2141,6 +2151,9 @@ async def catalog_subject(c: CallbackQuery):
                 select(Topic).where(Topic.subject_id == sid).order_by(Topic.name)
             )
         ).all()
+        topics = sorted(topics, key=natural_topic_key)
+
+        topics = sorted(topics, key=natural_topic_key)
 
         topic_count = len(topics)
 

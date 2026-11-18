@@ -1,3 +1,4 @@
+import re
 import asyncio
 import random
 from aiogram import Router, F
@@ -12,6 +13,14 @@ from ..states import QuizState
 
 router = Router()
 
+
+
+def natural_topic_key(topic):
+    parts = re.split(r"(\d+)", topic.name.casefold())
+    return tuple(
+        (0, int(part)) if part.isdigit() else (1, part)
+        for part in parts
+    )
 
 async def edit_or_answer(message, *args, **kwargs):
     if message.photo:
@@ -113,6 +122,7 @@ async def topics(c, state):
     async with SessionLocal() as s: 
         sub = await s.get(Subject, sid)
         xs = (await s.scalars(select(Topic).where(Topic.subject_id == sid).order_by(Topic.name))).all()
+    xs = sorted(xs, key=natural_topic_key)
     kb = [[InlineKeyboardButton(text=f'📖 {x.name}', callback_data=f'topic:{x.id}')] for x in xs]
     kb.append([InlineKeyboardButton(text='⬅️ Fanlar', callback_data='subjects')])
     await edit_or_answer(c.message, f'📚 <b>{sub.name}</b>\n\nMavzuni tanlang:', reply_markup=InlineKeyboardMarkup(inline_keyboard=kb))
