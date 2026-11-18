@@ -120,8 +120,12 @@ def normalize_bulk_questions(raw):
     previous_end = 0
     errors = []
     for n, (start, end, options, indices) in enumerate(groups, 1):
-        question_lines = [lines[i][1].strip() for i in range(previous_end, start) if lines[i][1].strip()]
-        question = ' '.join(question_lines).strip()
+        question_lines = [lines[i][1].strip() for i in range(previous_end, start)]
+        while question_lines and not question_lines[0]:
+            question_lines.pop(0)
+        while question_lines and not question_lines[-1]:
+            question_lines.pop()
+        question = '\ue000'.join(question_lines).strip()
         question = re.sub(
             r'^\s*(?:\#|\u2116\s*)?\d{1,4}\s*(?:\.+|\)|:|;|-|\u2011|\u2013|\u2014|\u2212)\s*',
             '', question, count=1,

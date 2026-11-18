@@ -382,7 +382,7 @@ def _bulk_extract_correct_marker(value):
 
 
 def _bulk_normalize_text(value):
-    return " ".join((value or "").split()).strip()
+    return "\n".join(" ".join(line.split()) for line in (value or "").splitlines()).strip()
 
 
 def _bulk_parse_questions(raw_text):
@@ -501,7 +501,7 @@ def _bulk_parse_questions(raw_text):
 
         item["text"] = _bulk_normalize_text(
             item["text"]
-        )
+        ).replace("\ue000", "\n")
 
         if not item["text"]:
             errors.append(
