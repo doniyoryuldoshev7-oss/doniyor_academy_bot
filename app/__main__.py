@@ -19,7 +19,7 @@ from sqlalchemy import select
 
 from .config import settings
 from .db import init_db, SessionLocal
-from .handlers import start, student, admin, group_quiz
+from .handlers import start, student, admin, group_quiz, smart_review
 from .models import User
 from .web_crop import create_app
 
@@ -83,6 +83,7 @@ async def main():
 
     dp.include_router(start.router)
     dp.include_router(student.router)
+    dp.include_router(smart_review.router)
     dp.include_router(group_quiz.router)
     dp.include_router(admin.router)
 

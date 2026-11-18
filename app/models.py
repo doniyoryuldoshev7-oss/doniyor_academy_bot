@@ -184,3 +184,59 @@ class AnswerLog(Base):
     is_correct: Mapped[bool]=mapped_column(Boolean)
     question: Mapped["Question"] = relationship()
 
+
+# Smart Takrorlash uchun alohida jadval
+from sqlalchemy import UniqueConstraint as _UniqueConstraint
+
+
+class SmartReview(Base):
+    __tablename__ = "smart_reviews"
+
+    __table_args__ = (
+        _UniqueConstraint(
+            "user_id", "question_id",
+            name="uq_smart_review_user_question"
+        ),
+    )
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+
+    user_id: Mapped[int] = mapped_column(
+        ForeignKey("users.id", ondelete="CASCADE"),
+        index=True
+    )
+
+    question_id: Mapped[int] = mapped_column(
+        ForeignKey("questions.id", ondelete="CASCADE"),
+        index=True
+    )
+
+    stage: Mapped[int] = mapped_column(
+        Integer, default=0, nullable=False
+    )
+
+    status: Mapped[str] = mapped_column(
+        String(20), default="active", nullable=False
+    )
+
+    error_count: Mapped[int] = mapped_column(
+        Integer, default=0, nullable=False
+    )
+
+    correct_streak: Mapped[int] = mapped_column(
+        Integer, default=0, nullable=False
+    )
+
+    next_review_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True, index=True
+    )
+
+    last_reviewed_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        default=datetime.utcnow,
+        nullable=False
+    )

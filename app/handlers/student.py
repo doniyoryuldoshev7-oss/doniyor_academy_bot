@@ -1,5 +1,6 @@
 import re
 import asyncio
+import os
 import random
 from aiogram import Router, F
 from aiogram.types import CallbackQuery, InlineKeyboardMarkup, InlineKeyboardButton, FSInputFile
@@ -8,6 +9,7 @@ from sqlalchemy import select
 from ..config import settings
 from ..db import SessionLocal
 from ..models import User, Subject, Topic, Question, TestAttempt, AnswerLog
+from ..services.smart_review_service import register_wrong_answer
 from ..keyboards import main_menu, back_menu
 from ..states import QuizState
 
@@ -104,6 +106,98 @@ async def home(c, state):
     await state.clear()
     await edit_or_answer(c.message, '🎓 <b>Doniyor Academy</b>\n\nBosh menyu:', reply_markup=main_menu(c.from_user.id in settings.admins))
     await c.answer()
+
+
+@router.callback_query(F.data == "smart_review")
+async def smart_review_dashboard(c, state):
+    import os
+    from datetime import datetime, timezone
+    from sqlalchemy import func
+    from ..models import SmartReview
+
+    await state.clear()
+
+    if os.getenv("SMART_REVIEW_ENABLED", "0") != "1":
+        await edit_or_answer(
+            c.message,
+            "?? <b>Smart Takrorlash</b>\n\n"
+            "Funksiya hozircha sinov rejimida.",
+            reply_markup=back_menu(),
+        )
+        await c.answer()
+        return
+
+    now = datetime.now(timezone.utc)
+
+    async with SessionLocal() as s:
+        user = await s.scalar(
+            select(User).where(
+                User.telegram_id == c.from_user.id
+            )
+        )
+
+        if user is None:
+            await c.answer(
+                "Foydalanuvchi topilmadi.",
+                show_alert=True,
+            )
+            return
+
+        due = await s.scalar(
+            select(func.count(SmartReview.id)).where(
+                SmartReview.user_id == user.id,
+                SmartReview.status == "active",
+                SmartReview.next_review_at <= now,
+            )
+        )
+
+        upcoming = await s.scalar(
+            select(func.count(SmartReview.id)).where(
+                SmartReview.user_id == user.id,
+                SmartReview.status == "active",
+                SmartReview.next_review_at > now,
+            )
+        )
+
+        mastered = await s.scalar(
+            select(func.count(SmartReview.id)).where(
+                SmartReview.user_id == user.id,
+                SmartReview.status == "mastered",
+            )
+        )
+
+    message = (
+        "?? <b>SMART TAKRORLASH</b>\\n\\n"
+        f"?? Bugun takrorlanadigan: <b>{due} ta</b>\\n"
+        f"?? Keyinroq: <b>{upcoming} ta</b>\\n"
+        f"?? Mustahkamlangan: <b>{mastered} ta</b>\\n\\n"
+        "Takrorlashni boshlash uchun quyidagi tugmani bosing."
+    )
+
+    keyboard = InlineKeyboardMarkup(
+        inline_keyboard=[
+            [
+                InlineKeyboardButton(
+                    text="?? Takrorlashni boshlash",
+                    callback_data="sr:start",
+                )
+            ],
+            [
+                InlineKeyboardButton(
+                    text="?? Bosh menyu",
+                    callback_data="home",
+                )
+            ],
+        ]
+    )
+
+    await edit_or_answer(
+        c.message,
+        message,
+        reply_markup=keyboard,
+    )
+    await c.answer()
+
 
 @router.callback_query(F.data == 'subjects')
 async def subjects(c, state):
@@ -413,6 +507,18 @@ async def quiz_finish(c, state):
                 is_correct=item["correct"]
             )
             s.add(log)
+
+            # Smart Takrorlash: faqat xato javoblar
+            # PostgreSQL jadvali tayyor bo'lmaguncha o'chirilgan
+            if (
+                os.getenv("SMART_REVIEW_ENABLED", "0") == "1"
+                and item["correct"] is False
+            ):
+                await register_wrong_answer(
+                    s,
+                    user_id=u.id,
+                    question_id=item["qid"],
+                )
 
         u.total_tests += 1
         u.total_questions += total
