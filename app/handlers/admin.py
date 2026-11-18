@@ -988,8 +988,8 @@ async def bulk_question_save(
         inline_keyboard=[
             [
                 InlineKeyboardButton(
-                    text="\u26A1 Yana bir nechta savol qo'shish",
-                    callback_data="adm:add_questions_bulk",
+                    text="\u26A1 Shu mavzuga yana savol qo'shish",
+                    callback_data=f"adm:bulk_qtopic:{int(topic_id)}",
                 )
             ],
             [
