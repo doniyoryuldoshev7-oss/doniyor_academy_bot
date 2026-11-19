@@ -5,7 +5,7 @@ def main_menu(is_admin=False):
           [InlineKeyboardButton(text="👤 Profil",callback_data="profile"),InlineKeyboardButton(text="📊 Statistikam",callback_data="stats")],
           [InlineKeyboardButton(text="🏆 Reyting",callback_data="leaderboard")],
 	  [InlineKeyboardButton(text="❌ Mening xatolarim", callback_data="my_errors")],
-          [InlineKeyboardButton(text="?? Smart Takrorlash", callback_data="smart_review")]
+          [InlineKeyboardButton(text="\U0001F9E0 Smart Takrorlash", callback_data="smart_review")]
     ]
     if is_admin: rows.append([InlineKeyboardButton(text="⚙️ Admin panel",callback_data="admin")])
     return InlineKeyboardMarkup(inline_keyboard=rows)

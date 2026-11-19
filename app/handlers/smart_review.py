@@ -42,7 +42,7 @@ def review_question_keyboard(question_id):
             ],
             [
                 InlineKeyboardButton(
-                    text="?? Smart Takrorlash",
+                    text="\U0001F9E0 Smart Takrorlash",
                     callback_data="smart_review"
                 ),
             ],
@@ -52,7 +52,7 @@ def review_question_keyboard(question_id):
 
 def review_question_text(question, index, total):
     return (
-        f"?? <b>SMART TAKRORLASH</b>\n\n"
+        f"\U0001F9E0 <b>SMART TAKRORLASH</b>\n\n"
         f"? <b>Savol {index + 1}/{total}</b>\n\n"
         f"{escape(question.text or '')}\n\n"
         f"<b>A)</b> {escape(question.option_a or '')}\n"
@@ -101,12 +101,12 @@ async def smart_review_start(c, state):
         if not rows:
             await state.clear()
             await c.message.edit_text(
-                "?? <b>SMART TAKRORLASH</b>\n\n"
+                "\U0001F9E0 <b>SMART TAKRORLASH</b>\n\n"
                 "Hozircha takrorlash uchun matnli savol yo'q.",
                 reply_markup=InlineKeyboardMarkup(
                     inline_keyboard=[[
                         InlineKeyboardButton(
-                            text="?? Bosh menyu",
+                            text="\U0001F3E0 Bosh menyu",
                             callback_data="home"
                         )
                     ]]
@@ -234,13 +234,13 @@ async def smart_review_answer(c, state):
     if is_correct:
         feedback = "? <b>To'g'ri javob!</b>"
         if result.status == "mastered":
-            feedback += "\n?? Savol mustahkamlandi!"
+            feedback += "\n\u2705 Savol mustahkamlandi!"
         else:
-            feedback += "\n?? Keyingi takrorlash rejalashtirildi."
+            feedback += "\n\U0001F552 Keyingi takrorlash rejalashtirildi."
     else:
         feedback = (
             "? <b>Noto'g'ri javob.</b>\n"
-            f"? To'g'ri variant: <b>{correct_option}</b>\n"
+            f"\U0001F4A1 To'g'ri variant: <b>{correct_option}</b>\n"
             "?? Savol 1 kundan keyin qayta beriladi."
         )
 
@@ -248,13 +248,13 @@ async def smart_review_answer(c, state):
         inline_keyboard=[
             [
                 InlineKeyboardButton(
-                    text="?? Keyingi savol",
+                    text="\u27A1\uFE0F Keyingi savol",
                     callback_data="sr:next",
                 )
             ],
             [
                 InlineKeyboardButton(
-                    text="?? Smart Takrorlash",
+                    text="\U0001F9E0 Smart Takrorlash",
                     callback_data="smart_review",
                 )
             ],
@@ -262,7 +262,7 @@ async def smart_review_answer(c, state):
     )
 
     await c.message.edit_text(
-        f"?? <b>SMART TAKRORLASH</b>\n\n{feedback}",
+        f"\U0001F9E0 <b>SMART TAKRORLASH</b>\n\n{feedback}",
         reply_markup=keyboard,
     )
     await c.answer()
@@ -338,12 +338,12 @@ async def smart_review_next(c, state):
     if question is None:
         await state.clear()
         await c.message.edit_text(
-            "?? <b>Smart Takrorlash yakunlandi!</b>\n\n"
+            "\U0001F389 <b>Smart Takrorlash yakunlandi!</b>\n\n"
             "Bugungi mashg'ulot tugadi.",
             reply_markup=InlineKeyboardMarkup(
                 inline_keyboard=[[
                     InlineKeyboardButton(
-                        text="?? Natijalarim",
+                        text="\U0001F4CA Natijalarim",
                         callback_data="smart_review",
                     )
                 ]]
