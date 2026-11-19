@@ -120,7 +120,7 @@ async def smart_review_dashboard(c, state):
     if os.getenv("SMART_REVIEW_ENABLED", "0") != "1":
         await edit_or_answer(
             c.message,
-            "?? <b>Smart Takrorlash</b>\n\n"
+            "\U0001F9E0 <b>Smart Takrorlash</b>\n\n"
             "Funksiya hozircha sinov rejimida.",
             reply_markup=back_menu(),
         )
@@ -167,10 +167,10 @@ async def smart_review_dashboard(c, state):
         )
 
     message = (
-        "?? <b>SMART TAKRORLASH</b>\\n\\n"
-        f"?? Bugun takrorlanadigan: <b>{due} ta</b>\\n"
-        f"?? Keyinroq: <b>{upcoming} ta</b>\\n"
-        f"?? Mustahkamlangan: <b>{mastered} ta</b>\\n\\n"
+        "\U0001F9E0 <b>SMART TAKRORLASH</b>\n\n"
+        f"\U0001F4C5 Bugun takrorlanadigan: <b>{due} ta</b>\n"
+        f"\U0001F552 Keyinroq: <b>{upcoming} ta</b>\n"
+        f"\u2705 Mustahkamlangan: <b>{mastered} ta</b>\n\n"
         "Takrorlashni boshlash uchun quyidagi tugmani bosing."
     )
 
@@ -178,13 +178,13 @@ async def smart_review_dashboard(c, state):
         inline_keyboard=[
             [
                 InlineKeyboardButton(
-                    text="?? Takrorlashni boshlash",
+                    text="\u25B6\uFE0F Takrorlashni boshlash",
                     callback_data="sr:start",
                 )
             ],
             [
                 InlineKeyboardButton(
-                    text="?? Bosh menyu",
+                    text="\U0001F3E0 Bosh menyu",
                     callback_data="home",
                 )
             ],
