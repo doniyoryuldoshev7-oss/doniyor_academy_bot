@@ -3183,6 +3183,9 @@ async def reject_user(c: CallbackQuery):
 
     await c.answer("Foydalanuvchi rad etildi.")
 
+from .start import registration_complete
+
+
 @router.callback_query(F.data == "adm:users")
 async def admin_users(c: CallbackQuery):
     if not is_admin(c.from_user.id):
@@ -3215,6 +3218,9 @@ async def admin_users(c: CallbackQuery):
             "pending": "\u23f3",
             "rejected": "\u274c",
         }.get(user.registration_status, "\u2753")
+
+        if not registration_complete(user):
+            status_icon = "\u26a0\ufe0f"
 
         name = user.full_name or "Nomsiz"
 
@@ -3274,6 +3280,9 @@ async def admin_user_detail(c: CallbackQuery):
         user.registration_status,
     )
 
+    if not registration_complete(user):
+        status = "\u26a0\ufe0f Profil to'liq emas"
+
     blocked = "\U0001f6ab Bloklangan" if user.is_blocked else "\u2705 Faol"
 
     text = (
@@ -3287,9 +3296,12 @@ async def admin_user_detail(c: CallbackQuery):
         f"\U0001f512 Hisob: <b>{blocked}</b>"
     )
 
+    if not registration_complete(user):
+        text += "\n\n\u26a0\ufe0f Ariza to'liq emas. /start orqali ro'yxatdan o'tish kerak."
+
     buttons = []
 
-    if user.registration_status != "approved":
+    if user.registration_status != "approved" and registration_complete(user):
         buttons.append(
             [
                 InlineKeyboardButton(
