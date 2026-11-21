@@ -239,9 +239,9 @@ async def smart_review_answer(c, state):
             feedback += "\n\U0001F552 Keyingi takrorlash rejalashtirildi."
     else:
         feedback = (
-            "? <b>Noto'g'ri javob.</b>\n"
+            "\u274C <b>Noto'g'ri javob.</b>\n"
             f"\U0001F4A1 To'g'ri variant: <b>{correct_option}</b>\n"
-            "?? Savol 1 kundan keyin qayta beriladi."
+            "\U0001F552 Savol 1 kundan keyin qayta beriladi."
         )
 
     keyboard = InlineKeyboardMarkup(
