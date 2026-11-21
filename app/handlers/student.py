@@ -7,6 +7,7 @@ from aiogram.types import CallbackQuery, InlineKeyboardMarkup, InlineKeyboardBut
 from aiogram.fsm.context import FSMContext
 from sqlalchemy import select
 from ..config import settings
+from ..admin_roles import can_add_questions
 from ..db import SessionLocal
 from ..models import User, Subject, Topic, Question, TestAttempt, AnswerLog
 from ..services.smart_review_service import register_wrong_answer
@@ -104,7 +105,7 @@ async def render(call, state, message=None):
 @router.callback_query(F.data == 'home')
 async def home(c, state): 
     await state.clear()
-    await edit_or_answer(c.message, '🎓 <b>Doniyor Academy</b>\n\nBosh menyu:', reply_markup=main_menu(c.from_user.id in settings.admins))
+    await edit_or_answer(c.message, '🎓 <b>Doniyor Academy</b>\n\nBosh menyu:', reply_markup=main_menu(await can_add_questions(c.from_user.id)))
     await c.answer()
 
 

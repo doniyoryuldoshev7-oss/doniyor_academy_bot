@@ -71,11 +71,31 @@ def natural_topic_key(topic):
     )
 
 
+from ..admin_roles import can_add_questions, is_superadmin
+
+
 def is_admin(uid: int) -> bool:
     return uid in settings.admins
 
 
-def admin_menu():
+def admin_menu(limited=False):
+    if limited:
+        return InlineKeyboardMarkup(
+            inline_keyboard=[
+                [InlineKeyboardButton(
+                    text="\u2795 Bitta savol qo'shish",
+                    callback_data="adm:add_question",
+                )],
+                [InlineKeyboardButton(
+                    text="\u26a1 Bir nechta savol qo'shish",
+                    callback_data="adm:add_questions_bulk",
+                )],
+                [InlineKeyboardButton(
+                    text="\u274c Bekor qilish",
+                    callback_data="adm:cancel",
+                )],
+            ]
+        )
     return InlineKeyboardMarkup(
         inline_keyboard=[
             [
@@ -165,7 +185,7 @@ async def show_admin(target, answer=True):
 
     if isinstance(target, CallbackQuery):
         try:
-            await target.message.edit_text(text, reply_markup=admin_menu())
+            await target.message.edit_text(text, reply_markup=admin_menu(limited=not is_admin(target.from_user.id)))
         except Exception as e:
             if "message is not modified" not in str(e):
                 raise
@@ -174,12 +194,12 @@ async def show_admin(target, answer=True):
             await target.answer()
 
     else:
-        await target.answer(text, reply_markup=admin_menu())
+        await target.answer(text, reply_markup=admin_menu(limited=not is_admin(target.from_user.id)))
 
 
 @router.message(Command("admin"))
 async def cmd_admin(m: Message, state: FSMContext):
-    if not is_admin(m.from_user.id):
+    if not await can_add_questions(m.from_user.id):
         return
     await state.clear()
     await show_admin(m, answer=False)
@@ -187,7 +207,7 @@ async def cmd_admin(m: Message, state: FSMContext):
 
 @router.callback_query(F.data == "admin")
 async def cb_admin(c: CallbackQuery, state: FSMContext):
-    if not is_admin(c.from_user.id):
+    if not await can_add_questions(c.from_user.id):
         await c.answer("Sizda admin huquqi yo'q.", show_alert=True)
         return
     await state.clear()
@@ -200,7 +220,7 @@ async def cb_admin(c: CallbackQuery, state: FSMContext):
 
 @router.callback_query(F.data == "adm:cancel")
 async def cancel(c: CallbackQuery, state: FSMContext):
-    if not is_admin(c.from_user.id):
+    if not await can_add_questions(c.from_user.id):
         return
 
     # 1. Admin holatlarini tozalaymiz
@@ -633,7 +653,7 @@ def _bulk_preview_text(items):
 
 @router.callback_query(F.data == "adm:add_questions_bulk")
 async def bulk_question_start(c: CallbackQuery, state: FSMContext):
-    if not is_admin(c.from_user.id):
+    if not await can_add_questions(c.from_user.id):
         return
 
     async with SessionLocal() as db:
@@ -673,7 +693,7 @@ async def bulk_question_subject(
     c: CallbackQuery,
     state: FSMContext,
 ):
-    if not is_admin(c.from_user.id):
+    if not await can_add_questions(c.from_user.id):
         return
 
     sid = int(c.data.split(":")[2])
@@ -728,7 +748,7 @@ async def bulk_question_topic(
     c: CallbackQuery,
     state: FSMContext,
 ):
-    if not is_admin(c.from_user.id):
+    if not await can_add_questions(c.from_user.id):
         return
 
     tid = int(c.data.split(":")[2])
@@ -781,7 +801,7 @@ async def bulk_question_text(
     m: Message,
     state: FSMContext,
 ):
-    if not is_admin(m.from_user.id):
+    if not await can_add_questions(m.from_user.id):
         return
 
     raw_text = (m.text or "").strip()
@@ -877,7 +897,7 @@ async def bulk_question_retry(
     c: CallbackQuery,
     state: FSMContext,
 ):
-    if not is_admin(c.from_user.id):
+    if not await can_add_questions(c.from_user.id):
         return
 
     await state.set_state(
@@ -907,7 +927,7 @@ async def bulk_question_save(
     c: CallbackQuery,
     state: FSMContext,
 ):
-    if not is_admin(c.from_user.id):
+    if not await can_add_questions(c.from_user.id):
         return
 
     data = await state.get_data()
@@ -1026,7 +1046,7 @@ async def bulk_question_save(
 # -------------------- QUESTION --------------------
 @router.callback_query(F.data == "adm:add_question")
 async def add_question_start(c: CallbackQuery, state: FSMContext):
-    if not is_admin(c.from_user.id):
+    if not await can_add_questions(c.from_user.id):
         return
     async with SessionLocal() as s:
         subjects = (await s.scalars(select(Subject).order_by(Subject.name))).all()
@@ -1043,7 +1063,7 @@ async def add_question_start(c: CallbackQuery, state: FSMContext):
 
 @router.callback_query(F.data.startswith("adm:qsub:"))
 async def add_question_subject(c: CallbackQuery, state: FSMContext):
-    if not is_admin(c.from_user.id):
+    if not await can_add_questions(c.from_user.id):
         return
     sid = int(c.data.split(":")[2])
     async with SessionLocal() as s:
@@ -1069,7 +1089,7 @@ async def add_question_subject(c: CallbackQuery, state: FSMContext):
 
 @router.callback_query(F.data.startswith("adm:qtopic:"))
 async def add_question_topic(c: CallbackQuery, state: FSMContext):
-    if not is_admin(c.from_user.id):
+    if not await can_add_questions(c.from_user.id):
         return
     tid = int(c.data.split(":")[2])
     async with SessionLocal() as s:
@@ -1085,7 +1105,7 @@ async def add_question_topic(c: CallbackQuery, state: FSMContext):
 
 @router.message(AdminState.add_question_text)
 async def q_text(m: Message, state: FSMContext):
-    if not is_admin(m.from_user.id):
+    if not await can_add_questions(m.from_user.id):
         return
 
     image_data = await photo_bytes(m)
@@ -1140,7 +1160,7 @@ async def q_text(m: Message, state: FSMContext):
 
 @router.message(AdminState.add_question_image_count)
 async def q_image_count(m: Message, state: FSMContext):
-    if not is_admin(m.from_user.id):
+    if not await can_add_questions(m.from_user.id):
         return
 
     value = (m.text or "").strip()
@@ -1223,7 +1243,7 @@ async def q_image_count(m: Message, state: FSMContext):
 
 @router.message(AdminState.add_question_crop, F.web_app_data)
 async def q_image_crop_done(m: Message, state: FSMContext):
-    if not is_admin(m.from_user.id):
+    if not await can_add_questions(m.from_user.id):
         return
 
     try:
@@ -1303,7 +1323,7 @@ async def save_option(
     next_state,
     label: str
 ):
-    if not is_admin(m.from_user.id):
+    if not await can_add_questions(m.from_user.id):
         return
 
     value = (m.text or "").strip()
@@ -1319,6 +1339,9 @@ async def save_option(
 
 @router.message(AdminState.add_question_a)
 async def q_a(m, state):
+    if not await can_add_questions(m.from_user.id):
+        return
+
     await save_option(
         m,
         state,
@@ -1330,6 +1353,9 @@ async def q_a(m, state):
 
 @router.message(AdminState.add_question_b)
 async def q_b(m, state):
+    if not await can_add_questions(m.from_user.id):
+        return
+
     await save_option(
         m,
         state,
@@ -1341,6 +1367,9 @@ async def q_b(m, state):
 
 @router.message(AdminState.add_question_c)
 async def q_c(m, state):
+    if not await can_add_questions(m.from_user.id):
+        return
+
     await save_option(
         m,
         state,
@@ -1352,6 +1381,9 @@ async def q_c(m, state):
 
 @router.message(AdminState.add_question_d)
 async def q_d(m, state):
+    if not await can_add_questions(m.from_user.id):
+        return
+
     await save_option(
         m,
         state,
@@ -1364,7 +1396,7 @@ async def q_d(m, state):
 
 @router.message(AdminState.add_question_correct)
 async def q_correct(m: Message, state: FSMContext):
-    if not is_admin(m.from_user.id):
+    if not await can_add_questions(m.from_user.id):
         return
 
     correct = (m.text or "").strip().upper()
@@ -1417,7 +1449,7 @@ async def q_correct(m: Message, state: FSMContext):
 
 @router.message(AdminState.add_question_explanation)
 async def q_explanation(m: Message, state: FSMContext):
-    if not is_admin(m.from_user.id):
+    if not await can_add_questions(m.from_user.id):
         return
 
     explanation = (m.text or "").strip()
@@ -1509,7 +1541,7 @@ async def q_explanation(m: Message, state: FSMContext):
         await m.answer(
             f"✅ <b>{total} ta savol muvaffaqiyatli qo'shildi!</b>\n\n"
             f"📖 Mavzu: <b>{topic_name}</b>",
-            reply_markup=admin_menu(),
+            reply_markup=admin_menu(limited=not is_admin(m.from_user.id)),
         )
         return
 
@@ -1546,7 +1578,7 @@ async def q_explanation(m: Message, state: FSMContext):
         f"🆔 ID: <code>{qid}</code>\n"
         f"📖 Mavzu: <b>{topic.name}</b>\n"
         f"✅ To'g'ri javob: <b>{data['correct_option']}</b>",
-        reply_markup=admin_menu(),
+        reply_markup=admin_menu(limited=not is_admin(m.from_user.id)),
     )
 
 
@@ -3184,17 +3216,41 @@ async def reject_user(c: CallbackQuery):
     await c.answer("Foydalanuvchi rad etildi.")
 
 from .start import registration_complete
+from ..models import QuestionEditorGrant
+from ..role_management import (
+    RoleOperationRejected,
+    RolePermissionDenied,
+    set_question_editor_role,
+)
 
 
 @router.callback_query(F.data == "adm:users")
+@router.callback_query(F.data.startswith("adm:users:page:"))
 async def admin_users(c: CallbackQuery):
     if not is_admin(c.from_user.id):
         return
 
+    page = 0
+    if c.data != "adm:users":
+        try:
+            page = int(c.data.removeprefix("adm:users:page:"))
+            if page < 0 or page > 1000000:
+                raise ValueError
+        except (ValueError, TypeError):
+            await c.answer("Sahifa raqami noto'g'ri.", show_alert=True)
+            return
+
+    page_size = 15
     async with SessionLocal() as s:
+        total = await s.scalar(select(func.count(User.id))) or 0
+        last_page = max(0, (total - 1) // page_size)
+        page = min(page, last_page)
         users = (
             await s.scalars(
-                select(User).order_by(User.created_at.desc())
+                select(User)
+                .order_by(User.created_at.desc(), User.id.desc())
+                .offset(page * page_size)
+                .limit(page_size)
             )
         ).all()
 
@@ -3233,6 +3289,20 @@ async def admin_users(c: CallbackQuery):
             ]
         )
 
+    navigation = []
+    if page > 0:
+        navigation.append(InlineKeyboardButton(
+            text="⬅️ Oldingi",
+            callback_data=f"adm:users:page:{page - 1}",
+        ))
+    if page < last_page:
+        navigation.append(InlineKeyboardButton(
+            text="Keyingi ➡️",
+            callback_data=f"adm:users:page:{page + 1}",
+        ))
+    if navigation:
+        keyboard.append(navigation)
+
     keyboard.append(
         [
             InlineKeyboardButton(
@@ -3244,6 +3314,7 @@ async def admin_users(c: CallbackQuery):
 
     await c.message.edit_text(
         "<b>\U0001f465 FOYDALANUVCHILAR</b>\n\n"
+        f"Jami: {total} | Sahifa: {page + 1}/{last_page + 1}\n"
         "Kerakli foydalanuvchini tanlang:",
         reply_markup=InlineKeyboardMarkup(
             inline_keyboard=keyboard
@@ -3263,6 +3334,16 @@ async def admin_user_detail(c: CallbackQuery):
         user = await s.scalar(
             select(User).where(User.telegram_id == telegram_id)
         )
+
+        editor_granted = False
+        if user is not None:
+            editor_granted = (
+                await s.scalar(
+                    select(QuestionEditorGrant.id).where(
+                        QuestionEditorGrant.user_id == user.id
+                    )
+                )
+            ) is not None
 
     if not user:
         await c.answer(
@@ -3285,21 +3366,52 @@ async def admin_user_detail(c: CallbackQuery):
 
     blocked = "\U0001f6ab Bloklangan" if user.is_blocked else "\u2705 Faol"
 
+    # Telegram HTML parse mode: user-submitted fields must be escaped.
+    safe_name = html.escape(user.full_name or "Nomsiz")
+    safe_username = html.escape(user.username or "-")
+    safe_phone = html.escape(user.phone_number or "-")
+    safe_group = html.escape(user.group_name or "-")
+
     text = (
         "<b>\U0001f464 FOYDALANUVCHI MA'LUMOTLARI</b>\n\n"
-        f"\U0001f464 Ism-familiya: <b>{user.full_name or 'Nomsiz'}</b>\n"
-        f"\U0001f4f1 Username: @{user.username or '-'}\n"
+        f"\U0001f464 Ism-familiya: <b>{safe_name}</b>\n"
+        f"\U0001f4f1 Username: @{safe_username}\n"
         f"\U0001f194 Telegram ID: <code>{user.telegram_id}</code>\n"
-        f"\U0001f4de Telefon: {user.phone_number or '-'}\n"
-        f"\U0001f465 Guruh: {user.group_name or '-'}\n"
-        f"\U0001f4cc Holat: <b>{status}</b>\n"
+        f"\U0001f4de Telefon: {safe_phone}\n"
+        f"\U0001f465 Guruh: {safe_group}\n"
+        f"\U0001f4cc Holat: <b>{html.escape(status)}</b>\n"
         f"\U0001f512 Hisob: <b>{blocked}</b>"
     )
 
     if not registration_complete(user):
         text += "\n\n\u26a0\ufe0f Ariza to'liq emas. /start orqali ro'yxatdan o'tish kerak."
 
+    if editor_granted:
+        text += "\n\n\U0001f6e1 Cheklangan admin: faol"
+
     buttons = []
+
+    if is_superadmin(c.from_user.id):
+        if editor_granted:
+            buttons.append([
+                InlineKeyboardButton(
+                    text="\U0001f6ab Admin huquqini bekor qilish",
+                    callback_data=f"adm:role:revoke:ask:{telegram_id}",
+                )
+            ])
+        elif (
+            not is_admin(user.telegram_id)
+            and user.registration_status == "approved"
+            and not user.is_blocked
+            and registration_complete(user)
+        ):
+            buttons.append([
+                InlineKeyboardButton(
+                    text="\U0001f6e1 Cheklangan admin qilish",
+                    callback_data=f"adm:role:grant:ask:{telegram_id}",
+                )
+            ])
+
 
     if user.registration_status != "approved" and registration_complete(user):
         buttons.append(
@@ -3436,4 +3548,133 @@ async def unblock_user(c: CallbackQuery):
     await admin_user_detail(c)
 
 
+@router.callback_query(F.data.startswith("adm:role:"))
+async def editor_role_callback(c: CallbackQuery):
+    from html import escape
 
+    if not is_superadmin(c.from_user.id):
+        await c.answer("Ruxsat yo'q.", show_alert=True)
+        return
+
+    parts = (c.data or "").split(":")
+
+    if (
+        len(parts) != 5
+        or parts[:2] != ["adm", "role"]
+        or parts[2] not in {"grant", "revoke"}
+        or parts[3] not in {"ask", "do"}
+    ):
+        await c.answer("Noto'g'ri so'rov.", show_alert=True)
+        return
+
+    action = parts[2]
+    phase = parts[3]
+
+    try:
+        telegram_id = int(parts[4])
+        if telegram_id <= 0:
+            raise ValueError
+    except ValueError:
+        await c.answer("Telegram ID noto'g'ri.", show_alert=True)
+        return
+
+    back = InlineKeyboardButton(
+        text="\u2b05\ufe0f Foydalanuvchi kartasi",
+        callback_data=f"adm:user:{telegram_id}",
+    )
+
+    if phase == "do":
+        try:
+            await set_question_editor_role(
+                actor_telegram_id=c.from_user.id,
+                target_telegram_id=telegram_id,
+                enable=(action == "grant"),
+            )
+        except (RolePermissionDenied, RoleOperationRejected):
+            await c.answer(
+                "Amal rad etildi. Foydalanuvchi holatini tekshiring.",
+                show_alert=True,
+            )
+            return
+
+        result = (
+            "Cheklangan admin huquqi berildi."
+            if action == "grant"
+            else "Cheklangan admin huquqi bekor qilindi."
+        )
+
+        await c.message.edit_text(
+            "\u2705 " + result,
+            reply_markup=InlineKeyboardMarkup(
+                inline_keyboard=[[back]]
+            ),
+        )
+        await c.answer()
+        return
+
+    async with SessionLocal() as s:
+        user = await s.scalar(
+            select(User).where(User.telegram_id == telegram_id)
+        )
+
+        if user is None:
+            await c.answer(
+                "Foydalanuvchi topilmadi.",
+                show_alert=True,
+            )
+            return
+
+        grant_exists = (
+            await s.scalar(
+                select(QuestionEditorGrant.id).where(
+                    QuestionEditorGrant.user_id == user.id
+                )
+            )
+        ) is not None
+
+        if action == "grant":
+            if (
+                grant_exists
+                or is_admin(telegram_id)
+                or user.registration_status != "approved"
+                or user.is_blocked
+                or not registration_complete(user)
+            ):
+                await c.answer(
+                    "Bu foydalanuvchiga huquq berib bo'lmaydi.",
+                    show_alert=True,
+                )
+                return
+        elif not grant_exists:
+            await c.answer(
+                "Bu foydalanuvchida huquq mavjud emas.",
+                show_alert=True,
+            )
+            return
+
+        full_name = user.full_name or "Foydalanuvchi"
+
+    title = (
+        "Cheklangan admin huquqini berasizmi?"
+        if action == "grant"
+        else "Cheklangan admin huquqini bekor qilasizmi?"
+    )
+
+    await c.message.edit_text(
+        f"<b>{title}</b>\n\n"
+        f"Foydalanuvchi: <b>{escape(full_name)}</b>\n"
+        f"Telegram ID: <code>{telegram_id}</code>",
+        reply_markup=InlineKeyboardMarkup(
+            inline_keyboard=[
+                [InlineKeyboardButton(
+                    text="\u2705 Tasdiqlash",
+                    callback_data=(
+                        f"adm:role:{action}:do:{telegram_id}"
+                    ),
+                )],
+                [back],
+            ]
+        ),
+        parse_mode="HTML",
+    )
+    await c.answer()

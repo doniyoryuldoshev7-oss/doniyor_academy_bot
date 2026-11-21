@@ -240,3 +240,54 @@ class SmartReview(Base):
         default=datetime.utcnow,
         nullable=False
     )
+
+
+class QuestionEditorGrant(Base):
+    __tablename__ = "question_editor_grants"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+
+    user_id: Mapped[int] = mapped_column(
+        ForeignKey("users.id", ondelete="CASCADE"),
+        unique=True,
+        index=True,
+        nullable=False,
+    )
+
+    granted_by: Mapped[int] = mapped_column(
+        BigInteger,
+        nullable=False,
+    )
+
+    granted_at: Mapped[datetime] = mapped_column(
+        DateTime,
+        default=datetime.utcnow,
+        nullable=False,
+    )
+
+
+class AdminRoleEvent(Base):
+    __tablename__ = "admin_role_events"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+
+    actor_telegram_id: Mapped[int] = mapped_column(
+        BigInteger,
+        nullable=False,
+    )
+
+    target_telegram_id: Mapped[int] = mapped_column(
+        BigInteger,
+        nullable=False,
+    )
+
+    action: Mapped[str] = mapped_column(
+        String(20),
+        nullable=False,
+    )
+
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime,
+        default=datetime.utcnow,
+        nullable=False,
+    )

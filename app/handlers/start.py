@@ -14,6 +14,7 @@ from aiogram.fsm.context import FSMContext
 from sqlalchemy import select
 
 from ..config import settings
+from ..admin_roles import can_add_questions
 from ..db import SessionLocal
 from ..models import User
 from ..keyboards import main_menu
@@ -281,7 +282,7 @@ async def start_cmd(message: Message, state: FSMContext):
 
             await message.answer(
                 "Bosh menyu",
-                reply_markup=main_menu(False),
+                reply_markup=main_menu(await can_add_questions(message.from_user.id)),
             )
             return
 
@@ -539,7 +540,7 @@ async def start_exit(
         "🏠 <b>Bosh menyu</b>\n\n"
         "Kerakli bo‘limni tanlang:",
         reply_markup=main_menu(
-            c.from_user.id in settings.admins
+            await can_add_questions(c.from_user.id)
         ),
     )
 
