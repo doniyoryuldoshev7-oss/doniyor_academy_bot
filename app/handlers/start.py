@@ -252,9 +252,11 @@ async def start_cmd(message: Message, state: FSMContext):
             await s.commit()
 
             await message.answer(
-                "❗ <b>Profil ma'lumotlaringiz to'liq emas.</b>\n\n"
-                "Iltimos, ism, familiya, o'zingizning Telegram "
-                "kontaktingiz va guruhingizni to'liq kiriting."
+                "\u26a0\ufe0f <b>Ro'yxatdan o'tish yakunlanmagan!</b>\n\n"
+                "Botdan foydalanish uchun ism-familiyangizni, "
+                "telefon raqamingizni va guruhingizni to'liq kiriting.\n\n"
+                "Barcha ma'lumotlar to'ldirilmaguncha arizangiz "
+                "administratorga yuborilmaydi."
             )
 
             await start_registration(message, state)
