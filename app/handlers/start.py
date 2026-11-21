@@ -388,7 +388,7 @@ async def registration_phone(
 
     await message.answer(
         "4️⃣ <b>Guruhingiz qaysi?</b>\n\n"
-        "Masalan: <b>Tarix-01</b> yoki <b>Abituriyent A</b>.",
+        "Masalan: <b>175-guruh</b>.",
         reply_markup=ReplyKeyboardRemove(),
     )
 
