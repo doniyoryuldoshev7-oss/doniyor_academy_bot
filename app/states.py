@@ -13,6 +13,7 @@ class QuizState(StatesGroup):
 
 
 class AdminState(StatesGroup):
+    user_search = State()
     import_file = State()
     add_subject_name = State()
     edit_subject_name = State()
