@@ -37,6 +37,7 @@ class Topic(Base):
 
 class Question(Base):
     __tablename__ = "questions"
+    is_active: Mapped[bool] = mapped_column(Boolean, default=True, server_default=__import__("sqlalchemy").true())
 
     id: Mapped[int] = mapped_column(primary_key=True)
 

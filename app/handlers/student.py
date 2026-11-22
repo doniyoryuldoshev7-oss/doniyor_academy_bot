@@ -234,7 +234,7 @@ async def choose(c, state):
         count = len(
             (
                 await s.scalars(
-                    select(Question).where(
+                    select(Question).where(Question.is_active.is_(True), 
                         Question.topic_id == tid
                     )
                 )
@@ -289,7 +289,7 @@ async def start(c, state):
     tid = int(tid)
     size = int(size)
     async with SessionLocal() as s: 
-        qs = (await s.scalars(select(Question).where(Question.topic_id == tid))).all()
+        qs = (await s.scalars(select(Question).where(Question.is_active.is_(True), Question.topic_id == tid))).all()
     qs = random.sample(qs, min(size, len(qs)))
 
     print(">>> START HANDLER REACHED", flush=True)

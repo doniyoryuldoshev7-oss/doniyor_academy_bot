@@ -32,6 +32,20 @@ async def init_db():
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
 
+        # questions jadvaliga is_active ustunini qo'shish (soft delete)
+        if database_url.startswith("postgresql+asyncpg://"):
+            await conn.execute(text(
+                "ALTER TABLE questions ADD COLUMN IF NOT EXISTS "
+                "is_active BOOLEAN NOT NULL DEFAULT TRUE"
+            ))
+        else:
+            _cols = await conn.execute(text("PRAGMA table_info(questions)"))
+            if "is_active" not in {r[1] for r in _cols.fetchall()}:
+                await conn.execute(text(
+                    "ALTER TABLE questions ADD COLUMN "
+                    "is_active BOOLEAN NOT NULL DEFAULT 1"
+                ))
+
         # users jadvaliga group_name ustunini qo'shish
         if database_url.startswith("postgresql+asyncpg://"):
             await conn.execute(

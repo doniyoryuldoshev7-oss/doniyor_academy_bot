@@ -110,7 +110,7 @@ async def _get_valid_questions(topic_id: int):
     async with SessionLocal() as session:
         questions = (
             await session.scalars(
-                select(Question).where(Question.topic_id == topic_id)
+                select(Question).where(Question.is_active.is_(True), Question.topic_id == topic_id)
             )
         ).all()
 

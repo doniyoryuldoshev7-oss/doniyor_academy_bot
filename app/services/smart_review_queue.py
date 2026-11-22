@@ -20,6 +20,7 @@ def due_reviews_query(user_id, now, limit=20):
             SmartReview.next_review_at.is_not(None),
             SmartReview.next_review_at <= now,
             Question.question_mode == "closed",
+            Question.is_active.is_(True),
             Question.correct_option.in_(("A", "B", "C", "D")),
             Question.option_a.is_not(None),
             Question.option_b.is_not(None),

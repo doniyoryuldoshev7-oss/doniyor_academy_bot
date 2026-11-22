@@ -2246,7 +2246,7 @@ async def catalog_topic(c: CallbackQuery):
             return
 
         count = await s.scalar(
-            select(func.count(Question.id)).where(Question.topic_id == tid)
+            select(func.count(Question.id)).where(Question.is_active.is_(True), Question.topic_id == tid)
         )
 
     buttons = [
@@ -2406,7 +2406,7 @@ async def catalog_questions(c: CallbackQuery):
 
         questions = (
             await s.scalars(
-                select(Question).where(Question.topic_id == tid).order_by(Question.id)
+                select(Question).where(Question.is_active.is_(True), Question.topic_id == tid).order_by(Question.id)
             )
         ).all()
 
@@ -2715,7 +2715,7 @@ async def delete_question(c: CallbackQuery):
 
         topic_id = q.topic_id
 
-        await s.delete(q)
+        q.is_active = False
         await s.commit()
 
     await c.message.edit_text(

@@ -4,7 +4,7 @@ from ..models import Question, TestAttempt, AnswerLog
 
 async def get_quiz(session, topic_id: int, limit: int = 10):
     questions = (await session.scalars(
-        select(Question).where(Question.topic_id == topic_id).limit(limit)
+        select(Question).where(Question.is_active.is_(True), Question.topic_id == topic_id).limit(limit)
     )).all()
     return questions
 
