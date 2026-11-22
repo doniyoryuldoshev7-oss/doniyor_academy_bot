@@ -24,3 +24,7 @@ test_big_image.jpg
 app/question_images/_crop_sessions/
 **/*_before_*
 **/*BEFORE*
+
+app_backup_*/
+*.bak_*
+patch_soft_delete.py
