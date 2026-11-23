@@ -41,6 +41,7 @@ from ..services.assignments import (
     fmt,
     group_names,
     progress_percent,
+    remove_assignment,
     student_progress,
     target_users,
 )
@@ -607,6 +608,12 @@ async def assign_progress(c: CallbackQuery):
                 callback_data=f"asg:p:{assignment_id}",
             )
         ],
+        [
+            InlineKeyboardButton(
+                text="\U0001F5D1 Topshiriqni olib tashlash",
+                callback_data=f"asg:del:{assignment_id}",
+            )
+        ],
         back_row("adm:assign", "\U0001F4CB Topshiriqlar"),
         admin_row(),
     ]
@@ -1028,6 +1035,109 @@ async def assign_personal_create(c: CallbackQuery):
                         callback_data=f"rep:u:{telegram_id}",
                     )
                 ],
+            ]
+        ),
+    )
+
+
+# ---------------------------------------------------------------
+#  Topshiriqni olib tashlash
+# ---------------------------------------------------------------
+
+@router.callback_query(F.data.startswith("asg:del:"))
+async def assign_remove_ask(c: CallbackQuery):
+    if not is_full_admin(c.from_user.id):
+        await c.answer("Ruxsat yo'q.", show_alert=True)
+        return
+
+    try:
+        assignment_id = int(c.data.split(":")[-1])
+    except ValueError:
+        await c.answer("Noto'g'ri so'rov.", show_alert=True)
+        return
+
+    await c.answer()
+
+    async with SessionLocal() as session:
+        assignment, topic_name, subject_name = await assignment_with_names(
+            session, assignment_id
+        )
+
+        if assignment is None:
+            await c.answer("Topshiriq topilmadi.", show_alert=True)
+            return
+
+        rows = await assignment_progress(session, assignment)
+
+    done = sum(1 for row in rows if row.done)
+
+    await c.message.edit_text(
+        "\U0001F5D1 <b>Topshiriqni olib tashlash</b>\n\n"
+        f"\U0001F4D6 <b>{html.escape(topic_name)}</b>\n"
+        f"\U0001F522 {assignment.required_questions} ta savol\n"
+        f"\u23F0 {fmt(assignment.deadline)}\n"
+        f"\U0001F465 {html.escape(target_label(assignment, rows))}\n"
+        f"\u2705 Bajargan: {done} / {len(rows)}\n\n"
+        "Topshiriq o'quvchilar ro'yxatidan va eslatmalardan "
+        "chiqib ketadi. <b>Test natijalari saqlanib qoladi.</b>\n\n"
+        "Rostdan olib tashlansinmi?",
+        reply_markup=InlineKeyboardMarkup(
+            inline_keyboard=[
+                [
+                    InlineKeyboardButton(
+                        text="\U0001F5D1 Ha, olib tashlansin",
+                        callback_data=f"asg:delok:{assignment_id}",
+                    )
+                ],
+                [
+                    InlineKeyboardButton(
+                        text="\u274C Yo'q, qolsin",
+                        callback_data=f"asg:p:{assignment_id}",
+                    )
+                ],
+            ]
+        ),
+    )
+
+
+@router.callback_query(F.data.startswith("asg:delok:"))
+async def assign_remove_do(c: CallbackQuery):
+    if not is_full_admin(c.from_user.id):
+        await c.answer("Ruxsat yo'q.", show_alert=True)
+        return
+
+    try:
+        assignment_id = int(c.data.split(":")[-1])
+    except ValueError:
+        await c.answer("Noto'g'ri so'rov.", show_alert=True)
+        return
+
+    async with SessionLocal() as session:
+        assignment, topic_name, _subject = await assignment_with_names(
+            session, assignment_id
+        )
+
+        if assignment is None:
+            await c.answer("Topshiriq topilmadi.", show_alert=True)
+            return
+
+        removed = await remove_assignment(session, assignment_id)
+
+    if not removed:
+        await c.answer("Olib tashlab bo'lmadi.", show_alert=True)
+        return
+
+    await c.answer("Olib tashlandi")
+
+    await c.message.edit_text(
+        "\u2705 <b>Topshiriq olib tashlandi</b>\n\n"
+        f"\U0001F4D6 {html.escape(topic_name)}\n\n"
+        "<i>Endi o'quvchilarning ro'yxatida ko'rinmaydi va "
+        "muddat eslatmasi yuborilmaydi.</i>",
+        reply_markup=InlineKeyboardMarkup(
+            inline_keyboard=[
+                back_row("adm:assign", "\U0001F4CB Topshiriqlar"),
+                admin_row(),
             ]
         ),
     )

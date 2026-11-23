@@ -167,7 +167,11 @@ async def active_assignments(session, *, user: User | None = None):
     return list(await session.execute(stmt))
 
 
-async def all_assignments(session, limit: int = 30):
+async def all_assignments(
+    session,
+    limit: int = 30,
+    include_removed: bool = False,
+):
     stmt = (
         select(Assignment, Topic.name, Subject.name)
         .join(Topic, Topic.id == Assignment.topic_id)
@@ -176,7 +180,28 @@ async def all_assignments(session, limit: int = 30):
         .limit(limit)
     )
 
+    if not include_removed:
+        stmt = stmt.where(Assignment.is_active.is_(True))
+
     return list(await session.execute(stmt))
+
+
+async def remove_assignment(session, assignment_id: int) -> bool:
+    """Topshiriqni olib tashlaydi (yumshoq o'chirish).
+
+    Yozuv bazada qoladi, lekin hech qayerda ko'rinmaydi:
+    o'quvchilar ro'yxatidan ham, eslatmalardan ham chiqadi.
+    Test natijalari esa o'z joyida qolaveradi.
+    """
+    assignment = await session.get(Assignment, assignment_id)
+
+    if assignment is None:
+        return False
+
+    assignment.is_active = False
+    await session.commit()
+
+    return True
 
 
 # ---------------------------------------------------------------
