@@ -27,6 +27,7 @@ from sqlalchemy import func, select
 
 from ..db import SessionLocal
 from ..models import Question, SmartReview, User
+from .smart_review_queue import reviewable_condition
 
 log = logging.getLogger(__name__)
 
@@ -93,9 +94,9 @@ def local_offset() -> timedelta:
 def due_counts_query(now: datetime):
     """Muddati kelgan takrorlashlar soni, o'quvchilar kesimida.
 
-    Shartlar smart_review_queue.due_reviews_query bilan bir xil,
-    shuning uchun eslatmadagi son takrorlash ko'rsatadigan savollar
-    soniga aniq mos keladi (rasmli savollar ham kiradi).
+    Shart smart_review_queue.reviewable_condition() dan olinadi —
+    ya'ni takrorlash ekrani bilan bitta manbadan. Shuning uchun
+    eslatmadagi son ochilganda chiqadigan savollar soniga mos keladi.
     """
     return (
         select(
@@ -109,13 +110,7 @@ def due_counts_query(now: datetime):
             SmartReview.status == "active",
             SmartReview.next_review_at.is_not(None),
             SmartReview.next_review_at <= now,
-            Question.question_mode == "closed",
-            Question.is_active.is_(True),
-            Question.correct_option.in_(("A", "B", "C", "D")),
-            Question.option_a.is_not(None),
-            Question.option_b.is_not(None),
-            Question.option_c.is_not(None),
-            Question.option_d.is_not(None),
+            reviewable_condition(),
             User.is_blocked.is_(False),
             User.registration_status == "approved",
         )

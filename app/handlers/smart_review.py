@@ -13,9 +13,16 @@ from sqlalchemy import select
 
 from ..db import SessionLocal
 from ..models import User
-from ..services.smart_review_queue import get_due_reviews
+from ..services.smart_review_queue import (
+    get_due_reviews,
+    is_reviewable,
+)
 
 router = Router()
+
+# Telegram rasm izohi uchun chegara 1024 belgi.
+# Zaxira bilan olamiz: uzunroq bo'lsa, matn alohida xabar bo'ladi.
+CAPTION_LIMIT = 900
 
 
 def smart_review_enabled():
@@ -56,20 +63,47 @@ def review_question_keyboard(question_id):
 
 
 def review_question_text(question, index, total):
+    """Savol matni.
+
+    Rasmli savollarda savol ham, variantlar ham rasm ichida bo'ladi
+    (bazada ular bo'sh satr), shuning uchun bo'sh qatorlar chiqmaydi.
+    """
     body = escape(question.text or "").strip()
 
-    if not body:
-        body = "<i>Savol rasmda ko'rsatilgan.</i>"
+    options = []
 
-    return (
-        f"\U0001F9E0 <b>SMART TAKRORLASH</b>\n\n"
-        f"❓ <b>Savol {index + 1}/{total}</b>\n\n"
-        f"{body}\n\n"
-        f"<b>A)</b> {escape(question.option_a or '')}\n"
-        f"<b>B)</b> {escape(question.option_b or '')}\n"
-        f"<b>C)</b> {escape(question.option_c or '')}\n"
-        f"<b>D)</b> {escape(question.option_d or '')}"
-    )
+    for key in ("a", "b", "c", "d"):
+        value = escape(
+            getattr(question, f"option_{key}", None) or ""
+        ).strip()
+
+        if value:
+            options.append(f"<b>{key.upper()})</b> {value}")
+
+    has_image = bool(getattr(question, "image_path", None))
+
+    if not body:
+        body = (
+            "<i>Savol rasmda ko'rsatilgan.</i>"
+            if has_image
+            else "<i>Savol matni yo'q.</i>"
+        )
+
+    parts = [
+        "\U0001F9E0 <b>SMART TAKRORLASH</b>",
+        f"❓ <b>Savol {index + 1}/{total}</b>",
+        body,
+    ]
+
+    if options:
+        parts.append("\n".join(options))
+    else:
+        parts.append(
+            "<i>Javob variantlari rasmda — "
+            "A, B, C yoki D ni tanlang.</i>"
+        )
+
+    return "\n\n".join(parts)
 
 
 def question_image_path(question):
@@ -87,14 +121,42 @@ def question_image_path(question):
     return path
 
 
+async def replace_text(c, text, keyboard=None):
+    """Joriy xabarni yangilaydi.
+
+    Rasmli xabarda matn izoh (caption) bo'ladi, oddiy xabarda matn.
+    Telegram bu ikkisini turlicha tahrirlaydi, shuning uchun
+    tegishlisini tanlaymiz; iloji bo'lmasa, yangi xabar yuboramiz.
+    """
+    message = c.message
+
+    is_caption = bool(getattr(message, "photo", None)) or (
+        getattr(message, "caption", None) is not None
+    )
+
+    try:
+        if is_caption:
+            await message.edit_caption(
+                caption=text,
+                reply_markup=keyboard,
+            )
+        else:
+            await message.edit_text(text, reply_markup=keyboard)
+
+        return
+    except Exception as exc:
+        if "message is not modified" in str(exc):
+            return
+
+    await message.answer(text, reply_markup=keyboard)
+
+
 async def show_question(c, question, index, total):
     """Savolni ko'rsatadi.
 
-    Matnli savol — mavjud xabarni tahrirlaydi (eski xatti-harakat).
-    Rasmli savol — eski xabarni o'chirib, avval rasmni, keyin savol
-    matnini tugmalari bilan yangi xabar qilib yuboradi. Telegram
-    matnli xabarni rasmli xabarga tahrirlashga ruxsat bermaydi,
-    shuning uchun shunday.
+    Matnli savol — mavjud xabarni tahrirlaydi.
+    Rasmli savol — eski xabarni o'chirib, rasmni izohi bilan
+    yangi xabar qilib yuboradi (o'quvchi testidagi kabi).
     """
     text = review_question_text(question, index, total)
     keyboard = review_question_keyboard(question.id)
@@ -105,33 +167,34 @@ async def show_question(c, question, index, total):
         if getattr(question, "image_path", None):
             text += "\n\n<i>⚠️ Rasm topilmadi.</i>"
 
-        try:
-            await c.message.edit_text(text, reply_markup=keyboard)
-        except Exception as exc:
-            if "message is not modified" in str(exc):
-                return
-
-            await c.message.answer(text, reply_markup=keyboard)
-
+        await replace_text(c, text, keyboard)
         return
 
-    # Rasmli savol
-    deleted = True
-
+    # Rasmli savol: eski xabarni olib tashlaymiz
     try:
         await c.message.delete()
     except Exception:
-        deleted = False
-
-    if not deleted:
-        # O'chirib bo'lmadi — hech bo'lmasa eski tugmalarni olib tashlaymiz
         try:
             await c.message.edit_reply_markup(reply_markup=None)
         except Exception:
             pass
 
+    photo = FSInputFile(image)
+
+    if len(text) <= CAPTION_LIMIT:
+        try:
+            await c.message.answer_photo(
+                photo=photo,
+                caption=text,
+                reply_markup=keyboard,
+            )
+            return
+        except Exception:
+            pass
+
+    # Izoh sig'masa yoki yuborilmasa — rasm va matn alohida
     try:
-        await c.message.answer_photo(FSInputFile(image))
+        await c.message.answer_photo(photo=FSInputFile(image))
     except Exception:
         text += "\n\n<i>⚠️ Rasmni yuborib bo'lmadi.</i>"
 
@@ -169,17 +232,18 @@ async def smart_review_start(c, state):
 
         if not rows:
             await state.clear()
-            await c.message.edit_text(
+            await replace_text(
+                c,
                 "\U0001F9E0 <b>SMART TAKRORLASH</b>\n\n"
                 "Hozircha takrorlash uchun savol yo'q.",
-                reply_markup=InlineKeyboardMarkup(
+                InlineKeyboardMarkup(
                     inline_keyboard=[[
                         InlineKeyboardButton(
                             text="\U0001F3E0 Bosh menyu",
                             callback_data="home"
                         )
                     ]]
-                )
+                ),
             )
             await c.answer()
             return
@@ -323,9 +387,10 @@ async def smart_review_answer(c, state):
         ]
     )
 
-    await c.message.edit_text(
+    await replace_text(
+        c,
         f"\U0001F9E0 <b>SMART TAKRORLASH</b>\n\n{feedback}",
-        reply_markup=keyboard,
+        keyboard,
     )
     await c.answer()
 
@@ -371,16 +436,7 @@ async def smart_review_next(c, state):
 
             q = await session.get(Question, qid)
 
-            if (
-                review is not None
-                and q is not None
-                and q.question_mode == "closed"
-                and q.correct_option in ("A", "B", "C", "D")
-                and all((
-                    q.option_a, q.option_b,
-                    q.option_c, q.option_d
-                ))
-            ):
+            if review is not None and is_reviewable(q):
                 question = q
                 break
 
@@ -388,10 +444,11 @@ async def smart_review_next(c, state):
 
     if question is None:
         await state.clear()
-        await c.message.edit_text(
+        await replace_text(
+            c,
             "\U0001F389 <b>Smart Takrorlash yakunlandi!</b>\n\n"
             "Bugungi mashg'ulot tugadi.",
-            reply_markup=InlineKeyboardMarkup(
+            InlineKeyboardMarkup(
                 inline_keyboard=[[
                     InlineKeyboardButton(
                         text="\U0001F4CA Natijalarim",
