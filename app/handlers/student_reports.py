@@ -397,6 +397,15 @@ def card_keyboard(report, sort: str = SORT_ACTIVITY):
         buttons.append(
             [
                 InlineKeyboardButton(
+                    text="\U0001F4CB Topshiriq berish",
+                    callback_data=f"asg:u:{report.telegram_id}",
+                )
+            ]
+        )
+
+        buttons.append(
+            [
+                InlineKeyboardButton(
                     text="\U0001F4C4 To'liq tarix",
                     callback_data=f"rep:h:{report.telegram_id}:0",
                 )

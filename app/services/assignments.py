@@ -1,0 +1,391 @@
+"""Ustoz topshiriqlari — hisob-kitob qismi.
+
+Joylashuvi: app/services/assignments.py
+
+Topshiriq: "shu mavzudan N ta savollik test ishlang, muddat —
+falon sana". Bajarilganini aniqlash uchun test oqimiga tegilmaydi:
+topshiriq yaratilgandan keyin o'sha mavzudan yetarli savolli test
+ishlangan bo'lsa, bajarilgan hisoblanadi. Shuning uchun mavjud
+test kodiga hech qanday o'zgartirish kiritilmaydi.
+"""
+
+from __future__ import annotations
+
+import os
+from dataclasses import dataclass
+from datetime import datetime, time, timedelta
+
+from sqlalchemy import and_, case, distinct, func, or_, select
+
+from ..models import (
+    AnswerLog,
+    Assignment,
+    Question,
+    Subject,
+    TestAttempt,
+    Topic,
+    User,
+)
+
+# Muddat kuni soat nechada tugaydi (mahalliy vaqt)
+DEADLINE_HOUR = 20
+
+
+def local_offset() -> timedelta:
+    raw = (os.getenv("REVIEW_REMINDER_UTC_OFFSET") or "5").strip()
+
+    try:
+        hours = int(raw)
+    except ValueError:
+        hours = 5
+
+    if not -12 <= hours <= 14:
+        hours = 5
+
+    return timedelta(hours=hours)
+
+
+def to_local(value: datetime | None) -> datetime | None:
+    if value is None:
+        return None
+
+    return value + local_offset()
+
+
+def fmt(value: datetime | None) -> str:
+    local = to_local(value)
+
+    if local is None:
+        return "—"
+
+    return local.strftime("%d.%m.%Y %H:%M")
+
+
+def deadline_after(days: int, now: datetime | None = None) -> datetime:
+    """N kundan keyingi mahalliy 20:00 ni UTC ga o'girib qaytaradi."""
+    moment = now or datetime.utcnow()
+    local_now = moment + local_offset()
+
+    target_local = datetime.combine(
+        (local_now + timedelta(days=days)).date(),
+        time(hour=DEADLINE_HOUR),
+    )
+
+    return target_local - local_offset()
+
+
+def deadline_label(days: int) -> str:
+    if days == 1:
+        return f"Ertaga {DEADLINE_HOUR}:00"
+
+    if days == 7:
+        return f"1 hafta ({DEADLINE_HOUR}:00)"
+
+    return f"{days} kundan keyin ({DEADLINE_HOUR}:00)"
+
+
+# ---------------------------------------------------------------
+#  Yaratish
+# ---------------------------------------------------------------
+
+async def create_assignment(
+    session,
+    *,
+    topic_id: int,
+    created_by: int,
+    required_questions: int,
+    days: int,
+    group_name: str | None = None,
+    user_id: int | None = None,
+) -> Assignment:
+    assignment = Assignment(
+        topic_id=topic_id,
+        created_by=created_by,
+        required_questions=required_questions,
+        group_name=group_name,
+        user_id=user_id,
+        deadline=deadline_after(days),
+        is_active=True,
+    )
+
+    session.add(assignment)
+    await session.commit()
+
+    return assignment
+
+
+async def assignment_with_names(session, assignment_id: int):
+    """(Assignment, mavzu nomi, fan nomi)"""
+    row = (
+        await session.execute(
+            select(Assignment, Topic.name, Subject.name)
+            .join(Topic, Topic.id == Assignment.topic_id)
+            .join(Subject, Subject.id == Topic.subject_id)
+            .where(Assignment.id == assignment_id)
+        )
+    ).first()
+
+    if row is None:
+        return None, None, None
+
+    return row[0], row[1], row[2]
+
+
+async def active_assignments(session, *, user: User | None = None):
+    """Muddati o'tmagan topshiriqlar.
+
+    user berilsa — faqat o'shanga tegishlilari: shaxsiy topshiriq,
+    uning guruhiga berilgani yoki hammaga berilgani.
+    """
+    now = datetime.utcnow()
+
+    stmt = (
+        select(Assignment, Topic.name, Subject.name)
+        .join(Topic, Topic.id == Assignment.topic_id)
+        .join(Subject, Subject.id == Topic.subject_id)
+        .where(
+            Assignment.is_active.is_(True),
+            Assignment.deadline > now,
+        )
+        .order_by(Assignment.deadline.asc())
+    )
+
+    if user is not None:
+        stmt = stmt.where(
+            or_(
+                Assignment.user_id == user.id,
+                and_(
+                    Assignment.user_id.is_(None),
+                    or_(
+                        Assignment.group_name.is_(None),
+                        Assignment.group_name == user.group_name,
+                    ),
+                ),
+            )
+        )
+
+    return list(await session.execute(stmt))
+
+
+async def all_assignments(session, limit: int = 30):
+    stmt = (
+        select(Assignment, Topic.name, Subject.name)
+        .join(Topic, Topic.id == Assignment.topic_id)
+        .join(Subject, Subject.id == Topic.subject_id)
+        .order_by(Assignment.id.desc())
+        .limit(limit)
+    )
+
+    return list(await session.execute(stmt))
+
+
+# ---------------------------------------------------------------
+#  Bajarilganini aniqlash
+# ---------------------------------------------------------------
+
+@dataclass
+class ProgressRow:
+    telegram_id: int
+    full_name: str
+    group_name: str | None
+    done: bool
+    best_correct: int
+    best_total: int
+    done_at: datetime | None
+
+    @property
+    def accuracy(self) -> int:
+        if not self.best_total:
+            return 0
+
+        return int(round(self.best_correct / self.best_total * 100))
+
+
+async def target_users(session, assignment: Assignment) -> list[User]:
+    """Topshiriq kimlarga tegishli."""
+    if assignment.user_id:
+        user = await session.get(User, assignment.user_id)
+
+        return [user] if user is not None else []
+
+    stmt = select(User).where(
+        User.registration_status == "approved",
+        User.is_blocked.is_(False),
+    )
+
+    if assignment.group_name:
+        stmt = stmt.where(User.group_name == assignment.group_name)
+
+    return list(await session.scalars(stmt))
+
+
+@dataclass
+class WeakTopic:
+    topic_id: int
+    topic_name: str
+    subject_name: str
+    answered: int
+    correct: int
+    distinct_questions: int
+    available_questions: int
+
+    @property
+    def accuracy(self) -> int:
+        if not self.answered:
+            return 0
+
+        return int(round(self.correct / self.answered * 100))
+
+
+async def weak_topics_for_user(
+    session,
+    user_id: int,
+    limit: int = 4,
+    min_distinct: int = 3,
+) -> list[WeakTopic]:
+    """O'quvchining eng zaif mavzulari (shaxsiy topshiriq uchun)."""
+    rows = await session.execute(
+        select(
+            Topic.id,
+            Topic.name,
+            Subject.name,
+            func.count(AnswerLog.id),
+            func.sum(
+                case((AnswerLog.is_correct.is_(True), 1), else_=0)
+            ),
+            func.count(distinct(AnswerLog.question_id)),
+        )
+        .join(TestAttempt, TestAttempt.id == AnswerLog.attempt_id)
+        .join(Question, Question.id == AnswerLog.question_id)
+        .join(Topic, Topic.id == Question.topic_id)
+        .join(Subject, Subject.id == Topic.subject_id)
+        .where(
+            TestAttempt.user_id == user_id,
+            Question.is_active.is_(True),
+        )
+        .group_by(Topic.id, Topic.name, Subject.name)
+        .having(func.count(distinct(AnswerLog.question_id)) >= min_distinct)
+    )
+
+    items = []
+
+    for row in rows:
+        items.append(
+            WeakTopic(
+                topic_id=int(row[0]),
+                topic_name=row[1] or "—",
+                subject_name=row[2] or "—",
+                answered=int(row[3] or 0),
+                correct=int(row[4] or 0),
+                distinct_questions=int(row[5] or 0),
+                available_questions=0,
+            )
+        )
+
+    items.sort(key=lambda item: item.accuracy)
+    items = items[:limit]
+
+    for item in items:
+        item.available_questions = int(
+            await session.scalar(
+                select(func.count(Question.id)).where(
+                    Question.topic_id == item.topic_id,
+                    Question.is_active.is_(True),
+                )
+            )
+            or 0
+        )
+
+    return items
+
+
+async def assignment_progress(
+    session,
+    assignment: Assignment,
+) -> list[ProgressRow]:
+    """Kim bajardi, kim bajarmadi."""
+    users = await target_users(session, assignment)
+
+    if not users:
+        return []
+
+    user_ids = [user.id for user in users]
+
+    deadline = assignment.deadline
+    started = assignment.created_at or datetime.min
+
+    rows = await session.execute(
+        select(
+            TestAttempt.user_id,
+            func.max(TestAttempt.correct),
+            func.max(TestAttempt.total),
+            func.min(TestAttempt.created_at),
+        )
+        .where(
+            TestAttempt.user_id.in_(user_ids),
+            TestAttempt.topic_id == assignment.topic_id,
+            TestAttempt.created_at >= started,
+            TestAttempt.created_at <= deadline,
+            TestAttempt.total >= assignment.required_questions,
+        )
+        .group_by(TestAttempt.user_id)
+    )
+
+    done_map = {
+        int(row[0]): (int(row[1] or 0), int(row[2] or 0), row[3])
+        for row in rows
+    }
+
+    result = []
+
+    for user in users:
+        entry = done_map.get(user.id)
+
+        result.append(
+            ProgressRow(
+                telegram_id=user.telegram_id,
+                full_name=user.full_name or "Nomsiz",
+                group_name=user.group_name,
+                done=entry is not None,
+                best_correct=entry[0] if entry else 0,
+                best_total=entry[1] if entry else 0,
+                done_at=entry[2] if entry else None,
+            )
+        )
+
+    result.sort(key=lambda r: (not r.done, r.full_name.casefold()))
+
+    return result
+
+
+async def student_status(
+    session,
+    user: User,
+    assignment: Assignment,
+) -> bool:
+    """Bitta o'quvchi topshiriqni bajarganmi."""
+    found = await session.scalar(
+        select(func.count(TestAttempt.id)).where(
+            TestAttempt.user_id == user.id,
+            TestAttempt.topic_id == assignment.topic_id,
+            TestAttempt.created_at >= (assignment.created_at or datetime.min),
+            TestAttempt.created_at <= assignment.deadline,
+            TestAttempt.total >= assignment.required_questions,
+        )
+    )
+
+    return bool(found)
+
+
+async def group_names(session) -> list[str]:
+    rows = await session.scalars(
+        select(User.group_name)
+        .where(
+            User.registration_status == "approved",
+            User.group_name.is_not(None),
+            User.group_name != "",
+        )
+        .distinct()
+    )
+
+    return sorted({row for row in rows if row}, key=str.casefold)

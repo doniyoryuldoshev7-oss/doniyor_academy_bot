@@ -292,3 +292,43 @@ class AdminRoleEvent(Base):
         default=datetime.utcnow,
         nullable=False,
     )
+
+
+# Ustoz topshiriqlari
+class Assignment(Base):
+    __tablename__ = "assignments"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+
+    topic_id: Mapped[int] = mapped_column(
+        ForeignKey("topics.id", ondelete="CASCADE"),
+        index=True,
+    )
+
+    created_by: Mapped[int] = mapped_column(BigInteger, index=True)
+
+    # Kimga: aniq o'quvchi -> user_id, guruh -> group_name,
+    # ikkalasi ham bo'sh bo'lsa, hammaga.
+    user_id: Mapped[int | None] = mapped_column(
+        ForeignKey("users.id", ondelete="CASCADE"),
+        nullable=True,
+        index=True,
+    )
+
+    group_name: Mapped[str | None] = mapped_column(
+        String(100),
+        nullable=True,
+    )
+
+    required_questions: Mapped[int] = mapped_column(Integer, default=10)
+
+    note: Mapped[str | None] = mapped_column(Text, nullable=True)
+
+    deadline: Mapped[datetime] = mapped_column(DateTime, index=True)
+
+    is_active: Mapped[bool] = mapped_column(Boolean, default=True)
+
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime,
+        default=datetime.utcnow,
+    )

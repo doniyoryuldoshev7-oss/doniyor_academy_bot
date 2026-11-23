@@ -149,6 +149,12 @@ def admin_menu(limited=False):
             ],
             [
                 InlineKeyboardButton(
+                    text="📋 Ustoz topshirig'i",
+                    callback_data="adm:assign",
+                )
+            ],
+            [
+                InlineKeyboardButton(
                     text="📚 Fanlar / mavzular", callback_data="adm:catalog"
                 )
             ],
