@@ -25,7 +25,11 @@ from sqlalchemy import select, update
 
 from ..admin_roles import is_full_admin
 from ..db import SessionLocal
-from ..models import SmartReview, User
+from ..models import Question, SmartReview, User
+from ..services.smart_review_queue import (
+    image_missing,
+    unreviewable_reason,
+)
 from ..services.review_reminder import (
     due_counts,
     local_offset,
@@ -63,6 +67,12 @@ def panel_keyboard() -> InlineKeyboardMarkup:
                 InlineKeyboardButton(
                     text="\U0001F9EA Sinov: muddatni hozirga surish",
                     callback_data="adm:rem_test",
+                )
+            ],
+            [
+                InlineKeyboardButton(
+                    text="\U0001F50D Mening navbatim",
+                    callback_data="adm:rem_debug",
                 )
             ],
             [
@@ -329,3 +339,135 @@ async def smart_review_test_command(m: Message):
         return
 
     await m.answer(_test_result_text(count), reply_markup=panel_keyboard())
+
+
+# ---------------------------------------------------------------
+#  Tekshiruv: navbatda nima turibdi va nega chiqmayapti
+# ---------------------------------------------------------------
+
+async def queue_report(telegram_id: int, limit: int = 15) -> str:
+    """Adminning o'z takrorlash navbatini sabablari bilan ko'rsatadi."""
+    now = datetime.now(timezone.utc)
+    offset = local_offset()
+
+    async with SessionLocal() as session:
+        user = await session.scalar(
+            select(User).where(User.telegram_id == telegram_id)
+        )
+
+        if user is None:
+            return "\u26A0\uFE0F O'quvchi yozuvingiz topilmadi."
+
+        rows = list(
+            await session.execute(
+                select(SmartReview, Question)
+                .outerjoin(
+                    Question,
+                    Question.id == SmartReview.question_id,
+                )
+                .where(SmartReview.user_id == user.id)
+                .order_by(SmartReview.id)
+            )
+        )
+
+    if not rows:
+        return (
+            "\U0001F50D <b>Mening navbatim</b>\n\n"
+            "Takrorlash yozuvlari yo'q. Test ishlab, xato javob "
+            "berganingizdan keyin paydo bo'ladi."
+        )
+
+    ready = 0
+    blocked = 0
+    later = 0
+    mastered = 0
+
+    lines = ["\U0001F50D <b>Mening navbatim</b>", ""]
+    details = []
+
+    for review, question in rows:
+        reason = unreviewable_reason(question)
+
+        if review.status == "mastered":
+            mastered += 1
+            mark = "\U0001F3C6 mustahkamlangan"
+        elif reason is not None:
+            blocked += 1
+            mark = "\u274C " + reason
+        elif review.next_review_at is None:
+            blocked += 1
+            mark = "\u274C muddat belgilanmagan"
+        elif review.next_review_at > now:
+            later += 1
+            when = (review.next_review_at + offset).strftime("%d.%m %H:%M")
+            mark = "\U0001F552 " + when
+        else:
+            ready += 1
+            mark = "\u2705 bugun chiqadi"
+
+            if image_missing(question):
+                mark += " (rasm fayli yo'q)"
+
+        mode = (question.question_mode if question else None) or "—"
+
+        details.append(
+            f"  \u2022 #{review.question_id} [{mode}] {mark}"
+        )
+
+    lines.append(f"\u2705 Bugun chiqadi: <b>{ready}</b>")
+    lines.append(f"\u274C Chiqa olmaydi: <b>{blocked}</b>")
+    lines.append(f"\U0001F552 Keyinroq: <b>{later}</b>")
+    lines.append(f"\U0001F3C6 Mustahkamlangan: <b>{mastered}</b>")
+    lines.append("")
+    lines.extend(details[:limit])
+
+    if len(details) > limit:
+        lines.append(f"  ... va yana {len(details) - limit} ta yozuv")
+
+    if blocked:
+        lines.append("")
+        lines.append(
+            "<i>\"Chiqa olmaydi\" — bu savollar Smart Takrorlashda "
+            "ko'rsatilmaydi, lekin boshqaruv panelidagi eski hisobga "
+            "kirib ketardi. Masalan ochiq (yozma) savollar: "
+            "takrorlash faqat A/B/C/D bilan ishlaydi.</i>"
+        )
+
+    return "\n".join(lines)
+
+
+@router.callback_query(F.data == "adm:rem_debug")
+async def reminders_debug(c: CallbackQuery):
+    if not is_full_admin(c.from_user.id):
+        await c.answer("Ruxsat yo'q.", show_alert=True)
+        return
+
+    await c.answer("Tekshirilmoqda...")
+
+    try:
+        text = await queue_report(c.from_user.id)
+    except Exception as exc:
+        log.exception("Navbat tekshiruvi xatosi: %s", exc)
+
+        await c.message.answer(
+            "\u26A0\uFE0F Xato yuz berdi. Loglarni tekshiring."
+        )
+        return
+
+    await c.message.edit_text(text, reply_markup=panel_keyboard())
+
+
+@router.message(Command("sr_navbat"))
+async def queue_report_command(m: Message):
+    if not is_full_admin(m.from_user.id):
+        return
+
+    try:
+        text = await queue_report(m.from_user.id)
+    except Exception as exc:
+        log.exception("Navbat tekshiruvi xatosi: %s", exc)
+
+        await m.answer("\u26A0\uFE0F Xato yuz berdi. Loglarni tekshiring.")
+        return
+
+    await m.answer(text, reply_markup=panel_keyboard())

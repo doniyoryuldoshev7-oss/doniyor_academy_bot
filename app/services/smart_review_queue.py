@@ -1,4 +1,5 @@
 from datetime import datetime, timezone
+from pathlib import Path
 
 from sqlalchemy import and_, or_, select
 
@@ -105,3 +106,53 @@ def is_reviewable(question) -> bool:
         )
 
     return False
+
+
+def unreviewable_reason(question):
+    """Savol nega takrorlashga chiqmayapti? None bo'lsa — chiqadi.
+
+    Tekshiruv uchun: is_reviewable() bilan bir xil mantiq, lekin
+    sababini matn qilib qaytaradi.
+    """
+    if question is None:
+        return "savol bazadan o'chirilgan"
+
+    if not getattr(question, "is_active", True):
+        return "savol yashirilgan (is_active = false)"
+
+    correct = (question.correct_option or "").strip().upper()
+
+    if correct not in ("A", "B", "C", "D"):
+        return "to'g'ri javob belgilanmagan"
+
+    mode = question.question_mode or TEXT_MODE
+
+    if mode in IMAGE_MODES:
+        if not question.image_path:
+            return "rasm yo'li saqlanmagan"
+
+        return None
+
+    if mode == TEXT_MODE:
+        missing = [
+            key.upper()
+            for key in ("a", "b", "c", "d")
+            if getattr(question, f"option_{key}", None) is None
+        ]
+
+        if missing:
+            return "variant yo'q: " + ", ".join(missing)
+
+        return None
+
+    return "savol turi qo'llab-quvvatlanmaydi: " + str(mode)
+
+
+def image_missing(question) -> bool:
+    """Rasm yo'li bor, lekin fayl diskda yo'q."""
+    raw = getattr(question, "image_path", None)
+
+    if not raw:
+        return False
+
+    return not Path(raw).is_file()

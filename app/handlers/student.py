@@ -114,7 +114,8 @@ async def smart_review_dashboard(c, state):
     import os
     from datetime import datetime, timezone
     from sqlalchemy import func
-    from ..models import SmartReview
+    from ..models import Question, SmartReview
+    from ..services.smart_review_queue import reviewable_condition
 
     await state.clear()
 
@@ -145,18 +146,24 @@ async def smart_review_dashboard(c, state):
             return
 
         due = await s.scalar(
-            select(func.count(SmartReview.id)).where(
+            select(func.count(SmartReview.id))
+            .join(Question, Question.id == SmartReview.question_id)
+            .where(
                 SmartReview.user_id == user.id,
                 SmartReview.status == "active",
                 SmartReview.next_review_at <= now,
+                reviewable_condition(),
             )
         )
 
         upcoming = await s.scalar(
-            select(func.count(SmartReview.id)).where(
+            select(func.count(SmartReview.id))
+            .join(Question, Question.id == SmartReview.question_id)
+            .where(
                 SmartReview.user_id == user.id,
                 SmartReview.status == "active",
                 SmartReview.next_review_at > now,
+                reviewable_condition(),
             )
         )
 
