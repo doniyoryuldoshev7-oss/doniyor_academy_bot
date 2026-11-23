@@ -40,7 +40,8 @@ from ..services.assignments import (
     deadline_label,
     fmt,
     group_names,
-    student_status,
+    progress_percent,
+    student_progress,
     target_users,
 )
 
@@ -637,7 +638,7 @@ async def my_assignments(c: CallbackQuery):
         statuses = {}
 
         for assignment, _topic, _subject in rows:
-            statuses[assignment.id] = await student_status(
+            statuses[assignment.id] = await student_progress(
                 session, user, assignment
             )
 
