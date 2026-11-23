@@ -469,7 +469,10 @@ async def assign_create(c: CallbackQuery):
             [
                 InlineKeyboardButton(
                     text="▶️ Testni boshlash",
-                    callback_data=f"topic:{assignment.topic_id}",
+                    callback_data=(
+                        f"quizsize:{assignment.topic_id}:"
+                        f"{assignment.required_questions}"
+                    ),
                 )
             ],
             [
@@ -645,7 +648,7 @@ async def my_assignments(c: CallbackQuery):
     lines = [
         "\U0001F4CB <b>MENING TOPSHIRIQLARIM</b>",
         "",
-        "<i>Topshiriq to'liq bajarilishi kerak: barcha savollarga javob bering.</i>",
+        "<i>Topshiriq bitta testda to'liq bajarilishi kerak: barcha savollarga javob berib, testni yakunlang.</i>",
         "",
     ]
 
@@ -669,9 +672,8 @@ async def my_assignments(c: CallbackQuery):
                 mark = "✅ <b>bajarildi</b>"
             elif answered:
                 mark = (
-                    f"⏳ <b>{percent}%</b> bajarildi "
-                    f"({answered}/{required} savol) — "
-                    "davom ettiring"
+                    f"⏳ Eng yaxshi urinish: <b>{answered}/{required}</b> "
+                    f"({percent}%) — testni to'liq ishlab chiqing"
                 )
             else:
                 mark = "⏳ <b>0%</b> — hali boshlanmagan"
@@ -689,7 +691,10 @@ async def my_assignments(c: CallbackQuery):
                     [
                         InlineKeyboardButton(
                             text=f"▶️ {short(topic_name, 22)}",
-                            callback_data=f"topic:{assignment.topic_id}",
+                            callback_data=(
+                                f"quizsize:{assignment.topic_id}:"
+                                f"{assignment.required_questions}"
+                            ),
                         )
                     ]
                 )
@@ -971,7 +976,10 @@ async def assign_personal_create(c: CallbackQuery):
             [
                 InlineKeyboardButton(
                     text="▶️ Testni boshlash",
-                    callback_data=f"topic:{assignment.topic_id}",
+                    callback_data=(
+                                f"quizsize:{assignment.topic_id}:"
+                                f"{assignment.required_questions}"
+                            ),
                 )
             ],
             [

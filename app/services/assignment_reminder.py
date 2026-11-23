@@ -49,17 +49,18 @@ def student_text(topic_name: str, assignment, answered: int = 0) -> str:
 
     if answered:
         status = (
-            f"\U0001F4CA Hozir bajarilgan: <b>{percent}%</b> "
-            f"({answered}/{required} savol)\n"
-            f"❗ Qolgan: <b>{max(0, required - answered)}</b> ta savol\n\n"
-            "Topshiriq to'liq bajarilishi kerak — ozgina qoldi."
+            f"\U0001F4CA Eng yaxshi urinishingiz: "
+            f"<b>{answered}/{required}</b> savol ({percent}%)\n\n"
+            f"Topshiriq bitta testda to'liq bajarilishi kerak: "
+            f"<b>{required}</b> ta savolga javob berib, testni "
+            "yakunlang."
         )
     else:
         status = (
             "\U0001F4CA Hozir bajarilgan: <b>0%</b>\n\n"
-            f"Topshiriq to'liq bajarilishi kerak: barcha "
-            f"<b>{required}</b> ta savolga javob bering. "
-            "Bir necha daqiqa yetarli."
+            f"Topshiriq bitta testda to'liq bajarilishi kerak: "
+            f"<b>{required}</b> ta savolga javob berib, testni "
+            "yakunlang. Bir necha daqiqa yetarli."
         )
 
     return (
@@ -70,13 +71,13 @@ def student_text(topic_name: str, assignment, answered: int = 0) -> str:
     )
 
 
-def student_keyboard(topic_id: int) -> InlineKeyboardMarkup:
+def student_keyboard(topic_id: int, required: int) -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(
         inline_keyboard=[
             [
                 InlineKeyboardButton(
                     text="▶️ Testni boshlash",
-                    callback_data=f"topic:{topic_id}",
+                    callback_data=f"quizsize:{topic_id}:{required}",
                 )
             ],
             [
@@ -115,7 +116,10 @@ async def send_deadline_reminders(bot, now: datetime | None = None) -> dict:
                     await bot.send_message(
                         student.telegram_id,
                         student_text(topic_name, assignment, answered),
-                        reply_markup=student_keyboard(assignment.topic_id),
+                        reply_markup=student_keyboard(
+                            assignment.topic_id,
+                            assignment.required_questions,
+                        ),
                     )
                     sent += 1
                 except Exception as exc:
