@@ -53,7 +53,7 @@ def review_question_keyboard(question_id):
 def review_question_text(question, index, total):
     return (
         f"\U0001F9E0 <b>SMART TAKRORLASH</b>\n\n"
-        f"? <b>Savol {index + 1}/{total}</b>\n\n"
+        f"\u2753 <b>Savol {index + 1}/{total}</b>\n\n"
         f"{escape(question.text or '')}\n\n"
         f"<b>A)</b> {escape(question.option_a or '')}\n"
         f"<b>B)</b> {escape(question.option_b or '')}\n"
@@ -232,9 +232,9 @@ async def smart_review_answer(c, state):
     await state.update_data(smart_review_waiting=False)
 
     if is_correct:
-        feedback = "? <b>To'g'ri javob!</b>"
+        feedback = "\u2705 <b>To'g'ri javob!</b>"
         if result.status == "mastered":
-            feedback += "\n\u2705 Savol mustahkamlandi!"
+            feedback += "\n\U0001F3C6 Savol mustahkamlandi!"
         else:
             feedback += "\n\U0001F552 Keyingi takrorlash rejalashtirildi."
     else:
