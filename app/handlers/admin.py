@@ -132,6 +132,11 @@ def admin_menu(limited=False):
             ],
             [
                 InlineKeyboardButton(
+                    text="🔔 Eslatmalar", callback_data="adm:reminders"
+                )
+            ],
+            [
+                InlineKeyboardButton(
                     text="📚 Fanlar / mavzular", callback_data="adm:catalog"
                 )
             ],

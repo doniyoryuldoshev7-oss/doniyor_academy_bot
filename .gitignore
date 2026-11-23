@@ -28,3 +28,6 @@ app/question_images/_crop_sessions/
 app_backup_*/
 *.bak_*
 patch_soft_delete.py
+*.bat
+deploy_log.txt
+natija.txt

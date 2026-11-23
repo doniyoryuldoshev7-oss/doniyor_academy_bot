@@ -46,3 +46,37 @@ Untracked files:
 no changes added to commit (use "git add" and/or "git commit -a")
 
 --- add ---
+warning: in the working copy of 'app/handlers/export.py', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'app/handlers/reminders.py', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'app/services/review_reminder.py', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'app/services/test_archive.py', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'app/services/word_export.py', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'deploy_log.txt', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'patch_review_reminder.py', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'patch_word_export.py', LF will be replaced by CRLF the next time Git touches it
+
+--- commit ---
+[master 105d172] Word eksport va takrorlash eslatmalari
+ 16 files changed, 2103 insertions(+), 1 deletion(-)
+ create mode 100644 DEPLOY.bat
+ create mode 100644 O_RNAT.bat
+ create mode 100644 TEKSHIR.bat
+ create mode 100644 app/handlers/export.py
+ create mode 100644 app/handlers/reminders.py
+ create mode 100644 app/services/review_reminder.py
+ create mode 100644 app/services/test_archive.py
+ create mode 100644 app/services/word_export.py
+ create mode 100644 deploy_log.txt
+ create mode 100644 patch_review_reminder.py
+ create mode 100644 patch_word_export.py
+
+--- push ---
+To https://github.com/doniyoryuldoshev7-oss/doniyor_academy_bot.git
+   585a9be..105d172  master -> master
+
+--- oxirgi commitlar ---
+105d172 Word eksport va takrorlash eslatmalari
+585a9be feat: user search and sorting
+c4e8185 gitignore: zaxira va patch fayllari
+824c7bc Savolni ochirish o'rniga yashirish (soft delete)
+6b7ec5d feat: restricted question editor roles
