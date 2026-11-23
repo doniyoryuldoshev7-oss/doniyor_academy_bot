@@ -21,9 +21,11 @@ from aiogram.types import (
     InlineKeyboardMarkup,
     Message,
 )
+from sqlalchemy import select, update
 
 from ..admin_roles import is_full_admin
 from ..db import SessionLocal
+from ..models import SmartReview, User
 from ..services.review_reminder import (
     due_counts,
     local_offset,
@@ -55,6 +57,12 @@ def panel_keyboard() -> InlineKeyboardMarkup:
                 InlineKeyboardButton(
                     text="\U0001F504 Yangilash",
                     callback_data="adm:rem_refresh",
+                )
+            ],
+            [
+                InlineKeyboardButton(
+                    text="\U0001F9EA Sinov: muddatni hozirga surish",
+                    callback_data="adm:rem_test",
                 )
             ],
             [
@@ -223,3 +231,101 @@ async def reminder_send_now(m: Message):
         return
 
     await notice.edit_text(text, reply_markup=panel_keyboard())
+
+
+# ---------------------------------------------------------------
+#  Sinov uchun: o'z savollaring muddatini hozirga surish
+# ---------------------------------------------------------------
+
+async def _pull_reviews_forward(telegram_id: int) -> int:
+    """Faqat so'rayotgan adminning o'z yozuvlarini oldinga suradi.
+
+    Boshqa o'quvchilarning jadvaliga tegmaydi — aks holda ularning
+    takrorlash oralig'i buzilgan bo'lardi.
+    """
+    now = datetime.now(timezone.utc)
+
+    async with SessionLocal() as session:
+        user = await session.scalar(
+            select(User).where(User.telegram_id == telegram_id)
+        )
+
+        if user is None:
+            return -1
+
+        result = await session.execute(
+            update(SmartReview)
+            .where(
+                SmartReview.user_id == user.id,
+                SmartReview.status == "active",
+            )
+            .values(next_review_at=now)
+        )
+
+        await session.commit()
+
+        return int(result.rowcount or 0)
+
+
+def _test_result_text(count: int) -> str:
+    if count < 0:
+        return (
+            "\u26A0\uFE0F Sizning o'quvchi yozuvingiz topilmadi. "
+            "Avval botdan ro'yxatdan o'ting."
+        )
+
+    if count == 0:
+        return (
+            "\U0001F9EA <b>Sinov</b>\n\n"
+            "Sizda takrorlash navbatida savol yo'q.\n\n"
+            "Sinab ko'rish uchun: <b>Fanlar</b> dan test ishlang va "
+            "bir-ikki savolga <b>ataylab xato</b> javob bering. "
+            "Keyin shu tugmani qayta bosing."
+        )
+
+    return (
+        "\U0001F9EA <b>Sinov tayyor</b>\n\n"
+        f"<b>{count}</b> ta savolning muddati hozirgi vaqtga surildi.\n\n"
+        "Endi <b>\U0001F9E0 Smart Takrorlash</b> ni oching — "
+        "savollar darhol chiqadi."
+    )
+
+
+@router.callback_query(F.data == "adm:rem_test")
+async def reminders_test(c: CallbackQuery):
+    if not is_full_admin(c.from_user.id):
+        await c.answer("Ruxsat yo'q.", show_alert=True)
+        return
+
+    await c.answer("Bajarilmoqda...")
+
+    try:
+        count = await _pull_reviews_forward(c.from_user.id)
+    except Exception as exc:
+        log.exception("Sinov xatosi: %s", exc)
+
+        await c.message.answer(
+            "\u26A0\uFE0F Xato yuz berdi. Loglarni tekshiring."
+        )
+        return
+
+    await c.message.edit_text(
+        _test_result_text(count),
+        reply_markup=panel_keyboard(),
+    )
+
+
+@router.message(Command("sr_sinov"))
+async def smart_review_test_command(m: Message):
+    if not is_full_admin(m.from_user.id):
+        return
+
+    try:
+        count = await _pull_reviews_forward(m.from_user.id)
+    except Exception as exc:
+        log.exception("Sinov xatosi: %s", exc)
+
+        await m.answer("\u26A0\uFE0F Xato yuz berdi. Loglarni tekshiring.")
+        return
+
+    await m.answer(_test_result_text(count), reply_markup=panel_keyboard())
