@@ -5,6 +5,7 @@ class Settings(BaseSettings):
     database_url: str
     admin_ids: str = ""
     web_app_url: str = ""
+    archive_chat_id: str = ""
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8")
     @property
     def admins(self) -> set[int]:

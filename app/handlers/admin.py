@@ -1,5 +1,6 @@
 import sys
 import asyncio
+import logging
 import json
 import re
 import html
@@ -122,6 +123,11 @@ def admin_menu(limited=False):
             [
                 InlineKeyboardButton(
                     text="📥 Excel/CSV import", callback_data="adm:import"
+                )
+            ],
+            [
+                InlineKeyboardButton(
+                    text="📄 Word eksport", callback_data="adm:export"
                 )
             ],
             [
@@ -1009,7 +1015,44 @@ async def bulk_question_save(
 
         topic_name = topic.name
 
+        subject_obj = await db.get(Subject, topic.subject_id)
+        subject_name = subject_obj.name if subject_obj else "—"
+
     saved_count = len(items)
+
+    # --- Word avto-eksport (har bir yuklangan test uchun) ---
+    try:
+        from ..services.word_export import (
+            build_questions_docx,
+            export_filename,
+            items_from_bulk,
+        )
+        from ..services.test_archive import deliver_test_export
+
+        export_items = items_from_bulk(items)
+
+        docx_bytes = build_questions_docx(
+            subject_name=subject_name,
+            topic_name=topic_name,
+            items=export_items,
+        )
+
+        await deliver_test_export(
+            bot=c.bot,
+            admin_chat_id=c.from_user.id,
+            data=docx_bytes,
+            filename=export_filename(subject_name, topic_name),
+            subject_name=subject_name,
+            topic_name=topic_name,
+            count=saved_count,
+            author=c.from_user.full_name,
+            note="Yangi yuklangan test — avtomatik eksport.",
+        )
+    except Exception as exc:
+        logging.getLogger(__name__).exception(
+            "Word avto-eksport xatosi: %s", exc
+        )
+    # --- /Word avto-eksport ---
 
     await state.clear()
 

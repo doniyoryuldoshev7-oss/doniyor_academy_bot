@@ -1,0 +1,48 @@
+========== GIT TEKSHIRUV ==========
+
+--- papka ---
+D:\#1 Doniyor Academy
+
+--- git versiyasi ---
+git version 2.55.0.windows.3
+
+--- remote ---
+origin	https://github.com/doniyoryuldoshev7-oss/doniyor_academy_bot.git (fetch)
+origin	https://github.com/doniyoryuldoshev7-oss/doniyor_academy_bot.git (push)
+
+--- branch ---
+  feature/admin-roles
+  feature/smart-review
+  feature/users-search
+* master
+
+--- status ---
+On branch master
+Your branch is up to date with 'origin/master'.
+
+Changes not staged for commit:
+  (use "git add <file>..." to update what will be committed)
+  (use "git restore <file>..." to discard changes in working directory)
+	modified:   .env.example
+	modified:   app/__main__.py
+	modified:   app/config.py
+	modified:   app/handlers/admin.py
+	modified:   requirements.txt
+
+Untracked files:
+  (use "git add <file>..." to include in what will be committed)
+	DEPLOY.bat
+	O_RNAT.bat
+	TEKSHIR.bat
+	app/handlers/export.py
+	app/handlers/reminders.py
+	app/services/review_reminder.py
+	app/services/test_archive.py
+	app/services/word_export.py
+	deploy_log.txt
+	patch_review_reminder.py
+	patch_word_export.py
+
+no changes added to commit (use "git add" and/or "git commit -a")
+
+--- add ---

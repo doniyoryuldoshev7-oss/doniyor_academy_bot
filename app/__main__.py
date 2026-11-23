@@ -19,7 +19,14 @@ from sqlalchemy import select
 
 from .config import settings
 from .db import init_db, SessionLocal
-from .handlers import start, student, admin, group_quiz, smart_review
+from .handlers import (
+    start,
+    student,
+    admin,
+    group_quiz,
+    smart_review,
+    export,
+)
 from .models import User
 from .web_crop import create_app
 
@@ -85,6 +92,10 @@ async def main():
     dp.include_router(student.router)
     dp.include_router(smart_review.router)
     dp.include_router(group_quiz.router)
+    dp.include_router(export.router)
+    from .handlers import reminders
+
+    dp.include_router(reminders.router)
     dp.include_router(admin.router)
 
     app = create_app()
@@ -138,6 +149,15 @@ async def main():
 
     print(
         f">>> TELEGRAM WEBHOOK: {webhook_url}",
+        flush=True,
+    )
+
+    from .services.review_reminder import reminder_loop
+
+    reminder_task = asyncio.create_task(reminder_loop(bot))
+
+    print(
+        ">>> TAKRORLASH ESLATMALARI SIKLI ISHGA TUSHDI",
         flush=True,
     )
 
