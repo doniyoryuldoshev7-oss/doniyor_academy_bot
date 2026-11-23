@@ -137,6 +137,12 @@ def admin_menu(limited=False):
             ],
             [
                 InlineKeyboardButton(
+                    text="📊 O'quvchilar natijasi",
+                    callback_data="adm:reports",
+                )
+            ],
+            [
+                InlineKeyboardButton(
                     text="📚 Fanlar / mavzular", callback_data="adm:catalog"
                 )
             ],

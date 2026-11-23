@@ -96,6 +96,12 @@ async def main():
     from .handlers import reminders
 
     dp.include_router(reminders.router)
+    from .handlers import knowledge_map
+
+    dp.include_router(knowledge_map.router)
+    from .handlers import student_reports
+
+    dp.include_router(student_reports.router)
     dp.include_router(admin.router)
 
     app = create_app()
