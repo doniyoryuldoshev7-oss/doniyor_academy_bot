@@ -1,8 +1,13 @@
 import os
 from html import escape
+from pathlib import Path
 
 from aiogram import Router, F
-from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup
+from aiogram.types import (
+    FSInputFile,
+    InlineKeyboardButton,
+    InlineKeyboardMarkup,
+)
 from aiogram.fsm.context import FSMContext
 from sqlalchemy import select
 
@@ -51,15 +56,86 @@ def review_question_keyboard(question_id):
 
 
 def review_question_text(question, index, total):
+    body = escape(question.text or "").strip()
+
+    if not body:
+        body = "<i>Savol rasmda ko'rsatilgan.</i>"
+
     return (
         f"\U0001F9E0 <b>SMART TAKRORLASH</b>\n\n"
-        f"\u2753 <b>Savol {index + 1}/{total}</b>\n\n"
-        f"{escape(question.text or '')}\n\n"
+        f"❓ <b>Savol {index + 1}/{total}</b>\n\n"
+        f"{body}\n\n"
         f"<b>A)</b> {escape(question.option_a or '')}\n"
         f"<b>B)</b> {escape(question.option_b or '')}\n"
         f"<b>C)</b> {escape(question.option_c or '')}\n"
         f"<b>D)</b> {escape(question.option_d or '')}"
     )
+
+
+def question_image_path(question):
+    """Savol rasmi mavjud bo'lsa, fayl yo'lini qaytaradi."""
+    raw = getattr(question, "image_path", None)
+
+    if not raw:
+        return None
+
+    path = Path(raw)
+
+    if not path.is_file():
+        return None
+
+    return path
+
+
+async def show_question(c, question, index, total):
+    """Savolni ko'rsatadi.
+
+    Matnli savol — mavjud xabarni tahrirlaydi (eski xatti-harakat).
+    Rasmli savol — eski xabarni o'chirib, avval rasmni, keyin savol
+    matnini tugmalari bilan yangi xabar qilib yuboradi. Telegram
+    matnli xabarni rasmli xabarga tahrirlashga ruxsat bermaydi,
+    shuning uchun shunday.
+    """
+    text = review_question_text(question, index, total)
+    keyboard = review_question_keyboard(question.id)
+
+    image = question_image_path(question)
+
+    if image is None:
+        if getattr(question, "image_path", None):
+            text += "\n\n<i>⚠️ Rasm topilmadi.</i>"
+
+        try:
+            await c.message.edit_text(text, reply_markup=keyboard)
+        except Exception as exc:
+            if "message is not modified" in str(exc):
+                return
+
+            await c.message.answer(text, reply_markup=keyboard)
+
+        return
+
+    # Rasmli savol
+    deleted = True
+
+    try:
+        await c.message.delete()
+    except Exception:
+        deleted = False
+
+    if not deleted:
+        # O'chirib bo'lmadi — hech bo'lmasa eski tugmalarni olib tashlaymiz
+        try:
+            await c.message.edit_reply_markup(reply_markup=None)
+        except Exception:
+            pass
+
+    try:
+        await c.message.answer_photo(FSInputFile(image))
+    except Exception:
+        text += "\n\n<i>⚠️ Rasmni yuborib bo'lmadi.</i>"
+
+    await c.message.answer(text, reply_markup=keyboard)
 
 
 @router.callback_query(F.data == "sr:start")
@@ -91,18 +167,11 @@ async def smart_review_start(c, state):
             limit=20
         )
 
-        # Dastlab faqat matnli savollar.
-        rows = [
-            (review, question)
-            for review, question in rows
-            if not question.image_path
-        ]
-
         if not rows:
             await state.clear()
             await c.message.edit_text(
                 "\U0001F9E0 <b>SMART TAKRORLASH</b>\n\n"
-                "Hozircha takrorlash uchun matnli savol yo'q.",
+                "Hozircha takrorlash uchun savol yo'q.",
                 reply_markup=InlineKeyboardMarkup(
                     inline_keyboard=[[
                         InlineKeyboardButton(
@@ -126,14 +195,7 @@ async def smart_review_start(c, state):
 
         question = rows[0][1]
 
-    await c.message.edit_text(
-        review_question_text(
-            question,
-            index=0,
-            total=len(question_ids)
-        ),
-        reply_markup=review_question_keyboard(question.id)
-    )
+    await show_question(c, question, 0, len(question_ids))
 
     await c.answer()
 
@@ -232,14 +294,14 @@ async def smart_review_answer(c, state):
     await state.update_data(smart_review_waiting=False)
 
     if is_correct:
-        feedback = "\u2705 <b>To'g'ri javob!</b>"
+        feedback = "✅ <b>To'g'ri javob!</b>"
         if result.status == "mastered":
             feedback += "\n\U0001F3C6 Savol mustahkamlandi!"
         else:
             feedback += "\n\U0001F552 Keyingi takrorlash rejalashtirildi."
     else:
         feedback = (
-            "\u274C <b>Noto'g'ri javob.</b>\n"
+            "❌ <b>Noto'g'ri javob.</b>\n"
             f"\U0001F4A1 To'g'ri variant: <b>{correct_option}</b>\n"
             "\U0001F552 Savol 1 kundan keyin qayta beriladi."
         )
@@ -248,7 +310,7 @@ async def smart_review_answer(c, state):
         inline_keyboard=[
             [
                 InlineKeyboardButton(
-                    text="\u27A1\uFE0F Keyingi savol",
+                    text="➡️ Keyingi savol",
                     callback_data="sr:next",
                 )
             ],
@@ -279,15 +341,9 @@ async def smart_review_next(c, state):
         return
 
     data = await state.get_data()
-
-    if not data.get("smart_review_qids") or data.get(
-        "smart_review_waiting"
-    ):
-        await c.answer("Avval savolga javob bering.", show_alert=True)
-        return
-
-    qids = data["smart_review_qids"]
+    qids = data.get("smart_review_qids", [])
     index = data.get("smart_review_index", 0) + 1
+
     now = datetime.now(timezone.utc)
 
     async with SessionLocal() as session:
@@ -320,7 +376,6 @@ async def smart_review_next(c, state):
                 and q is not None
                 and q.question_mode == "closed"
                 and q.correct_option in ("A", "B", "C", "D")
-                and not q.image_path
                 and all((
                     q.option_a, q.option_b,
                     q.option_c, q.option_d
@@ -330,10 +385,6 @@ async def smart_review_next(c, state):
                 break
 
             index += 1
-
-        if question is not None:
-            text = review_question_text(question, index, len(qids))
-            keyboard = review_question_keyboard(question.id)
 
     if question is None:
         await state.clear()
@@ -354,6 +405,6 @@ async def smart_review_next(c, state):
             smart_review_index=index,
             smart_review_waiting=True,
         )
-        await c.message.edit_text(text, reply_markup=keyboard)
+        await show_question(c, question, index, len(qids))
 
     await c.answer()

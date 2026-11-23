@@ -94,8 +94,8 @@ def due_counts_query(now: datetime):
     """Muddati kelgan takrorlashlar soni, o'quvchilar kesimida.
 
     Shartlar smart_review_queue.due_reviews_query bilan bir xil,
-    ustiga image_path filtri qo'shilgan — chunki smart_review
-    handleri hozircha faqat matnli savollarni ko'rsatadi.
+    shuning uchun eslatmadagi son takrorlash ko'rsatadigan savollar
+    soniga aniq mos keladi (rasmli savollar ham kiradi).
     """
     return (
         select(
@@ -111,7 +111,6 @@ def due_counts_query(now: datetime):
             SmartReview.next_review_at <= now,
             Question.question_mode == "closed",
             Question.is_active.is_(True),
-            Question.image_path.is_(None),
             Question.correct_option.in_(("A", "B", "C", "D")),
             Question.option_a.is_not(None),
             Question.option_b.is_not(None),
