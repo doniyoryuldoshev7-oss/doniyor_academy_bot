@@ -191,14 +191,27 @@ class ProgressRow:
     done: bool
     best_correct: int
     best_total: int
+    answered_best: int
+    required: int
     done_at: datetime | None
 
     @property
     def accuracy(self) -> int:
+        """To'g'ri javoblar foizi (bajarilgan urinishda)."""
         if not self.best_total:
             return 0
 
         return int(round(self.best_correct / self.best_total * 100))
+
+    @property
+    def progress_percent(self) -> int:
+        """Topshiriq necha foizga bajarilgan."""
+        if not self.required:
+            return 100 if self.done else 0
+
+        value = int(round(self.answered_best / self.required * 100))
+
+        return min(100, max(0, value))
 
 
 async def target_users(session, assignment: Assignment) -> list[User]:
@@ -311,30 +324,37 @@ async def assignment_progress(
 
     user_ids = [user.id for user in users]
 
-    deadline = assignment.deadline
-    started = assignment.created_at or datetime.min
+    rows = await attempts_in_window(session, assignment, user_ids)
 
-    rows = await session.execute(
-        select(
-            TestAttempt.user_id,
-            func.max(TestAttempt.correct),
-            func.max(TestAttempt.total),
-            func.min(TestAttempt.created_at),
-        )
-        .where(
-            TestAttempt.user_id.in_(user_ids),
-            TestAttempt.topic_id == assignment.topic_id,
-            TestAttempt.created_at >= started,
-            TestAttempt.created_at <= deadline,
-            TestAttempt.total >= assignment.required_questions,
-        )
-        .group_by(TestAttempt.user_id)
-    )
+    required = assignment.required_questions
 
-    done_map = {
-        int(row[0]): (int(row[1] or 0), int(row[2] or 0), row[3])
-        for row in rows
-    }
+    done_map = {}
+    partial_map = {}
+
+    for user_id, _attempt_id, correct, answered, created_at in rows:
+        # Qisman bajarish: eng ko'p javob berilgan urinish
+        partial_map[user_id] = max(
+            partial_map.get(user_id, 0), answered
+        )
+
+        if answered < required:
+            continue
+
+        current = done_map.get(user_id)
+
+        if current is None:
+            done_map[user_id] = (correct, answered, created_at)
+            continue
+
+        best_correct, best_answered, first_at = current
+
+        if correct > best_correct:
+            best_correct, best_answered = correct, answered
+
+        if created_at < first_at:
+            first_at = created_at
+
+        done_map[user_id] = (best_correct, best_answered, first_at)
 
     result = []
 
@@ -349,6 +369,8 @@ async def assignment_progress(
                 done=entry is not None,
                 best_correct=entry[0] if entry else 0,
                 best_total=entry[1] if entry else 0,
+                answered_best=partial_map.get(user.id, 0),
+                required=required,
                 done_at=entry[2] if entry else None,
             )
         )
@@ -358,23 +380,83 @@ async def assignment_progress(
     return result
 
 
+async def attempts_in_window(
+    session,
+    assignment: Assignment,
+    user_ids: list[int] | None = None,
+):
+    """Topshiriq oynasidagi barcha urinishlar (qisman ham).
+
+    MUHIM: testdagi savollar soni emas, HAQIQATDA JAVOB BERILGAN
+    savollar sanaladi. Bot test natijasiga testdagi savollar sonini
+    yozadi, shuning uchun 20 talik testni boshlab ikkitasiga javob
+    berib chiqqan o'quvchi ham "bajardi" bo'lib qolardi. Javoblar
+    esa answer_logs da alohida yotadi — shuni sanaymiz.
+
+    Qaytaradi: (user_id, attempt_id, correct, answered, created_at)
+    """
+    started = assignment.created_at or datetime.min
+
+    stmt = (
+        select(
+            TestAttempt.user_id,
+            TestAttempt.id,
+            TestAttempt.correct,
+            func.count(AnswerLog.id),
+            TestAttempt.created_at,
+        )
+        .join(AnswerLog, AnswerLog.attempt_id == TestAttempt.id)
+        .where(
+            TestAttempt.topic_id == assignment.topic_id,
+            TestAttempt.created_at >= started,
+            TestAttempt.created_at <= assignment.deadline,
+        )
+        .group_by(
+            TestAttempt.id,
+            TestAttempt.user_id,
+            TestAttempt.correct,
+            TestAttempt.created_at,
+        )
+    )
+
+    if user_ids:
+        stmt = stmt.where(TestAttempt.user_id.in_(user_ids))
+
+    return [
+        (
+            int(row[0]),
+            int(row[1]),
+            int(row[2] or 0),
+            int(row[3] or 0),
+            row[4],
+        )
+        for row in await session.execute(stmt)
+    ]
+
+
+async def qualifying_attempts(
+    session,
+    assignment: Assignment,
+    user_ids: list[int] | None = None,
+):
+    """Topshiriqni to'liq bajargan urinishlar."""
+    rows = await attempts_in_window(session, assignment, user_ids)
+
+    return [
+        row for row in rows
+        if row[3] >= assignment.required_questions
+    ]
+
+
 async def student_status(
     session,
     user: User,
     assignment: Assignment,
 ) -> bool:
     """Bitta o'quvchi topshiriqni bajarganmi."""
-    found = await session.scalar(
-        select(func.count(TestAttempt.id)).where(
-            TestAttempt.user_id == user.id,
-            TestAttempt.topic_id == assignment.topic_id,
-            TestAttempt.created_at >= (assignment.created_at or datetime.min),
-            TestAttempt.created_at <= assignment.deadline,
-            TestAttempt.total >= assignment.required_questions,
-        )
-    )
+    rows = await qualifying_attempts(session, assignment, [user.id])
 
-    return bool(found)
+    return bool(rows)
 
 
 async def group_names(session) -> list[str]:
@@ -459,3 +541,24 @@ async def pending_students(session, assignment: Assignment) -> list[User]:
             result.append(user)
 
     return result
+
+
+async def student_progress(
+    session,
+    user: User,
+    assignment: Assignment,
+) -> tuple[int, int, bool]:
+    """(javob berilgan, kerak, bajarildimi) — bitta o'quvchi uchun."""
+    rows = await attempts_in_window(session, assignment, [user.id])
+
+    best = max((row[3] for row in rows), default=0)
+    required = assignment.required_questions
+
+    return best, required, best >= required
+
+
+def progress_percent(answered: int, required: int) -> int:
+    if not required:
+        return 100 if answered else 0
+
+    return min(100, max(0, int(round(answered / required * 100))))

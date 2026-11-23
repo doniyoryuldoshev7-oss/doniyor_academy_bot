@@ -580,8 +580,17 @@ async def assign_progress(c: CallbackQuery):
         lines.append("<b>Bajarmaganlar:</b>")
 
         for row in pending[:20]:
+            if row.answered_best:
+                detail = (
+                    f" — {row.progress_percent}% "
+                    f"({row.answered_best}/{row.required})"
+                )
+            else:
+                detail = " — boshlamagan"
+
             lines.append(
                 f"  ❌ {html.escape(short(row.full_name, 22))}"
+                + detail
             )
 
         if len(pending) > 20:
@@ -632,7 +641,12 @@ async def my_assignments(c: CallbackQuery):
                 session, user, assignment
             )
 
-    lines = ["\U0001F4CB <b>MENING TOPSHIRIQLARIM</b>", ""]
+    lines = [
+        "\U0001F4CB <b>MENING TOPSHIRIQLARIM</b>",
+        "",
+        "<i>Topshiriq to'liq bajarilishi kerak: barcha savollarga javob bering.</i>",
+        "",
+    ]
 
     buttons = []
 
@@ -643,12 +657,27 @@ async def my_assignments(c: CallbackQuery):
         )
     else:
         for assignment, topic_name, subject_name in rows:
-            done = statuses.get(assignment.id)
-            mark = "✅ bajarildi" if done else "⏳ bajarilmagan"
+            answered, required, done = statuses.get(
+                assignment.id,
+                (0, assignment.required_questions, False),
+            )
+
+            percent = progress_percent(answered, required)
+
+            if done:
+                mark = "✅ <b>bajarildi</b>"
+            elif answered:
+                mark = (
+                    f"⏳ <b>{percent}%</b> bajarildi "
+                    f"({answered}/{required} savol) — "
+                    "davom ettiring"
+                )
+            else:
+                mark = "⏳ <b>0%</b> — hali boshlanmagan"
 
             lines.append(
                 f"\U0001F4D6 <b>{html.escape(short(topic_name, 24))}</b>\n"
-                f"   \U0001F522 {assignment.required_questions} ta savol  "
+                f"   \U0001F522 {required} ta savol  "
                 f"·  ⏰ {fmt(assignment.deadline)}\n"
                 f"   {mark}"
             )

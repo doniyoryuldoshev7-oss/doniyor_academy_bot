@@ -30,6 +30,8 @@ from .assignments import (
     assignments_just_ended,
     fmt,
     pending_students,
+    progress_percent,
+    student_progress,
 )
 
 log = logging.getLogger(__name__)
@@ -41,13 +43,30 @@ def enabled() -> bool:
     return os.getenv("ASSIGNMENT_REMINDER_ENABLED", "1") == "1"
 
 
-def student_text(topic_name: str, assignment) -> str:
+def student_text(topic_name: str, assignment, answered: int = 0) -> str:
+    required = assignment.required_questions
+    percent = progress_percent(answered, required)
+
+    if answered:
+        status = (
+            f"\U0001F4CA Hozir bajarilgan: <b>{percent}%</b> "
+            f"({answered}/{required} savol)\n"
+            f"❗ Qolgan: <b>{max(0, required - answered)}</b> ta savol\n\n"
+            "Topshiriq to'liq bajarilishi kerak — ozgina qoldi."
+        )
+    else:
+        status = (
+            "\U0001F4CA Hozir bajarilgan: <b>0%</b>\n\n"
+            f"Topshiriq to'liq bajarilishi kerak: barcha "
+            f"<b>{required}</b> ta savolga javob bering. "
+            "Bir necha daqiqa yetarli."
+        )
+
     return (
         "⏰ <b>Topshiriq muddati bugun tugaydi</b>\n\n"
         f"\U0001F4D6 <b>{html.escape(topic_name)}</b>\n"
-        f"\U0001F522 Kamida {assignment.required_questions} ta savol\n"
         f"\U0001F553 Muddat: <b>{fmt(assignment.deadline)}</b>\n\n"
-        "Hali ulgurasiz — bir necha daqiqa yetarli."
+        + status
     )
 
 
@@ -88,10 +107,14 @@ async def send_deadline_reminders(bot, now: datetime | None = None) -> dict:
             assignments += 1
 
             for student in students:
+                answered, _required, _done = await student_progress(
+                    session, student, assignment
+                )
+
                 try:
                     await bot.send_message(
                         student.telegram_id,
-                        student_text(topic_name, assignment),
+                        student_text(topic_name, assignment, answered),
                         reply_markup=student_keyboard(assignment.topic_id),
                     )
                     sent += 1
