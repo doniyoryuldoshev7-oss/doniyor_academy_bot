@@ -389,3 +389,73 @@ async def group_names(session) -> list[str]:
     )
 
     return sorted({row for row in rows if row}, key=str.casefold)
+
+
+# ---------------------------------------------------------------
+#  Muddat eslatmalari uchun
+# ---------------------------------------------------------------
+
+async def assignments_due_soon(
+    session,
+    now: datetime | None = None,
+    within_hours: int = 24,
+):
+    """Muddati yaqin topshiriqlar (hali tugamagan)."""
+    moment = now or datetime.utcnow()
+    edge = moment + timedelta(hours=within_hours)
+
+    stmt = (
+        select(Assignment, Topic.name, Subject.name)
+        .join(Topic, Topic.id == Assignment.topic_id)
+        .join(Subject, Subject.id == Topic.subject_id)
+        .where(
+            Assignment.is_active.is_(True),
+            Assignment.deadline > moment,
+            Assignment.deadline <= edge,
+        )
+        .order_by(Assignment.deadline.asc())
+    )
+
+    return list(await session.execute(stmt))
+
+
+async def assignments_just_ended(
+    session,
+    now: datetime | None = None,
+    within_hours: int = 24,
+):
+    """Muddati yaqinda tugagan topshiriqlar (ustozga hisobot uchun)."""
+    moment = now or datetime.utcnow()
+    edge = moment - timedelta(hours=within_hours)
+
+    stmt = (
+        select(Assignment, Topic.name, Subject.name)
+        .join(Topic, Topic.id == Assignment.topic_id)
+        .join(Subject, Subject.id == Topic.subject_id)
+        .where(
+            Assignment.is_active.is_(True),
+            Assignment.deadline <= moment,
+            Assignment.deadline > edge,
+        )
+        .order_by(Assignment.deadline.asc())
+    )
+
+    return list(await session.execute(stmt))
+
+
+async def pending_students(session, assignment: Assignment) -> list[User]:
+    """Topshiriqni hali bajarmaganlar."""
+    users = await target_users(session, assignment)
+
+    result = []
+
+    for user in users:
+        if user is None:
+            continue
+
+        done = await student_status(session, user, assignment)
+
+        if not done:
+            result.append(user)
+
+    return result

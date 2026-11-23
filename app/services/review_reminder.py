@@ -263,5 +263,14 @@ async def reminder_loop(bot) -> None:
         except Exception as exc:
             log.exception("Eslatma siklida xato: %s", exc)
 
+        # Topshiriq muddati eslatmalari ham shu siklda
+        try:
+            from .assignment_reminder import run_daily
+
+            task_result = await run_daily(bot)
+            log.info("Topshiriq eslatmalari: %s", task_result)
+        except Exception as exc:
+            log.exception("Topshiriq eslatmasida xato: %s", exc)
+
         # Bir kunda ikki marta ishlamasligi uchun kichik pauza.
         await asyncio.sleep(90)

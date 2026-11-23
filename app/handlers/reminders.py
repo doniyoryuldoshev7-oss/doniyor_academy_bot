@@ -153,6 +153,22 @@ async def status_text() -> str:
 async def _send_and_report(bot) -> str:
     result = await send_reminders(bot)
 
+    task_line = ""
+
+    try:
+        from ..services.assignment_reminder import run_daily
+
+        task_result = await run_daily(bot)
+
+        if not task_result.get("skipped"):
+            task_line = (
+                "\n\n\U0001F4CB <b>Topshiriqlar</b>\n"
+                f"\u23F0 Muddat eslatmasi: <b>{task_result.get('sent', 0)}</b> ta\n"
+                f"\U0001F4CA Ustozga hisobot: <b>{task_result.get('summaries', 0)}</b> ta"
+            )
+    except Exception as exc:
+        log.exception("Topshiriq eslatmasi xatosi: %s", exc)
+
     if result.get("skipped"):
         return (
             "⏸ <b>Eslatmalar o'chirilgan</b>\n\n"
@@ -166,6 +182,7 @@ async def _send_and_report(bot) -> str:
         f"❌ Yuborilmadi: <b>{result['failed']}</b>\n\n"
         "<i>Yuborilmaganlar — botni bloklagan yoki chatni "
         "o'chirgan o'quvchilar.</i>"
+        + task_line
     )
 
 
