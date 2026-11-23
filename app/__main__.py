@@ -102,6 +102,9 @@ async def main():
     from .handlers import student_reports
 
     dp.include_router(student_reports.router)
+    from .handlers import question_stats
+
+    dp.include_router(question_stats.router)
     dp.include_router(admin.router)
 
     app = create_app()

@@ -143,6 +143,12 @@ def admin_menu(limited=False):
             ],
             [
                 InlineKeyboardButton(
+                    text="🔬 Savollar sifati",
+                    callback_data="adm:qstat",
+                )
+            ],
+            [
+                InlineKeyboardButton(
                     text="📚 Fanlar / mavzular", callback_data="adm:catalog"
                 )
             ],
