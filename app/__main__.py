@@ -141,6 +141,9 @@ async def main():
     from .handlers import reminders
 
     dp.include_router(reminders.router)
+    from .services import db_backup  # baza zaxirasi
+
+    dp.include_router(db_backup.router)
     from .handlers import knowledge_map
 
     dp.include_router(knowledge_map.router)
@@ -226,6 +229,8 @@ async def main():
     from .services.review_reminder import reminder_loop
 
     reminder_task = asyncio.create_task(reminder_loop(bot))
+
+    backup_task = asyncio.create_task(db_backup.backup_loop(bot))
 
     # Qayta ishga tushishdan oldin boshlangan guruh testlarini tekshirish
     try:
