@@ -269,6 +269,16 @@ async def _users_view(page, sort, query):
     if query:
         actions.append(InlineKeyboardButton(text="\u2716 Tozalash", callback_data="adm:users:clear"))
     buttons.append(actions)
+    buttons.append([
+        InlineKeyboardButton(
+            text="\u26a0\ufe0f Profili to'liq emas",
+            callback_data="adm:incomplete",
+        ),
+        InlineKeyboardButton(
+            text="\U0001f5d1 Tanlab o'chirish",
+            callback_data="adm:udel:open",
+        ),
+    ])
 
     for user in users:
         icon = {

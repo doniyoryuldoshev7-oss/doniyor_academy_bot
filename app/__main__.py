@@ -144,6 +144,9 @@ async def main():
     from .services import baza_zaxira as db_backup  # baza zaxirasi
 
     dp.include_router(db_backup.router)
+    from .services import profil_eslatma
+
+    dp.include_router(profil_eslatma.router)
     from .handlers import knowledge_map
 
     dp.include_router(knowledge_map.router)
@@ -235,6 +238,10 @@ async def main():
     from .services.admin_ogoh import announce_start
 
     start_alert_task = asyncio.create_task(announce_start(bot))
+
+    profile_task = asyncio.create_task(
+        profil_eslatma.profile_reminder_loop(bot)
+    )
 
     # Qayta ishga tushishdan oldin boshlangan guruh testlarini tekshirish
     try:
