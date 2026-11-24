@@ -279,6 +279,12 @@ async def _users_view(page, sort, query):
             callback_data="adm:udel:open",
         ),
     ])
+    buttons.append([
+        InlineKeyboardButton(
+            text="\U0001f6ab Botni bloklaganlar",
+            callback_data="adm:blocked",
+        ),
+    ])
 
     for user in users:
         icon = {

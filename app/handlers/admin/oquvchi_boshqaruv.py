@@ -40,7 +40,8 @@ CHUNK = 400
 FILTERS = {
     "all": "Hammasi",
     "inc": "To'liq emas",
-    "idle": "Test ishlamagan",
+    "idle": "Testsiz",
+    "blk": "Bloklagan",
 }
 
 
@@ -65,7 +66,7 @@ async def _safe_edit(message, text_value: str, markup) -> None:
 
 async def _candidates(filter_key: str) -> list:
     """Filtr bo'yicha o'quvchilar (adminlar ro'yxatga kirmaydi)."""
-    from ...services.profil_eslatma import is_incomplete
+    from ...services.profil_eslatma import blocked_user_ids, is_incomplete
 
     async with SessionLocal() as session:
         users = (
@@ -73,6 +74,8 @@ async def _candidates(filter_key: str) -> list:
                 select(User).order_by(User.created_at.desc(), User.id.desc())
             )
         ).all()
+
+    blocked = await blocked_user_ids() if filter_key == "blk" else set()
 
     result = []
 
@@ -84,6 +87,9 @@ async def _candidates(filter_key: str) -> list:
             continue
 
         if filter_key == "idle" and int(user.total_tests or 0) > 0:
+            continue
+
+        if filter_key == "blk" and user.id not in blocked:
             continue
 
         result.append(user)
@@ -107,6 +113,7 @@ async def incomplete_overview(c: CallbackQuery):
 
     from ...services.profil_eslatma import (
         _enabled,
+        blocked_user_ids,
         incomplete_users,
         missing_fields,
         reminder_days,
@@ -115,6 +122,7 @@ async def incomplete_overview(c: CallbackQuery):
     )
 
     users = await incomplete_users()
+    blocked_count = len(await blocked_user_ids())
 
     lines = [
         "<b>⚠️ PROFILI TO'LIQ EMAS</b>",
@@ -162,6 +170,15 @@ async def incomplete_overview(c: CallbackQuery):
                 )
             ]
         )
+
+    rows.append(
+        [
+            InlineKeyboardButton(
+                text=f"🚫 Botni bloklaganlar ({blocked_count})",
+                callback_data="adm:blocked",
+            )
+        ]
+    )
 
     rows.append(
         [InlineKeyboardButton(text="⬅️ Foydalanuvchilar", callback_data="adm:users")]
@@ -225,6 +242,179 @@ async def incomplete_send_go(c: CallbackQuery):
             ]
         ),
     )
+
+
+# ---------------------------------------------------------------
+#  Botni bloklaganlar
+# ---------------------------------------------------------------
+
+async def _blocked_users() -> list:
+    return await _candidates("blk")
+
+
+def _contact_line(user) -> str:
+    parts = [html.escape(_short(user.full_name, 30))]
+
+    if user.phone_number:
+        parts.append("📱 " + html.escape(user.phone_number))
+
+    if user.group_name:
+        parts.append("👥 " + html.escape(_short(user.group_name, 15)))
+
+    if user.username:
+        parts.append("@" + html.escape(user.username))
+
+    return " — ".join(parts)
+
+
+@router.callback_query(F.data == "adm:blocked")
+async def blocked_overview(c: CallbackQuery):
+    if not is_admin(c.from_user.id):
+        return
+
+    users = await _blocked_users()
+
+    lines = [
+        "<b>🚫 BOTNI BLOKLAGANLAR</b>",
+        "",
+        f"Jami: <b>{len(users)}</b> ta",
+        "",
+    ]
+
+    for user in users[:30]:
+        lines.append("• " + _contact_line(user))
+
+    if len(users) > 30:
+        lines.append(f"… va yana {len(users) - 30} ta (to'liq ro'yxat fayli pastda)")
+
+    if not users:
+        lines.append(
+            "Hozircha bloklagan o'quvchi aniqlanmagan.\n"
+            "Tekshirish tugmasi hammani yashirin tekshiradi."
+        )
+    else:
+        lines.append("")
+        lines.append(
+            "Ular botga xabar yoza olmaydi, shuning uchun telefon yoki "
+            "guruh orqali bog'laning. Botni qayta ishga tushirsa, "
+            "tekshirishda blok belgisi o'zi olib tashlanadi."
+        )
+
+    rows = [
+        [
+            InlineKeyboardButton(
+                text="🔍 Hammasini tekshirib yangilash",
+                callback_data="adm:blocked_scan",
+            )
+        ]
+    ]
+
+    if users:
+        rows.append(
+            [
+                InlineKeyboardButton(
+                    text="📄 To'liq ro'yxat (fayl)",
+                    callback_data="adm:blocked_csv",
+                )
+            ]
+        )
+        rows.append(
+            [
+                InlineKeyboardButton(
+                    text="🗑 Shulardan tanlab o'chirish",
+                    callback_data="adm:udel:new:blk",
+                )
+            ]
+        )
+
+    rows.append(
+        [InlineKeyboardButton(text="⬅️ Orqaga", callback_data="adm:incomplete")]
+    )
+
+    await _safe_edit(c.message, "\n".join(lines), InlineKeyboardMarkup(inline_keyboard=rows))
+    await c.answer()
+
+
+@router.callback_query(F.data == "adm:blocked_scan")
+async def blocked_scan(c: CallbackQuery):
+    if not is_admin(c.from_user.id):
+        return
+
+    from ...services.profil_eslatma import scan_blocked, scan_in_progress
+
+    if scan_in_progress():
+        await c.answer("Tekshiruv allaqachon ketyapti. Kuting.", show_alert=True)
+        return
+
+    await c.answer("Tekshirilmoqda...")
+    await _safe_edit(
+        c.message,
+        "⏳ <b>Tekshirilmoqda...</b>\n\nO'quvchilarga hech qanday xabar "
+        "bormaydi. O'quvchilar ko'p bo'lsa, bir necha daqiqa ketishi mumkin.",
+        None,
+    )
+
+    result = await scan_blocked(c.bot)
+
+    if result.get("busy"):
+        return
+
+    await _safe_edit(
+        c.message,
+        "✅ <b>Tekshiruv tugadi</b>\n\n"
+        f"Tekshirildi: {result['total']} ta\n"
+        f"Botni bloklagan: <b>{result['blocked']}</b> "
+        f"(yangi aniqlangan: {result['new_blocked']})\n"
+        f"Qaytib kelgan: {result['restored']}\n"
+        f"Tekshirib bo'lmadi: {result['failed']}",
+        InlineKeyboardMarkup(
+            inline_keyboard=[
+                [InlineKeyboardButton(text="🚫 Ro'yxatni ko'rish", callback_data="adm:blocked")]
+            ]
+        ),
+    )
+
+
+@router.callback_query(F.data == "adm:blocked_csv")
+async def blocked_csv(c: CallbackQuery):
+    if not is_admin(c.from_user.id):
+        return
+
+    import csv
+    import io
+
+    from aiogram.types import BufferedInputFile
+
+    users = await _blocked_users()
+
+    if not users:
+        await c.answer("Ro'yxat bo'sh.", show_alert=True)
+        return
+
+    buffer = io.StringIO()
+    writer = csv.writer(buffer)
+    writer.writerow(["Ism-familiya", "Telefon", "Guruh", "Username", "Telegram ID", "Ro'yxatdan o'tgan"])
+
+    for user in users:
+        writer.writerow(
+            [
+                user.full_name or "",
+                user.phone_number or "",
+                user.group_name or "",
+                ("@" + user.username) if user.username else "",
+                user.telegram_id,
+                user.created_at.strftime("%d.%m.%Y") if user.created_at else "",
+            ]
+        )
+
+    # utf-8-sig: Excel o'zbekcha harflarni to'g'ri ochadi
+    data = buffer.getvalue().encode("utf-8-sig")
+
+    await c.message.answer_document(
+        BufferedInputFile(data, filename="botni_bloklaganlar.csv"),
+        caption=f"🚫 Botni bloklaganlar: {len(users)} ta",
+    )
+    await c.answer()
 
 
 # ---------------------------------------------------------------

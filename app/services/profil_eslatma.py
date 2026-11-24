@@ -202,6 +202,110 @@ async def forget_users(user_ids: list[int]) -> None:
 
 
 # ---------------------------------------------------------------
+#  Botni bloklaganlar
+# ---------------------------------------------------------------
+
+_scan_running = False
+
+
+async def blocked_user_ids() -> set[int]:
+    """Botni bloklagani aniqlangan o'quvchilarning (users.id) to'plami."""
+    state = await _load_state()
+    return {user_id for user_id, (count, _) in state.items() if count < 0}
+
+
+async def reset_state(user_id: int) -> None:
+    """Blok belgisini olib tashlaydi (o'quvchi botga qaytgan)."""
+    await _ensure_table()
+
+    async with engine.begin() as conn:
+        await conn.execute(
+            text("DELETE FROM profile_reminders WHERE user_id = :u"),
+            {"u": int(user_id)},
+        )
+
+
+def _is_gone_error(exc: Exception) -> bool:
+    if isinstance(exc, TelegramForbiddenError):
+        return True
+
+    return isinstance(exc, TelegramBadRequest) and any(
+        part in str(exc).lower()
+        for part in ("chat not found", "deactivated", "user not found")
+    )
+
+
+def scan_in_progress() -> bool:
+    return _scan_running
+
+
+async def scan_blocked(bot) -> dict:
+    """Barcha o'quvchilarni botni bloklaganligiga tekshiradi.
+
+    Foydalanuvchiga HECH QANDAY xabar bormaydi: faqat yashirin
+    "yozmoqda" belgisi yuboriladi, Telegram bloklanganini aytadi.
+    Qaytib kelganlarning blok belgisi olib tashlanadi.
+    """
+    global _scan_running
+
+    if _scan_running:
+        return {"busy": True}
+
+    _scan_running = True
+
+    result = {
+        "busy": False,
+        "total": 0,
+        "blocked": 0,
+        "new_blocked": 0,
+        "restored": 0,
+        "failed": 0,
+    }
+
+    try:
+        async with SessionLocal() as session:
+            users = (await session.scalars(select(User))).all()
+
+        users = [u for u in users if u.telegram_id not in settings.admins]
+        known = await blocked_user_ids()
+
+        result["total"] = len(users)
+
+        for user in users:
+            try:
+                for attempt in (1, 2):
+                    try:
+                        await bot.send_chat_action(user.telegram_id, "typing")
+                        break
+                    except TelegramRetryAfter as exc:
+                        if attempt == 2:
+                            raise
+                        await asyncio.sleep(min(30, max(1, int(exc.retry_after))))
+
+                # yozish mumkin: bloklamagan
+                if user.id in known:
+                    await reset_state(user.id)
+                    result["restored"] += 1
+
+            except Exception as exc:
+                if _is_gone_error(exc):
+                    result["blocked"] += 1
+
+                    if user.id not in known:
+                        await _save_state(user.id, -1)
+                        result["new_blocked"] += 1
+                else:
+                    result["failed"] += 1
+
+            await asyncio.sleep(0.04)
+
+    finally:
+        _scan_running = False
+
+    return result
+
+
+# ---------------------------------------------------------------
 #  Yuborish
 # ---------------------------------------------------------------
 
@@ -258,10 +362,14 @@ async def send_reminders(bot, force: bool = False) -> dict:
     for user in users:
         count, last = state.get(user.id, (0, None))
 
-        # -1: bot bloklangan (qayta urinilmaydi)
-        if count < 0:
+        # -1: bot bloklangan. Oddiy yuborishda qayta urinilmaydi;
+        # admin tugmasi bilan yuborilganda sinab ko'riladi (qaytgan bo'lishi mumkin)
+        if count < 0 and not force:
             result["skipped"] += 1
             continue
+
+        if count < 0:
+            count = 0
 
         if not force:
             if count >= limit:
