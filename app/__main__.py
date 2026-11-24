@@ -87,6 +87,15 @@ async def main():
 
     await ensure_indexes()
 
+    # rasm zaxirasi: yo'qolgan rasmlarni tiklash
+    from .services.image_store import sync_images
+
+    _restored, _saved = await sync_images()
+    print(
+        f"RASMLAR: tiklandi={_restored}, zaxiralandi={_saved}",
+        flush=True,
+    )
+
     # Oldin tugagan guruh testlarini test tarixiga qo'shish (bir marta)
     from .services.group_results import backfill_group_attempts
 

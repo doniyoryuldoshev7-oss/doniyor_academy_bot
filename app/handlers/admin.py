@@ -59,6 +59,14 @@ async def save_question_image(image_data: bytes, question_id: int) -> str:
 
     path.write_bytes(image_data)
 
+    # rasm zaxirasi: bazada ham saqlanadi
+    try:
+        from ..services.image_store import store_image
+
+        await store_image(path, image_data)
+    except Exception:
+        pass
+
     return path.as_posix()
 
 
