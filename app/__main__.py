@@ -141,7 +141,7 @@ async def main():
     from .handlers import reminders
 
     dp.include_router(reminders.router)
-    from .services import db_backup  # baza zaxirasi
+    from .services import baza_zaxira as db_backup  # baza zaxirasi
 
     dp.include_router(db_backup.router)
     from .handlers import knowledge_map
