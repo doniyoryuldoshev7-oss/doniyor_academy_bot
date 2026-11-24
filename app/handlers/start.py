@@ -222,7 +222,7 @@ async def start_cmd(message: Message, state: FSMContext):
             f"Assalomu alaykum, "
             f"<b>{message.from_user.first_name}</b>!\n\n"
             f"📚 Bilim oling • 📝 Test ishlang • 🏆 Reytingda yuqorilang",
-            reply_markup=main_menu(True),
+            reply_markup=main_menu(True, is_teacher=await is_teacher(message.from_user.id)),
         )
         return
 
