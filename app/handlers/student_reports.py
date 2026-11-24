@@ -377,7 +377,12 @@ def card_text(report) -> str:
                 "  • "
                 + fmt_datetime(attempt.created_at)
                 + " — "
-                + html.escape(short(attempt.label, 22))
+                + html.escape(
+                    short(
+                        attempt.label,
+                        60 if attempt.source in ("group", "diagnostic") else 22,
+                    )
+                )  # tezlik2: guruh nomi kesilmaydi
                 + f" — {attempt.correct}/{attempt.total} "
                 f"({attempt.accuracy}%)"
             )
@@ -516,8 +521,8 @@ async def reports_history(c: CallbackQuery):
             + fmt_datetime(attempt.created_at)
             + "\n     "
             + (
-                html.escape(short(attempt.label, 28))
-                if attempt.is_diagnostic
+                html.escape(short(attempt.label, 60))
+                if (attempt.is_diagnostic or attempt.source == "group")
                 else html.escape(short(attempt.subject_name, 18))
                 + " · "
                 + html.escape(short(attempt.label, 22))

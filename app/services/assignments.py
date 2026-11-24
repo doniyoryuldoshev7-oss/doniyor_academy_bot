@@ -323,16 +323,21 @@ async def weak_topics_for_user(
     items.sort(key=lambda item: item.accuracy)
     items = items[:limit]
 
-    for item in items:
-        item.available_questions = int(
-            await session.scalar(
-                select(func.count(Question.id)).where(
-                    Question.topic_id == item.topic_id,
+    _avail = dict(
+        (
+            await session.execute(
+                select(Question.topic_id, func.count(Question.id))
+                .where(
+                    Question.topic_id.in_([i.topic_id for i in items]),
                     Question.is_active.is_(True),
                 )
+                .group_by(Question.topic_id)
             )
-            or 0
-        )
+        ).all()
+    )  # tezlik2: bitta so'rov
+
+    for item in items:
+        item.available_questions = int(_avail.get(item.topic_id) or 0)
 
     return items
 

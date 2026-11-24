@@ -232,15 +232,18 @@ async def assign_topic(c: CallbackQuery):
             )
         )
 
-        counts = {}
-
-        for topic in topics:
-            counts[topic.id] = await session.scalar(
-                select(func.count(Question.id)).where(
-                    Question.topic_id == topic.id,
-                    Question.is_active.is_(True),
+        counts = dict(
+            (
+                await session.execute(
+                    select(Question.topic_id, func.count(Question.id))
+                    .where(
+                        Question.topic_id.in_([t.id for t in topics]),
+                        Question.is_active.is_(True),
+                    )
+                    .group_by(Question.topic_id)
                 )
-            )
+            ).all()
+        )  # tezlik2: bitta so'rov
 
     topics = [t for t in topics if counts.get(t.id)]
 

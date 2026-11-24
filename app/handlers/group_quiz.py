@@ -612,8 +612,19 @@ async def _finish_group_quiz_locked(bot, gid: int) -> bool:
             )
         ).all()
 
+        _users = {
+            _u.id: _u
+            for _u in (
+                await session.scalars(
+                    select(User).where(
+                        User.id.in_([p.user_id for p in participants])
+                    )
+                )
+            ).all()
+        }  # tezlik2: foydalanuvchilar bitta so'rovda
+
         for participant in participants:
-            user = await session.get(User, participant.user_id)
+            user = _users.get(participant.user_id)
 
             if user:
                 names[participant.user_id] = user.full_name or ""

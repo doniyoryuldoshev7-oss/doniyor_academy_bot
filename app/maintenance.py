@@ -30,6 +30,11 @@ INDEXES = (
     ("ix_questions_topic_active", "questions", "topic_id, is_active"),
     ("ix_topics_subject_id", "topics", "subject_id"),
     ("ix_group_quizzes_status", "group_quizzes", "status"),
+    ("ix_users_total_score", "users", "total_score"),
+    ("ix_users_created_at", "users", "created_at"),
+    ("ix_answer_logs_wrong", "answer_logs", "is_correct, resolved, question_id"),
+    ("ix_group_participants_quiz", "group_quiz_participants", "group_quiz_id"),
+    ("ix_group_answers_quiz_q", "group_quiz_answers", "group_quiz_id, question_id"),
 )
 
 

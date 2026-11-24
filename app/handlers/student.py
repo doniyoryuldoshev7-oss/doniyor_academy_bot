@@ -597,17 +597,21 @@ async def errors_page(c, state):
     async with SessionLocal() as s:
         u = await s.scalar(select(User).where(User.telegram_id == c.from_user.id))
         logs = (
-            await s.scalars(
-                select(AnswerLog)
+            await s.execute(
+                select(
+                    AnswerLog.question_id,
+                    func.max(AnswerLog.id).label("last_id"),
+                )
                 .join(TestAttempt, AnswerLog.attempt_id == TestAttempt.id)
                 .where(
                     TestAttempt.user_id == u.id,
                     AnswerLog.is_correct.is_(False),
                     AnswerLog.resolved.is_(False),
                 )
-                .order_by(AnswerLog.id.desc())
+                .group_by(AnswerLog.question_id)
+                .order_by(func.max(AnswerLog.id).desc())
             )
-        ).all()
+        ).all()  # tezlik2: bazada guruhlangan
 
         latest = {}
         for log in logs:
@@ -633,8 +637,19 @@ async def errors_page(c, state):
     buttons = []
 
     async with SessionLocal() as s:
+        _qmap = {
+            _q.id: _q
+            for _q in (
+                await s.scalars(
+                    select(Question).where(
+                        Question.id.in_([_l.question_id for _l in page_items])
+                    )
+                )
+            ).all()
+        }  # tezlik2: savollar bitta so'rovda
+
         for i, log in enumerate(page_items, start_index + 1):
-            q = await s.get(Question, log.question_id)
+            q = _qmap.get(log.question_id)
             if q:
                 short_text = q.text[:45].replace("\n", " ")
                 if len(q.text) > 45:
@@ -858,8 +873,19 @@ async def history(c):
         lines = ["📋 <b>TESTLAR TARIXI</b>\n"]
         buttons = []
 
+        _tmap = {
+            _t.id: _t
+            for _t in (
+                await s.scalars(
+                    select(Topic).where(
+                        Topic.id.in_({_a.topic_id for _a in attempts})
+                    )
+                )
+            ).all()
+        }  # tezlik2: mavzular bitta so'rovda
+
         for i, a in enumerate(attempts, 1):
-            topic = await s.get(Topic, a.topic_id)
+            topic = _tmap.get(a.topic_id)
             pct = (a.correct / a.total * 100) if a.total else 0
             date = a.created_at.strftime("%d.%m.%Y %H:%M")
 
