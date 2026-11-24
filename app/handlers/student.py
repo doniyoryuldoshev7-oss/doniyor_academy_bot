@@ -5,7 +5,7 @@ import random
 from aiogram import Router, F
 from aiogram.types import CallbackQuery, InlineKeyboardMarkup, InlineKeyboardButton, FSInputFile
 from aiogram.fsm.context import FSMContext
-from sqlalchemy import select
+from sqlalchemy import select, func
 from ..config import settings
 from ..admin_roles import can_add_questions
 from ..db import SessionLocal
@@ -238,14 +238,14 @@ async def choose(c, state):
 
     async with SessionLocal() as s:
         topic = await s.get(Topic, tid)
-        count = len(
-            (
-                await s.scalars(
-                    select(Question).where(Question.is_active.is_(True), 
-                        Question.topic_id == tid
-                    )
+        count = int(
+            await s.scalar(
+                select(func.count(Question.id)).where(
+                    Question.is_active.is_(True),
+                    Question.topic_id == tid,
                 )
-            ).all()
+            )
+            or 0
         )
 
     if not count:
@@ -296,15 +296,25 @@ async def start(c, state):
     tid = int(tid)
     size = int(size)
     async with SessionLocal() as s: 
-        qs = (await s.scalars(select(Question).where(Question.is_active.is_(True), Question.topic_id == tid))).all()
-    qs = random.sample(qs, min(size, len(qs)))
+        qs = list(
+            (
+                await s.scalars(
+                    select(Question.id).where(
+                        Question.is_active.is_(True),
+                        Question.topic_id == tid,
+                    )
+                )
+            ).all()
+        )
 
-    print(">>> START HANDLER REACHED", flush=True)
-    print(">>> SELECTED QIDS:", [q.id for q in qs], flush=True)
-    print(">>> SELECTED IMAGES:", [(q.id, q.image_path, q.question_mode) for q in qs], flush=True)
+    if not qs:
+        await c.answer("Bu mavzuda hozircha test yo'q.", show_alert=True)
+        return
+
+    qs = random.sample(qs, max(1, min(size, len(qs))))
 
     await state.set_state(QuizState.active)
-    await state.update_data(topic_id=tid, qids=[q.id for q in qs], index=0, correct=0, answered=0, selected=[])
+    await state.update_data(topic_id=tid, qids=list(qs), index=0, correct=0, answered=0, selected=[])
     await render(c, state)
     await c.answer('Test boshlandi! 🚀')
 
@@ -385,7 +395,9 @@ async def answer(c, state):
             ).all()
 
             for log in old_errors:
-                await s.delete(log)
+                # Javob tarixi o'chirilmaydi (statistika va hisobotlar
+                # buzilmasligi uchun), faqat "o'zlashtirildi" deb belgilanadi
+                log.resolved = True
             await s.commit()
 
         await state.clear()
@@ -588,7 +600,11 @@ async def errors_page(c, state):
             await s.scalars(
                 select(AnswerLog)
                 .join(TestAttempt, AnswerLog.attempt_id == TestAttempt.id)
-                .where(TestAttempt.user_id == u.id, AnswerLog.is_correct.is_(False))
+                .where(
+                    TestAttempt.user_id == u.id,
+                    AnswerLog.is_correct.is_(False),
+                    AnswerLog.resolved.is_(False),
+                )
                 .order_by(AnswerLog.id.desc())
             )
         ).all()
@@ -876,9 +892,13 @@ async def attempt_detail(c):
         logs = (await s.scalars(select(AnswerLog).where(AnswerLog.attempt_id == attempt.id).order_by(AnswerLog.id))).all()
 
         questions = {}
-        for log in logs:
-            question = await s.get(Question, log.question_id)
-            questions[log.question_id] = question
+        if logs:
+            for question in await s.scalars(
+                select(Question).where(
+                    Question.id.in_({log.question_id for log in logs})
+                )
+            ):
+                questions[question.id] = question
 
     pct = (attempt.correct / attempt.total * 100) if attempt.total else 0
     answered = len(logs)

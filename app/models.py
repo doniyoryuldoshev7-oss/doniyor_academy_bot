@@ -188,6 +188,7 @@ class AnswerLog(Base):
     question_id: Mapped[int]=mapped_column(ForeignKey("questions.id",ondelete="CASCADE"))
     selected_option: Mapped[str]=mapped_column(String(1))
     is_correct: Mapped[bool]=mapped_column(Boolean)
+    resolved: Mapped[bool]=mapped_column(Boolean,default=False)
     question: Mapped["Question"] = relationship()
 
 

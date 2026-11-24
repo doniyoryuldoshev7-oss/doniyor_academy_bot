@@ -238,6 +238,50 @@ def seconds_until_next_run(now: datetime | None = None) -> float:
     return (target - local_now).total_seconds()
 
 
+async def _delay_with_catchup() -> float:
+    """Keyingi ishga tushishgacha kutish; o'tkazib yuborilgan bo'lsa -- 1 soniya.
+
+    Bot soat 09:00 atrofida qayta ishga tushsa, kunlik eslatma o'tib
+    ketardi. Oxirgi yuborilgan kun bazada saqlanadi: bugun hali
+    yuborilmagan va vaqti 8 soatdan oshmagan bo'lsa, darhol yuboriladi.
+    """
+    normal = seconds_until_next_run()
+
+    try:
+        from .kv import kv_get, kv_set
+
+        local_now = datetime.now(timezone.utc) + local_offset()
+        today = local_now.strftime("%Y-%m-%d")
+        last = await kv_get("reminder_last_run")
+
+        if last is None:
+            # Birinchi ishga tushish: eski xabarlarni yubormaymiz
+            await kv_set("reminder_last_run", today)
+            return normal
+
+        target = local_now.replace(
+            hour=reminder_hour(), minute=0, second=0, microsecond=0
+        )
+
+        if last != today and target <= local_now <= target + timedelta(hours=8):
+            log.info("Kunlik eslatma o'tkazib yuborilgan edi, hozir yuboriladi.")
+            return 1.0
+    except Exception:
+        log.exception("Eslatma kunini tekshirib bo'lmadi")
+
+    return normal
+
+
+async def _mark_ran_today() -> None:
+    try:
+        from .kv import kv_set
+
+        local_now = datetime.now(timezone.utc) + local_offset()
+        await kv_set("reminder_last_run", local_now.strftime("%Y-%m-%d"))
+    except Exception:
+        log.exception("Eslatma kunini saqlab bo'lmadi")
+
+
 async def reminder_loop(bot) -> None:
     """Botning fon vazifasi: har kuni bir marta eslatma yuboradi."""
     log.info(
@@ -248,7 +292,7 @@ async def reminder_loop(bot) -> None:
     )
 
     while True:
-        delay = seconds_until_next_run()
+        delay = await _delay_with_catchup()
 
         log.info(
             "Keyingi eslatma %.0f daqiqadan keyin.",
@@ -256,6 +300,8 @@ async def reminder_loop(bot) -> None:
         )
 
         await asyncio.sleep(delay)
+
+        await _mark_ran_today()
 
         try:
             result = await send_reminders(bot)

@@ -1055,7 +1055,8 @@ async def bulk_question_save(
 
         export_items = items_from_bulk(items)
 
-        docx_bytes = build_questions_docx(
+        docx_bytes = await asyncio.to_thread(
+            build_questions_docx,
             subject_name=subject_name,
             topic_name=topic_name,
             items=export_items,

@@ -31,3 +31,5 @@ patch_soft_delete.py
 *.bat
 deploy_log.txt
 natija.txt
+# Yordamchi o'rnatish skriptlari
+patch_*.py

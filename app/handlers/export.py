@@ -8,6 +8,7 @@ Admin panelda "\U0001F4C4 Word eksport" tugmasi:
 
 from __future__ import annotations
 
+import asyncio
 import html
 import logging
 import re
@@ -326,7 +327,8 @@ async def export_run(c: CallbackQuery):
                 items = items_from_questions(questions)
                 count = len(items)
 
-                data = build_questions_docx(
+                data = await asyncio.to_thread(
+                    build_questions_docx,
                     subject_name=subject_name,
                     topic_name=topic_name,
                     items=items,
@@ -368,7 +370,8 @@ async def export_run(c: CallbackQuery):
 
                 count = sum(len(items) for _, items in sections)
 
-                data = build_multi_topic_docx(
+                data = await asyncio.to_thread(
+                    build_multi_topic_docx,
                     subject_name=subject_name,
                     sections=sections,
                     with_answers=with_answers,

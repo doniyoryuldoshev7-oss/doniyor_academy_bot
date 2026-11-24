@@ -450,17 +450,23 @@ async def build_plan(
 
     plans: list[TopicPlan] = []
 
-    for topic, subject in rows:
-        questions = [
-            question
-            for question in await session.scalars(
-                select(Question).where(
-                    Question.topic_id == topic.id,
-                    Question.is_active.is_(True),
-                )
+    # Barcha mavzuning savollari bitta so'rovda olinadi (har mavzuga
+    # alohida so'rov yuborish fanlar ko'p bo'lganda sekin edi)
+    questions_by_topic: dict[int, list] = {}
+
+    for question in await session.scalars(
+        select(Question).where(
+            Question.topic_id.in_(all_topic_ids),
+            Question.is_active.is_(True),
+        )
+    ):
+        if usable(question):
+            questions_by_topic.setdefault(question.topic_id, []).append(
+                question
             )
-            if usable(question)
-        ]
+
+    for topic, subject in rows:
+        questions = questions_by_topic.get(topic.id, [])
 
         if not questions:
             continue

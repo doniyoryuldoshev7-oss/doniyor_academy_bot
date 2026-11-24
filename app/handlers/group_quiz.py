@@ -1259,7 +1259,10 @@ async def on_poll_answer(
                 await session.scalars(
                     select(GroupQuiz).where(
                         GroupQuiz.status
-                        == "active"
+                        == "active",
+                        GroupQuiz.poll_map_json.contains(
+                            str(poll_id)
+                        ),
                     )
                 )
             ).all()

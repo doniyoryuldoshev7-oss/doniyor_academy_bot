@@ -17,7 +17,17 @@ if database_url.startswith("postgresql://"):
         1
     )
 
-engine = create_async_engine(database_url, echo=False)
+_engine_kwargs = {}
+
+if database_url.startswith("postgresql"):
+    _engine_kwargs = dict(
+        pool_pre_ping=True,
+        pool_recycle=1800,
+        pool_size=10,
+        max_overflow=20,
+    )
+
+engine = create_async_engine(database_url, echo=False, **_engine_kwargs)
 
 SessionLocal = async_sessionmaker(
     engine,
@@ -31,6 +41,22 @@ async def init_db():
 
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
+
+        # answer_logs: xato "o'zlashtirildi" deb belgilanadi (o'chirilmaydi)
+        if database_url.startswith("postgresql+asyncpg://"):
+            await conn.execute(text(
+                "ALTER TABLE answer_logs ADD COLUMN IF NOT EXISTS "
+                "resolved BOOLEAN NOT NULL DEFAULT FALSE"
+            ))
+        else:
+            _al_cols = await conn.execute(
+                text("PRAGMA table_info(answer_logs)")
+            )
+            if "resolved" not in {r[1] for r in _al_cols.fetchall()}:
+                await conn.execute(text(
+                    "ALTER TABLE answer_logs ADD COLUMN "
+                    "resolved BOOLEAN NOT NULL DEFAULT 0"
+                ))
 
         # group_quiz_participants: yaratilgan test yozuvi havolasi
         if database_url.startswith("postgresql+asyncpg://"):

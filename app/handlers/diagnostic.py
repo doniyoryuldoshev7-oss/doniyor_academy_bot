@@ -846,11 +846,19 @@ async def show_result(c, result):
     nxt = result.next_topic
 
     if nxt is not None:
-        lines.append(
-            "\U0001F4A1 <b>Tavsiya:</b> "
-            + html.escape(short(nxt.topic_name))
-            + " dan boshlang."
-        )
+        if nxt.level == "unclear":
+            lines.append(
+                "\U0001F4A1 <b>Tavsiya:</b> "
+                + html.escape(short(nxt.topic_name))
+                + " bo'yicha savol kam bo'ldi. Aniq baho uchun shu "
+                "mavzuni ishlab ko'ring."
+            )
+        else:
+            lines.append(
+                "\U0001F4A1 <b>Tavsiya:</b> "
+                + html.escape(short(nxt.topic_name))
+                + " dan boshlang."
+            )
 
         buttons.append(
             [

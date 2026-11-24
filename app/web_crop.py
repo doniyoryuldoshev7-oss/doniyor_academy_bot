@@ -1,3 +1,4 @@
+import asyncio
 import json
 import os
 import time
@@ -475,7 +476,9 @@ async def save_crop(request):
     crop_dir = Path(session["crop_dir"])
     crop_dir.mkdir(parents=True, exist_ok=True)
 
-    try:
+    output = crop_dir / f"crop_{index}.jpg"
+
+    def _crop_job():
         with Image.open(source) as image:
             image = image.convert("RGB")
 
@@ -487,10 +490,12 @@ async def save_crop(request):
             if x2 <= x1 or y2 <= y1:
                 raise ValueError("Crop maydoni noto'g'ri.")
 
-            cropped = image.crop((x1, y1, x2, y2))
+            image.crop((x1, y1, x2, y2)).save(
+                output, "JPEG", quality=95
+            )
 
-            output = crop_dir / f"crop_{index}.jpg"
-            cropped.save(output, "JPEG", quality=95)
+    try:
+        await asyncio.to_thread(_crop_job)
 
     except Exception as exc:
         return web.json_response(
