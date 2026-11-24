@@ -232,6 +232,10 @@ async def main():
 
     backup_task = asyncio.create_task(db_backup.backup_loop(bot))
 
+    from .services.admin_ogoh import announce_start
+
+    start_alert_task = asyncio.create_task(announce_start(bot))
+
     # Qayta ishga tushishdan oldin boshlangan guruh testlarini tekshirish
     try:
         restored = await group_quiz.recover_active_group_quizzes(bot)

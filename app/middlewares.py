@@ -72,7 +72,7 @@ HARMLESS = (
 )
 
 
-async def on_error(event: ErrorEvent) -> bool:
+async def on_error(event: ErrorEvent, bot=None) -> bool:
     exc = event.exception
 
     if isinstance(exc, TelegramForbiddenError):
@@ -93,6 +93,14 @@ async def on_error(event: ErrorEvent) -> bool:
     )
 
     update = event.update
+
+    # adminga ogohlantirish
+    try:
+        from .services.admin_ogoh import alert_error
+
+        alert_error(bot, exc, update)
+    except Exception:
+        pass
 
     try:
         if update.callback_query is not None:
