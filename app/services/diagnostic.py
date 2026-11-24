@@ -36,7 +36,7 @@ ALGORITM
 
 HUKM CHIQARISH
 
-Mavzu bo'yicha baho faqat kamida 3 ta savol berilgan bo'lsa
+Mavzu bo'yicha baho kamida MIN_FOR_VERDICT ta savol berilgan bo'lsa
 chiqariladi. 1-2 savol tasodifga juda yaqin, shuning uchun u yerda
 foiz ko'rsatiladi, lekin "zaif" yoki "kuchli" deyilmaydi.
 """
@@ -60,7 +60,7 @@ from ..models import (
 )
 
 # Hukm chiqarish uchun mavzuda kamida shuncha savol bo'lishi kerak
-MIN_FOR_VERDICT = 3
+MIN_FOR_VERDICT = 1
 
 # Mavzuga berilishi mumkin bo'lgan eng ko'p savol (ustuvorlikka qarab)
 CAP_BY_TIER = {0: 4, 1: 4, 2: 3, 3: 2}
