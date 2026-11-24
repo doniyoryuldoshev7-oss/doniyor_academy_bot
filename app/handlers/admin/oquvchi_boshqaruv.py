@@ -102,6 +102,36 @@ def _chunks(items: list, size: int = CHUNK):
         yield items[index : index + size]
 
 
+LRM = "\u200e"  # arabcha/RTL ismlar qatorni buzmasligi uchun
+
+
+async def _excluded_incomplete(included_ids: set) -> list[tuple]:
+    """Profili to'liq emas, lekin eslatma yuborilmaydiganlar va sababi."""
+    from ...services.profil_eslatma import is_incomplete
+
+    async with SessionLocal() as session:
+        users = (await session.scalars(select(User))).all()
+
+    result = []
+
+    for user in users:
+        if user.id in included_ids or not is_incomplete(user):
+            continue
+
+        if user.telegram_id in settings.admins:
+            reason = "admin"
+        elif user.is_blocked:
+            reason = "bloklangan"
+        elif user.registration_status == "rejected":
+            reason = "rad etilgan"
+        else:
+            reason = "boshqa"
+
+        result.append((user, reason))
+
+    return result
+
+
 # ---------------------------------------------------------------
 #  To'liq bo'lmagan profillar
 # ---------------------------------------------------------------
@@ -133,12 +163,29 @@ async def incomplete_overview(c: CallbackQuery):
 
     for user in users[:15]:
         lines.append(
-            f"• {html.escape(_short(user.full_name, 30))} — "
+            f"{LRM}• {LRM}{html.escape(_short(user.full_name, 30))}{LRM} — "
             + html.escape(", ".join(missing_fields(user)))
         )
 
     if len(users) > 15:
         lines.append(f"… va yana {len(users) - 15} ta")
+
+    excluded = await _excluded_incomplete({user.id for user in users})
+
+    if excluded:
+        lines.append("")
+        lines.append(
+            "<i>Eslatma yuborilmaydi (hisobga olinmadi):</i>"
+        )
+
+        for user, reason in excluded[:10]:
+            lines.append(
+                f"{LRM}• {LRM}{html.escape(_short(user.full_name, 30))}{LRM}"
+                f" — {reason}"
+            )
+
+        if len(excluded) > 10:
+            lines.append(f"… va yana {len(excluded) - 10} ta")
 
     lines.append("")
 
@@ -253,7 +300,7 @@ async def _blocked_users() -> list:
 
 
 def _contact_line(user) -> str:
-    parts = [html.escape(_short(user.full_name, 30))]
+    parts = [LRM + html.escape(_short(user.full_name, 30)) + LRM]
 
     if user.phone_number:
         parts.append("📱 " + html.escape(user.phone_number))
@@ -282,7 +329,7 @@ async def blocked_overview(c: CallbackQuery):
     ]
 
     for user in users[:30]:
-        lines.append("• " + _contact_line(user))
+        lines.append(LRM + "• " + _contact_line(user))
 
     if len(users) > 30:
         lines.append(f"… va yana {len(users) - 30} ta (to'liq ro'yxat fayli pastda)")
