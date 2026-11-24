@@ -365,7 +365,40 @@ async def student_report(session, telegram_id: int) -> StudentReport | None:
 
     subject_map: dict[str, SubjectRow] = {}
 
+    # Diagnostika bir necha fandan iborat bo'lishi mumkin: uni birinchi
+    # mavzusining fani hisobiga yozmasdan, javoblar bo'yicha fanlarga bo'lamiz
+    diagnostic_ids = [a.attempt_id for a in attempts if a.is_diagnostic]
+
+    if diagnostic_ids:
+        split_rows = await session.execute(
+            select(
+                Subject.name,
+                func.count(AnswerLog.id),
+                func.sum(case((AnswerLog.is_correct.is_(True), 1), else_=0)),
+            )
+            .select_from(AnswerLog)
+            .join(Question, Question.id == AnswerLog.question_id)
+            .join(Topic, Topic.id == Question.topic_id)
+            .join(Subject, Subject.id == Topic.subject_id)
+            .where(AnswerLog.attempt_id.in_(diagnostic_ids))
+            .group_by(Subject.name)
+        )
+
+        for name, answered, right in split_rows:
+            row = subject_map.get(name)
+
+            if row is None:
+                row = SubjectRow(name=name, attempts=0, total=0, correct=0)
+                subject_map[name] = row
+
+            row.attempts += 1
+            row.total += int(answered or 0)
+            row.correct += int(right or 0)
+
     for attempt in attempts:
+        if attempt.is_diagnostic:
+            continue
+
         row = subject_map.get(attempt.subject_name)
 
         if row is None:
