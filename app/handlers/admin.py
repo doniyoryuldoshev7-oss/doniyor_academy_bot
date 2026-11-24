@@ -21,6 +21,7 @@ from aiogram.types import (
     ReplyKeyboardRemove,
 )
 from aiogram.fsm.context import FSMContext
+from aiogram.types import FSInputFile
 from sqlalchemy import select, func
 
 from ..config import settings

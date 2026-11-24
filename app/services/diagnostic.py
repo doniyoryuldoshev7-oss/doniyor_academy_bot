@@ -1,20 +1,52 @@
-"""Diagnostik test — hisob-kitob qismi.
+"""Diagnostik test — tanlash algoritmi va natija hisobi.
 
 Joylashuvi: app/services/diagnostic.py
 
-Bir fandagi bir necha mavzudan qisqa test yig'adi va yakunida
-mavzular kesimida natija chiqaradi.
+Diagnostika bir necha fan va mavzu bo'yicha o'quvchining holatini
+o'lchaydi. Asosiy qiyinchilik: savollar soni cheklangan, mavzular
+esa ko'p. Shuning uchun savollar tasodifan emas, ustuvorlik bo'yicha
+bosqichma-bosqich tarqatiladi.
 
-Natijalar mavjud jadvallarga yoziladi: har bir mavzu uchun alohida
-TestAttempt va uning AnswerLog yozuvlari. Shuning uchun diagnostika
-Bilim xaritasiga, savollar sifatiga va Smart Takrorlashga
-odatdagi test kabi qo'shilib ketadi.
+ALGORITM
+
+1-qadam. Har mavzu uchun o'quvchi tarixidan ustuvorlik aniqlanadi:
+
+      0  hali ishlanmagan   -> eng qimmatli, chunki hech narsa ma'lum emas
+      1  zaif (50% dan past)
+      2  o'rtacha (50-79%)
+      3  mustahkam (80% dan yuqori)
+
+   Uzoq vaqt tekshirilmagan mavzuga qo'shimcha ustunlik beriladi
+   (bilim vaqt o'tishi bilan unutiladi).
+
+2-qadam. Savollar bosqichma-bosqich tarqatiladi:
+
+      1-bosqich: har bir mavzuga bittadan (ustuvorlik tartibida)
+      2-bosqich: zaif va ishlanmagan mavzularga ikkinchi savol
+      3-bosqich: ularga uchinchi savol
+      ...
+
+   Shunday qilib byudjet yetgancha barcha mavzu qamrab olinadi,
+   ortgan savollar esa eng zaif joylarga ketadi. Byudjet yetmasa,
+   qolgan mavzular "tekshirilmadi" deb ochiq aytiladi — jimgina
+   tushirib qoldirilmaydi.
+
+3-qadam. Mavzu ichida savol tanlash tartibi: avval hali ko'rilmagan
+   savollar, keyin xato qilinganlari, oxirida o'zlashtirilganlari.
+
+HUKM CHIQARISH
+
+Mavzu bo'yicha baho faqat kamida 3 ta savol berilgan bo'lsa
+chiqariladi. 1-2 savol tasodifga juda yaqin, shuning uchun u yerda
+foiz ko'rsatiladi, lekin "zaif" yoki "kuchli" deyilmaydi.
 """
 
 from __future__ import annotations
 
+import logging
 import random
 from dataclasses import dataclass, field
+from datetime import datetime, timedelta
 
 from sqlalchemy import case, func, select
 
@@ -27,18 +59,34 @@ from ..models import (
     User,
 )
 
-# Har mavzudan nechta savol
-PER_TOPIC = 2
+# Hukm chiqarish uchun mavzuda kamida shuncha savol bo'lishi kerak
+MIN_FOR_VERDICT = 3
 
-# Jami savollar chegarasi
-MAX_QUESTIONS = 20
+# Mavzuga berilishi mumkin bo'lgan eng ko'p savol (ustuvorlikka qarab)
+CAP_BY_TIER = {0: 4, 1: 4, 2: 3, 3: 2}
 
-# Shundan kam savol yig'ilsa, diagnostika ma'nosiz
-MIN_QUESTIONS = 4
+# Uzoq tekshirilmagan deb hisoblash muddati
+STALE_DAYS = 21
+
+# Avtomatik byudjet chegaralari
+AUTO_MIN = 10
+AUTO_MAX = 40
+
+TIER_UNSEEN = 0
+TIER_WEAK = 1
+TIER_MEDIUM = 2
+TIER_STRONG = 3
+
+TIER_LABELS = {
+    TIER_UNSEEN: "ishlanmagan",
+    TIER_WEAK: "zaif",
+    TIER_MEDIUM: "o'rtacha",
+    TIER_STRONG: "mustahkam",
+}
 
 
-def reviewable(question) -> bool:
-    """Diagnostikaga yaroqli savol (A/B/C/D)."""
+def usable(question) -> bool:
+    """Diagnostikaga yaroqli savol (A/B/C/D bilan javob beriladigan)."""
     if (question.correct_option or "").strip().upper() not in ("A", "B", "C", "D"):
         return False
 
@@ -61,12 +109,35 @@ def reviewable(question) -> bool:
     return False
 
 
-async def question_history(session, user_id: int, topic_ids: list[int]):
+# ---------------------------------------------------------------
+#  Tarix
+# ---------------------------------------------------------------
+
+@dataclass
+class TopicHistory:
+    answered: int = 0
+    correct: int = 0
+    last_seen: datetime | None = None
+
+    @property
+    def accuracy(self) -> float:
+        if not self.answered:
+            return 0.0
+
+        return self.correct / self.answered
+
+
+async def load_history(session, user_id: int, topic_ids: list[int]):
     """O'quvchining shu mavzulardagi javoblari.
 
-    Qaytaradi: (savol bo'yicha {qid: (jami, to'g'ri)},
-                mavzu bo'yicha {topic_id: (jami, to'g'ri)})
+    Qaytaradi: ({qid: (jami, to'g'ri)}, {topic_id: TopicHistory})
     """
+    by_question: dict[int, tuple[int, int]] = {}
+    by_topic: dict[int, TopicHistory] = {}
+
+    if not topic_ids:
+        return by_question, by_topic
+
     rows = await session.execute(
         select(
             AnswerLog.question_id,
@@ -75,6 +146,7 @@ async def question_history(session, user_id: int, topic_ids: list[int]):
             func.sum(
                 case((AnswerLog.is_correct.is_(True), 1), else_=0)
             ),
+            func.max(TestAttempt.created_at),
         )
         .join(TestAttempt, TestAttempt.id == AnswerLog.attempt_id)
         .join(Question, Question.id == AnswerLog.question_id)
@@ -85,52 +157,60 @@ async def question_history(session, user_id: int, topic_ids: list[int]):
         .group_by(AnswerLog.question_id, Question.topic_id)
     )
 
-    by_question: dict[int, tuple[int, int]] = {}
-    by_topic: dict[int, list[int]] = {}
-
-    for question_id, topic_id, total, correct in rows:
+    for question_id, topic_id, total, correct, last_seen in rows:
         total = int(total or 0)
         correct = int(correct or 0)
 
         by_question[int(question_id)] = (total, correct)
 
-        bucket = by_topic.setdefault(int(topic_id), [0, 0])
-        bucket[0] += total
-        bucket[1] += correct
+        entry = by_topic.setdefault(int(topic_id), TopicHistory())
+        entry.answered += total
+        entry.correct += correct
 
-    return by_question, {k: tuple(v) for k, v in by_topic.items()}
+        if last_seen is not None:
+            if entry.last_seen is None or last_seen > entry.last_seen:
+                entry.last_seen = last_seen
+
+    return by_question, by_topic
 
 
-def topic_quota(stats: tuple[int, int] | None) -> int:
-    """Mavzuga nechta savol ajratiladi.
+def topic_tier(history: TopicHistory | None) -> int:
+    if history is None or not history.answered:
+        return TIER_UNSEEN
 
-    Zaif mavzuga ko'proq, mustahkamiga kamroq — lekin noldan
-    emas, aks holda diagnostika o'lchash qobiliyatini yo'qotadi.
-    """
-    if not stats or not stats[0]:
-        # Hali ishlanmagan mavzu: tekshirish kerak
-        return 2
-
-    total, correct = stats
-    accuracy = correct / total
+    accuracy = history.accuracy
 
     if accuracy < 0.5:
-        return 3
+        return TIER_WEAK
 
     if accuracy < 0.8:
-        return 2
+        return TIER_MEDIUM
 
-    return 1
+    return TIER_STRONG
 
 
-def question_rank(question, history) -> tuple:
-    """Savol tanlash tartibi.
+def topic_priority(
+    history: TopicHistory | None,
+    now: datetime | None = None,
+) -> float:
+    """Kichik qiymat = yuqori ustuvorlik."""
+    tier = topic_tier(history)
+    score = float(tier)
 
-    1) hali ko'rilmagan savollar
-    2) xato qilingan savollar
-    3) to'g'ri ishlangan savollar
-    """
-    stats = history.get(question.id)
+    if history is not None and history.last_seen is not None:
+        moment = now or datetime.utcnow()
+        days = (moment - history.last_seen).days
+
+        if days >= STALE_DAYS:
+            # Uzoq tekshirilmagan mavzu muhimroq bo'lib qoladi
+            score -= 0.5
+
+    return score
+
+
+def question_rank(question, by_question: dict) -> tuple:
+    """Mavzu ichida savol tanlash tartibi."""
+    stats = by_question.get(question.id)
 
     if stats is None:
         return (0, 0)
@@ -143,31 +223,234 @@ def question_rank(question, history) -> tuple:
     return (2, correct)
 
 
-async def build_diagnostic(
-    session,
-    subject_id: int,
-    user_id: int | None = None,
-    topic_ids: list[int] | None = None,
-    limit: int = MAX_QUESTIONS,
-) -> list[Question]:
-    """Diagnostika uchun savollar to'plami.
+# ---------------------------------------------------------------
+#  Tanlash
+# ---------------------------------------------------------------
 
-    O'quvchi tarixi ma'lum bo'lsa, zaif mavzulardan ko'proq savol
-    olinadi va hali ko'rilmagan savollarga ustunlik beriladi.
+@dataclass
+class TopicPlan:
+    topic_id: int
+    topic_name: str
+    subject_id: int
+    subject_name: str
+    tier: int
+    priority: float
+    questions: list = field(default_factory=list)
+    asked: int = 0
+
+    @property
+    def available(self) -> int:
+        return len(self.questions)
+
+    @property
+    def cap(self) -> int:
+        return min(CAP_BY_TIER.get(self.tier, 2), self.available)
+
+
+@dataclass
+class DiagnosticPlan:
+    questions: list = field(default_factory=list)
+    topics: list = field(default_factory=list)
+
+    @property
+    def covered(self) -> list:
+        return [plan for plan in self.topics if plan.asked]
+
+    @property
+    def skipped(self) -> list:
+        return [plan for plan in self.topics if not plan.asked]
+
+    @property
+    def subjects(self) -> list:
+        seen = []
+
+        for plan in self.topics:
+            if plan.subject_name not in seen:
+                seen.append(plan.subject_name)
+
+        return seen
+
+
+def auto_budget(topic_count: int) -> int:
+    """Mavzular soniga qarab oqilona test uzunligi."""
+    if topic_count <= 0:
+        return AUTO_MIN
+
+    return max(AUTO_MIN, min(AUTO_MAX, topic_count * 2))
+
+
+def allocate(plans: list[TopicPlan], budget: int) -> list:
+    """Savollarni bosqichma-bosqich tarqatadi.
+
+    1-faza (shakllantirish): ustuvorlik tartibida har mavzuga
+    bittadan beriladi, keyin zaif mavzularga ikkinchi, uchinchi...
+    Har mavzuning yuqori chegarasi bor, shunda bitta mavzu butun
+    testni egallab olmaydi.
+
+    2-faza (to'ldirish): agar so'ralgan savol soni hali yig'ilmagan
+    bo'lsa, chegaralar olib tashlanadi va savollar yana ustuvorlik
+    tartibida tarqatilaveradi. Chunki foydalanuvchi "20 ta savol"
+    desa, 12 ta berib qo'yish noto'g'ri bo'lardi.
     """
-    stmt = select(Topic).where(Topic.subject_id == subject_id)
+    chosen = []
+
+    if budget <= 0 or not plans:
+        return chosen
+
+    ordered = sorted(plans, key=lambda p: (p.priority, -p.available))
+
+    # 1-faza: chegaralar bilan
+    max_rounds = max((plan.cap for plan in ordered), default=0)
+
+    for round_index in range(max_rounds):
+        progressed = False
+
+        for plan in ordered:
+            if len(chosen) >= budget:
+                return chosen
+
+            if round_index >= plan.cap:
+                continue
+
+            chosen.append(plan.questions[plan.asked])
+            plan.asked += 1
+            progressed = True
+
+        if not progressed:
+            break
+
+    # 2-faza: chegarasiz to'ldirish
+    while len(chosen) < budget:
+        progressed = False
+
+        for plan in ordered:
+            if len(chosen) >= budget:
+                break
+
+            if plan.asked >= plan.available:
+                continue
+
+            chosen.append(plan.questions[plan.asked])
+            plan.asked += 1
+            progressed = True
+
+        if not progressed:
+            # Savollar tugadi
+            break
+
+    return chosen
+
+
+def usable_condition():
+    """usable() ning SQL ko'rinishi — sanashni bazaga topshirish uchun."""
+    from sqlalchemy import and_, or_
+
+    return and_(
+        Question.is_active.is_(True),
+        Question.correct_option.in_(("A", "B", "C", "D")),
+        or_(
+            and_(
+                Question.question_mode == "closed",
+                Question.option_a.is_not(None),
+                Question.option_b.is_not(None),
+                Question.option_c.is_not(None),
+                Question.option_d.is_not(None),
+            ),
+            and_(
+                Question.question_mode.in_(("image", "image_multi")),
+                Question.image_path.is_not(None),
+            ),
+        ),
+    )
+
+
+async def subject_capacity(session) -> dict:
+    """Har fanda diagnostikaga yaroqli nechta savol bor."""
+    rows = await session.execute(
+        select(Subject.id, Subject.name, func.count(Question.id))
+        .join(Topic, Topic.subject_id == Subject.id)
+        .join(Question, Question.topic_id == Topic.id)
+        .where(Subject.is_active.is_(True), usable_condition())
+        .group_by(Subject.id, Subject.name)
+    )
+
+    return {
+        int(row[0]): {"name": row[1], "count": int(row[2] or 0)}
+        for row in rows
+        if int(row[2] or 0) > 0
+    }
+
+
+async def topic_capacity(session, subject_id: int) -> dict:
+    """Fandagi har mavzuda nechta yaroqli savol bor."""
+    rows = await session.execute(
+        select(Topic.id, func.count(Question.id))
+        .join(Question, Question.topic_id == Topic.id)
+        .where(Topic.subject_id == subject_id, usable_condition())
+        .group_by(Topic.id)
+    )
+
+    return {int(row[0]): int(row[1] or 0) for row in rows}
+
+
+async def build_plan(
+    session,
+    *,
+    user_id: int | None = None,
+    budgets: dict | None = None,
+    subject_ids: list[int] | None = None,
+    topic_ids: list[int] | None = None,
+    budget: int | None = None,
+    now: datetime | None = None,
+) -> DiagnosticPlan:
+    """Diagnostika rejasini tuzadi.
+
+    budgets berilsa — har fan uchun alohida savol soni
+    ({fan_id: soni}). Aks holda umumiy byudjet ishlatiladi.
+    """
+    stmt = (
+        select(Topic, Subject)
+        .join(Subject, Subject.id == Topic.subject_id)
+        .where(Subject.is_active.is_(True))
+    )
+
+    wanted_subjects = None
+
+    if budgets:
+        wanted_subjects = [
+            subject_id
+            for subject_id, count in budgets.items()
+            if count > 0
+        ]
+
+        if not wanted_subjects:
+            return DiagnosticPlan()
+
+        stmt = stmt.where(Subject.id.in_(wanted_subjects))
+    elif subject_ids:
+        stmt = stmt.where(Subject.id.in_(subject_ids))
 
     if topic_ids:
         stmt = stmt.where(Topic.id.in_(topic_ids))
 
-    topics = list(await session.scalars(stmt))
+    rows = list(await session.execute(stmt))
 
-    if not topics:
-        return []
+    if not rows:
+        return DiagnosticPlan()
 
-    pool: dict[int, list[Question]] = {}
+    all_topic_ids = [topic.id for topic, _subject in rows]
 
-    for topic in topics:
+    by_question: dict[int, tuple[int, int]] = {}
+    by_topic: dict[int, TopicHistory] = {}
+
+    if user_id:
+        by_question, by_topic = await load_history(
+            session, user_id, all_topic_ids
+        )
+
+    plans: list[TopicPlan] = []
+
+    for topic, subject in rows:
         questions = [
             question
             for question in await session.scalars(
@@ -176,61 +459,53 @@ async def build_diagnostic(
                     Question.is_active.is_(True),
                 )
             )
-            if reviewable(question)
+            if usable(question)
         ]
 
-        if questions:
-            random.shuffle(questions)
-            pool[topic.id] = questions
+        if not questions:
+            continue
 
-    if not pool:
-        return []
+        random.shuffle(questions)
+        questions.sort(key=lambda q: question_rank(q, by_question))
 
-    history: dict[int, tuple[int, int]] = {}
-    topic_stats: dict[int, tuple[int, int]] = {}
+        history = by_topic.get(topic.id)
 
-    if user_id:
-        history, topic_stats = await question_history(
-            session, user_id, list(pool.keys())
+        plans.append(
+            TopicPlan(
+                topic_id=topic.id,
+                topic_name=topic.name,
+                subject_id=subject.id,
+                subject_name=subject.name,
+                tier=topic_tier(history),
+                priority=topic_priority(history, now),
+                questions=questions,
+            )
         )
 
-        for questions in pool.values():
-            questions.sort(key=lambda q: question_rank(q, history))
+    if not plans:
+        return DiagnosticPlan()
 
-    quotas = {
-        topic_id: topic_quota(topic_stats.get(topic_id))
-        for topic_id in pool
-    }
+    chosen: list = []
 
-    chosen: list[Question] = []
-    taken: dict[int, int] = {topic_id: 0 for topic_id in pool}
+    if budgets:
+        # Har fan o'z byudjeti bo'yicha, mavzularga taqsimlanadi
+        for subject_id in wanted_subjects:
+            subject_plans = [
+                plan for plan in plans if plan.subject_id == subject_id
+            ]
 
-    def collect(extra: int = 0) -> None:
-        for topic_id, questions in pool.items():
-            want = min(quotas[topic_id] + extra, len(questions))
-            start = taken[topic_id]
+            if not subject_plans:
+                continue
 
-            if want > start:
-                chosen.extend(questions[start:want])
-                taken[topic_id] = want
-
-    collect()
-
-    # Savol kam bo'lsa (masalan bitta mavzu tanlangan), to'ldiramiz
-    extra = 0
-
-    while len(chosen) < MIN_QUESTIONS and len(chosen) < limit:
-        extra += 1
-
-        before = len(chosen)
-        collect(extra)
-
-        if len(chosen) == before:
-            break
+            chosen.extend(
+                allocate(subject_plans, int(budgets[subject_id]))
+            )
+    else:
+        chosen = allocate(plans, budget or auto_budget(len(plans)))
 
     random.shuffle(chosen)
 
-    return chosen[:limit]
+    return DiagnosticPlan(questions=chosen, topics=plans)
 
 
 # ---------------------------------------------------------------
@@ -241,6 +516,7 @@ async def build_diagnostic(
 class TopicResult:
     topic_id: int
     topic_name: str
+    subject_name: str
     total: int = 0
     correct: int = 0
 
@@ -253,6 +529,10 @@ class TopicResult:
 
     @property
     def level(self) -> str:
+        """Baho faqat yetarli savol bo'lsa chiqariladi."""
+        if self.total < MIN_FOR_VERDICT:
+            return "unclear"
+
         if self.accuracy >= 80:
             return "strong"
 
@@ -264,10 +544,11 @@ class TopicResult:
 
 @dataclass
 class DiagnosticResult:
-    subject_name: str
     total: int = 0
     correct: int = 0
-    topics: list[TopicResult] = field(default_factory=list)
+    topics: list = field(default_factory=list)
+    skipped: list = field(default_factory=list)
+    subject_names: list = field(default_factory=list)
 
     @property
     def accuracy(self) -> int:
@@ -276,114 +557,157 @@ class DiagnosticResult:
 
         return int(round(self.correct / self.total * 100))
 
-    @property
-    def strong(self) -> list[TopicResult]:
-        return [t for t in self.topics if t.level == "strong"]
+    def by_level(self, level: str) -> list:
+        return [topic for topic in self.topics if topic.level == level]
 
     @property
-    def medium(self) -> list[TopicResult]:
-        return [t for t in self.topics if t.level == "medium"]
+    def strong(self) -> list:
+        return self.by_level("strong")
 
     @property
-    def weak(self) -> list[TopicResult]:
-        return [t for t in self.topics if t.level == "weak"]
+    def medium(self) -> list:
+        return self.by_level("medium")
 
     @property
-    def next_topic(self) -> TopicResult | None:
-        """O'rganishni qayerdan boshlash kerak."""
+    def weak(self) -> list:
+        return self.by_level("weak")
+
+    @property
+    def unclear(self) -> list:
+        return self.by_level("unclear")
+
+    @property
+    def next_topic(self):
+        """Qaysi mavzudan boshlash kerak."""
         pool = self.weak or self.medium
 
-        if not pool:
-            return None
+        if pool:
+            return min(pool, key=lambda t: t.accuracy)
 
-        return min(pool, key=lambda t: t.accuracy)
+        # Baho chiqmagan mavzular orasidan eng pastini olamiz
+        if self.unclear:
+            return min(self.unclear, key=lambda t: t.accuracy)
+
+        return None
+
+    @property
+    def title(self) -> str:
+        if not self.subject_names:
+            return "Diagnostika"
+
+        if len(self.subject_names) == 1:
+            return self.subject_names[0]
+
+        return f"{len(self.subject_names)} ta fan"
 
 
 async def save_diagnostic(
     session,
     user: User,
-    subject_id: int,
     answers: list[dict],
+    skipped: list | None = None,
 ) -> DiagnosticResult:
-    """Javoblarni bazaga yozadi va natijani hisoblaydi.
+    """Javoblarni bitta test yozuvi sifatida saqlaydi.
 
-    answers: [{"qid", "topic_id", "selected", "correct"}]
-    Har mavzu uchun alohida TestAttempt yaratiladi — shunda
-    mavjud statistika mexanizmlari uni odatdagi test kabi ko'radi.
+    Mavzular kesimidagi tahlil javoblardan (AnswerLog -> Question ->
+    Topic) kelib chiqadi, shuning uchun bitta yozuv yetarli. Bu
+    hisobotda bitta diagnostika o'nta alohida test bo'lib
+    ko'rinmasligi uchun muhim.
     """
-    from ..services.smart_review_service import register_wrong_answer
     import os
 
-    subject = (
-        await session.get(Subject, subject_id)
-        if subject_id
-        else None
+    if not answers:
+        return DiagnosticResult()
+
+    total = len(answers)
+    correct = sum(1 for item in answers if item["correct"])
+
+    attempt = TestAttempt(
+        user_id=user.id,
+        topic_id=answers[0]["topic_id"],
+        total=total,
+        correct=correct,
+        score=correct,
     )
 
-    by_topic: dict[int, list[dict]] = {}
+    if hasattr(attempt, "source"):
+        attempt.source = "diagnostic"
 
-    for item in answers:
-        by_topic.setdefault(item["topic_id"], []).append(item)
-
-    result = DiagnosticResult(
-        subject_name=subject.name if subject else "—"
-    )
+    session.add(attempt)
+    await session.flush()
 
     smart_on = os.getenv("SMART_REVIEW_ENABLED", "0") == "1"
 
-    for topic_id, items in by_topic.items():
-        topic = await session.get(Topic, topic_id)
+    if smart_on:
+        from ..services.smart_review_service import register_wrong_answer
 
-        total = len(items)
-        correct = sum(1 for item in items if item["correct"])
-
-        attempt = TestAttempt(
-            user_id=user.id,
-            topic_id=topic_id,
-            total=total,
-            correct=correct,
-            score=correct,
-        )
-
-        session.add(attempt)
-        await session.flush()
-
-        for item in items:
-            session.add(
-                AnswerLog(
-                    attempt_id=attempt.id,
-                    question_id=item["qid"],
-                    selected_option=item["selected"],
-                    is_correct=item["correct"],
-                )
-            )
-
-            if smart_on and not item["correct"]:
-                await register_wrong_answer(
-                    session,
-                    user_id=user.id,
-                    question_id=item["qid"],
-                )
-
-        result.topics.append(
-            TopicResult(
-                topic_id=topic_id,
-                topic_name=topic.name if topic else "—",
-                total=total,
-                correct=correct,
+    for item in answers:
+        session.add(
+            AnswerLog(
+                attempt_id=attempt.id,
+                question_id=item["qid"],
+                selected_option=item["selected"],
+                is_correct=item["correct"],
             )
         )
 
-        result.total += total
-        result.correct += correct
+        if smart_on and not item["correct"]:
+            # Smart Takrorlashdagi xato butun natijani yo'qotmasligi uchun
+            # alohida "saqlash nuqtasi" ichida bajariladi
+            try:
+                async with session.begin_nested():
+                    await register_wrong_answer(
+                        session,
+                        user_id=user.id,
+                        question_id=item["qid"],
+                    )
+            except Exception:
+                logging.getLogger(__name__).exception(
+                    "Smart Takrorlashga qo'shilmadi (savol #%s)",
+                    item["qid"],
+                )
 
     user.total_tests += 1
-    user.total_questions += result.total
-    user.correct_answers += result.correct
-    user.total_score += result.correct
+    user.total_questions += total
+    user.correct_answers += correct
+    user.total_score += correct
 
     await session.commit()
 
-    result.topics.sort(key=lambda t: t.accuracy, reverse=True)
+    # Mavzular kesimida natija
+    buckets: dict[int, TopicResult] = {}
 
-    return result
+    for item in answers:
+        bucket = buckets.get(item["topic_id"])
+
+        if bucket is None:
+            bucket = TopicResult(
+                topic_id=item["topic_id"],
+                topic_name=item.get("topic_name") or "—",
+                subject_name=item.get("subject_name") or "—",
+            )
+            buckets[item["topic_id"]] = bucket
+
+        bucket.total += 1
+
+        if item["correct"]:
+            bucket.correct += 1
+
+    topics = sorted(
+        buckets.values(),
+        key=lambda t: (t.accuracy, -t.total),
+    )
+
+    subject_names = []
+
+    for topic in topics:
+        if topic.subject_name not in subject_names:
+            subject_names.append(topic.subject_name)
+
+    return DiagnosticResult(
+        total=total,
+        correct=correct,
+        topics=topics,
+        skipped=list(skipped or []),
+        subject_names=subject_names,
+    )

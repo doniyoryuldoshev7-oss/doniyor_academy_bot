@@ -1,15 +1,18 @@
-"""Diagnostik test — o'quvchi ekranlari.
+"""Diagnostik test — ekranlar.
 
 Joylashuvi: app/handlers/diagnostic.py
 
-Bosh menyudagi "\U0001F3AF Diagnostika" tugmasi:
-    fan -> bir necha mavzudan qisqa test -> mavzular kesimida natija.
+Foydalanuvchi qaysi fanlardan va nechta savol olishni o'zi
+belgilaydi. Savollarni mavzularga taqsimlashni algoritm bajaradi
+(app/services/diagnostic.py).
 """
 
 from __future__ import annotations
 
 import html
 import logging
+import os
+import re
 from pathlib import Path
 
 from aiogram import F, Router
@@ -24,9 +27,11 @@ from sqlalchemy import select
 from ..db import SessionLocal
 from ..models import Question, Subject, Topic, User
 from ..services.diagnostic import (
-    MIN_QUESTIONS,
-    build_diagnostic,
+    MIN_FOR_VERDICT,
+    build_plan,
     save_diagnostic,
+    subject_capacity,
+    topic_capacity,
 )
 
 log = logging.getLogger(__name__)
@@ -34,11 +39,11 @@ log = logging.getLogger(__name__)
 router = Router()
 
 CAPTION_LIMIT = 900
+STEP = 5
+GROUP_LIMIT = 10
 
 
 def natural_key(name: str):
-    import re
-
     parts = re.split(r"(\d+)", (name or "").casefold())
     return tuple(
         (0, int(part)) if part.isdigit() else (1, part)
@@ -46,7 +51,7 @@ def natural_key(name: str):
     )
 
 
-def short(name: str, limit: int = 26) -> str:
+def short(name: str, limit: int = 24) -> str:
     name = (name or "").strip()
 
     if len(name) <= limit:
@@ -62,6 +67,345 @@ def home_button():
             callback_data="home",
         )
     ]
+
+
+async def replace_text(c, text, keyboard=None):
+    message = c.message
+
+    is_caption = bool(getattr(message, "photo", None)) or (
+        getattr(message, "caption", None) is not None
+    )
+
+    try:
+        if is_caption:
+            await message.edit_caption(caption=text, reply_markup=keyboard)
+        else:
+            await message.edit_text(text, reply_markup=keyboard)
+
+        return
+    except Exception as exc:
+        if "message is not modified" in str(exc):
+            return
+
+    await message.answer(text, reply_markup=keyboard)
+
+
+async def show_expired(c):
+    await replace_text(
+        c,
+        "\U0001F3AF <b>DIAGNOSTIKA</b>\n\n"
+        "<i>Bu seans endi faol emas — ehtimol bot qayta ishga "
+        "tushgan. Qaytadan boshlang.</i>",
+        InlineKeyboardMarkup(
+            inline_keyboard=[
+                [
+                    InlineKeyboardButton(
+                        text="\U0001F504 Qaytadan boshlash",
+                        callback_data="diag:menu",
+                    )
+                ],
+                home_button(),
+            ]
+        ),
+    )
+
+
+# ---------------------------------------------------------------
+#  1-ekran: fanlar va savollar soni
+# ---------------------------------------------------------------
+
+async def render_setup(c, state):
+    data = await state.get_data()
+    budgets = dict(data.get("diag_budgets") or {})
+    chosen_topics = list(data.get("diag_filter") or [])
+
+    async with SessionLocal() as session:
+        capacity = await subject_capacity(session)
+
+    if not capacity:
+        await replace_text(
+            c,
+            "\U0001F3AF <b>DIAGNOSTIKA</b>\n\n"
+            "<i>Hozircha diagnostika uchun savol yo'q.</i>",
+            InlineKeyboardMarkup(inline_keyboard=[home_button()]),
+        )
+        return
+
+    items = sorted(
+        capacity.items(),
+        key=lambda kv: natural_key(kv[1]["name"]),
+    )
+
+    rows = []
+    total = 0
+    active_subjects = []
+
+    for subject_id, info in items:
+        count = int(budgets.get(str(subject_id), 0))
+        count = max(0, min(count, info["count"]))
+        total += count
+
+        if count:
+            active_subjects.append(subject_id)
+
+        label = f"\U0001F4DA {short(info['name'], 18)} · {count} ta"
+
+        rows.append(
+            [
+                InlineKeyboardButton(
+                    text="➖",
+                    callback_data=f"diag:dec:{subject_id}",
+                ),
+                InlineKeyboardButton(
+                    text=label,
+                    callback_data=f"diag:zero:{subject_id}",
+                ),
+                InlineKeyboardButton(
+                    text="➕",
+                    callback_data=f"diag:inc:{subject_id}",
+                ),
+            ]
+        )
+
+    if len(active_subjects) == 1:
+        rows.append(
+            [
+                InlineKeyboardButton(
+                    text="\U0001F4D6 Mavzularni tanlash"
+                    + (f" ({len(chosen_topics)})" if chosen_topics else ""),
+                    callback_data=f"diag:tp:{active_subjects[0]}",
+                )
+            ]
+        )
+
+    if total:
+        rows.append(
+            [
+                InlineKeyboardButton(
+                    text=f"▶️ Boshlash — {total} ta savol",
+                    callback_data="diag:go",
+                )
+            ]
+        )
+
+    rows.append(home_button())
+
+    lines = [
+        "\U0001F3AF <b>DIAGNOSTIKA</b>",
+        "",
+        "Qaysi fandan nechta savol olishni o'zingiz belgilang. "
+        "Bir nechta fanni birga tanlash mumkin.",
+        "",
+    ]
+
+    for subject_id, info in items:
+        count = int(budgets.get(str(subject_id), 0))
+
+        lines.append(
+            f"\U0001F4DA {html.escape(info['name'])} — "
+            f"<b>{count}</b> ta "
+            f"<i>(mavjud: {info['count']})</i>"
+        )
+
+    lines.append("")
+
+    if total:
+        lines.append(f"\U0001F522 Jami: <b>{total}</b> ta savol")
+    else:
+        lines.append(
+            "<i>➕ tugmasi bilan savol sonini belgilang.</i>"
+        )
+
+    lines.append("")
+    lines.append(
+        "<i>Savollar mavzularga o'zi taqsimlanadi: zaif va hali "
+        "ishlanmagan mavzulardan ko'proq, mustahkamlaridan "
+        "kamroq.</i>"
+    )
+
+    await replace_text(
+        c,
+        "\n".join(lines),
+        InlineKeyboardMarkup(inline_keyboard=rows),
+    )
+
+
+@router.callback_query(F.data == "diag:menu")
+async def diagnostic_menu(c: CallbackQuery, state):
+    await c.answer()
+    await render_setup(c, state)
+
+
+@router.callback_query(F.data.startswith("diag:inc:"))
+async def diagnostic_inc(c: CallbackQuery, state):
+    await adjust(c, state, c.data.split(":")[-1], STEP)
+
+
+@router.callback_query(F.data.startswith("diag:dec:"))
+async def diagnostic_dec(c: CallbackQuery, state):
+    await adjust(c, state, c.data.split(":")[-1], -STEP)
+
+
+@router.callback_query(F.data.startswith("diag:zero:"))
+async def diagnostic_zero(c: CallbackQuery, state):
+    await adjust(c, state, c.data.split(":")[-1], None)
+
+
+async def adjust(c, state, raw_id: str, delta):
+    try:
+        subject_id = int(raw_id)
+    except ValueError:
+        await c.answer("Noto'g'ri so'rov.", show_alert=True)
+        return
+
+    async with SessionLocal() as session:
+        capacity = await subject_capacity(session)
+
+    info = capacity.get(subject_id)
+
+    if info is None:
+        await c.answer("Fan topilmadi.", show_alert=True)
+        return
+
+    data = await state.get_data()
+    budgets = dict(data.get("diag_budgets") or {})
+    key = str(subject_id)
+
+    current = int(budgets.get(key, 0))
+
+    if delta is None:
+        new_value = 0
+    else:
+        new_value = current + delta
+
+        if current == 0 and delta > 0:
+            new_value = min(STEP, info["count"])
+
+    new_value = max(0, min(new_value, info["count"]))
+    budgets[key] = new_value
+
+    update = {"diag_budgets": budgets}
+
+    # Fan o'chirilsa yoki ikkinchi fan qo'shilsa, mavzu filtri
+    # ma'nosini yo'qotadi
+    active = [k for k, v in budgets.items() if v]
+
+    if len(active) != 1:
+        update["diag_filter"] = []
+
+    await state.update_data(**update)
+
+    if delta is not None and new_value == current:
+        await c.answer(
+            "Chegaraga yetdi."
+            if new_value
+            else "Bu fanda savol yo'q.",
+        )
+    else:
+        await c.answer()
+
+    await render_setup(c, state)
+
+
+# ---------------------------------------------------------------
+#  Mavzularni tanlash (ixtiyoriy, bitta fan tanlanganda)
+# ---------------------------------------------------------------
+
+async def render_topics(c, state, subject_id: int):
+    data = await state.get_data()
+    selected = set(data.get("diag_filter") or [])
+
+    async with SessionLocal() as session:
+        subject = await session.get(Subject, subject_id)
+
+        topics = list(
+            await session.scalars(
+                select(Topic).where(Topic.subject_id == subject_id)
+            )
+        )
+
+        counts = await topic_capacity(session, subject_id)
+
+    topics = [t for t in topics if counts.get(t.id)]
+
+    if not topics:
+        await c.answer("Bu fanda savolli mavzu yo'q.", show_alert=True)
+        return
+
+    topics.sort(key=lambda t: natural_key(t.name))
+
+    rows = []
+
+    for topic in topics:
+        mark = "✅" if topic.id in selected else "⬜"
+
+        rows.append(
+            [
+                InlineKeyboardButton(
+                    text=f"{mark} {short(topic.name, 20)} "
+                    f"({counts[topic.id]})",
+                    callback_data=f"diag:tx:{topic.id}",
+                )
+            ]
+        )
+
+    rows.append(
+        [
+            InlineKeyboardButton(
+                text="✔️ Tayyor",
+                callback_data="diag:menu",
+            )
+        ]
+    )
+
+    await replace_text(
+        c,
+        "\U0001F3AF <b>DIAGNOSTIKA</b>\n\n"
+        f"\U0001F4DA {html.escape(subject.name if subject else '')}\n\n"
+        "Kerakli mavzularni belgilang. Hech biri belgilanmasa, "
+        "barcha mavzular hisobga olinadi.",
+        InlineKeyboardMarkup(inline_keyboard=rows),
+    )
+
+
+@router.callback_query(F.data.startswith("diag:tp:"))
+async def diagnostic_topics(c: CallbackQuery, state):
+    try:
+        subject_id = int(c.data.split(":")[-1])
+    except ValueError:
+        await c.answer("Noto'g'ri so'rov.", show_alert=True)
+        return
+
+    await c.answer()
+    await render_topics(c, state, subject_id)
+
+
+@router.callback_query(F.data.startswith("diag:tx:"))
+async def diagnostic_toggle_topic(c: CallbackQuery, state):
+    try:
+        topic_id = int(c.data.split(":")[-1])
+    except ValueError:
+        await c.answer("Noto'g'ri so'rov.", show_alert=True)
+        return
+
+    async with SessionLocal() as session:
+        topic = await session.get(Topic, topic_id)
+
+    if topic is None:
+        await c.answer("Mavzu topilmadi.", show_alert=True)
+        return
+
+    data = await state.get_data()
+    selected = list(data.get("diag_filter") or [])
+
+    if topic_id in selected:
+        selected.remove(topic_id)
+    else:
+        selected.append(topic_id)
+
+    await state.update_data(diag_filter=selected)
+    await c.answer()
+    await render_topics(c, state, topic.subject_id)
 
 
 # ---------------------------------------------------------------
@@ -134,27 +478,6 @@ def answer_keyboard(question_id: int) -> InlineKeyboardMarkup:
     )
 
 
-async def replace_text(c, text, keyboard=None):
-    message = c.message
-
-    is_caption = bool(getattr(message, "photo", None)) or (
-        getattr(message, "caption", None) is not None
-    )
-
-    try:
-        if is_caption:
-            await message.edit_caption(caption=text, reply_markup=keyboard)
-        else:
-            await message.edit_text(text, reply_markup=keyboard)
-
-        return
-    except Exception as exc:
-        if "message is not modified" in str(exc):
-            return
-
-    await message.answer(text, reply_markup=keyboard)
-
-
 async def show_question(c, question, index: int, total: int):
     text = question_text(question, index, total)
     keyboard = answer_keyboard(question.id)
@@ -196,254 +519,21 @@ async def show_question(c, question, index: int, total: int):
     await c.message.answer(text, reply_markup=keyboard)
 
 
-async def next_valid_question(session, qids: list[int], index: int):
-    """Keyingi mavjud savolni qaytaradi.
-
-    Savol o'chirilgan yoki yashirilgan bo'lsa, o'tkazib yuboriladi —
-    aks holda test o'sha joyda qotib qolardi.
-    """
-    from ..services.diagnostic import reviewable
-
-    while index < len(qids):
-        question = await session.get(Question, qids[index])
-
-        if question is not None and question.is_active and reviewable(question):
-            return question, index
-
-        index += 1
-
-    return None, index
-
-
-async def show_expired(c):
-    """Seans eskirgan (bot qayta ishga tushgan) holat."""
-    await replace_text(
-        c,
-        "\U0001F3AF <b>DIAGNOSTIKA</b>\n\n"
-        "<i>Bu seans endi faol emas — ehtimol bot qayta ishga "
-        "tushgan. Diagnostikani qaytadan boshlang.</i>",
-        InlineKeyboardMarkup(
-            inline_keyboard=[
-                [
-                    InlineKeyboardButton(
-                        text="\U0001F504 Qaytadan boshlash",
-                        callback_data="diag:menu",
-                    )
-                ],
-                home_button(),
-            ]
-        ),
-    )
-
-
 # ---------------------------------------------------------------
-#  1-ekran: fan tanlash
+#  Boshlash
 # ---------------------------------------------------------------
 
-@router.callback_query(F.data == "diag:menu")
-async def diagnostic_menu(c: CallbackQuery, state):
-    async with SessionLocal() as session:
-        subjects = list(
-            await session.scalars(
-                select(Subject).where(Subject.is_active.is_(True))
-            )
-        )
-
-    if not subjects:
-        await c.answer("Fanlar topilmadi.", show_alert=True)
-        return
-
-    buttons = [
-        [
-            InlineKeyboardButton(
-                text="\U0001F4DA " + short(s.name),
-                callback_data=f"diag:s:{s.id}",
-            )
-        ]
-        for s in subjects
-    ]
-
-    buttons.append(home_button())
-
-    await replace_text(
-        c,
-        "\U0001F3AF <b>DIAGNOSTIKA</b>\n\n"
-        "Bir necha mavzudan qisqa test. Yakunida qaysi mavzu "
-        "kuchli, qaysi biri zaif ekani ko'rinadi.\n\n"
-        "Fanni tanlang:",
-        InlineKeyboardMarkup(inline_keyboard=buttons),
-    )
-    await c.answer()
-
-
-# ---------------------------------------------------------------
-#  2-ekran: testni boshlash
-# ---------------------------------------------------------------
-
-@router.callback_query(F.data.startswith("diag:s:"))
-async def diagnostic_subject(c: CallbackQuery, state):
-    try:
-        subject_id = int(c.data.split(":")[-1])
-    except ValueError:
-        await c.answer("Noto'g'ri so'rov.", show_alert=True)
-        return
-
-    await c.answer()
-    await state.update_data(diag_pick=[], diag_pick_subject=subject_id)
-
-    async with SessionLocal() as session:
-        subject = await session.get(Subject, subject_id)
-
-    if subject is None:
-        await c.answer("Fan topilmadi.", show_alert=True)
-        return
-
-    await replace_text(
-        c,
-        "\U0001F3AF <b>DIAGNOSTIKA</b>\n\n"
-        f"\U0001F4DA {html.escape(subject.name)}\n\n"
-        "Butun fan bo'yicha tekshiramizmi yoki aniq mavzularni "
-        "tanlaysizmi?\n\n"
-        "<i>Savollar zaif o'zlashtirilgan mavzulardan ko'proq, "
-        "mustahkamlaridan kamroq olinadi. Hali ishlanmagan "
-        "savollarga ustunlik beriladi.</i>",
-        InlineKeyboardMarkup(
-            inline_keyboard=[
-                [
-                    InlineKeyboardButton(
-                        text="\u25B6\uFE0F Hamma mavzudan",
-                        callback_data=f"diag:go:{subject_id}",
-                    )
-                ],
-                [
-                    InlineKeyboardButton(
-                        text="\U0001F4D6 Mavzularni tanlash",
-                        callback_data=f"diag:p:{subject_id}",
-                    )
-                ],
-                [
-                    InlineKeyboardButton(
-                        text="\u2B05\uFE0F Fanlar",
-                        callback_data="diag:menu",
-                    )
-                ],
-                home_button(),
-            ]
-        ),
-    )
-
-
-async def render_picker(c, state, subject_id: int):
-    data = await state.get_data()
-    selected = set(data.get("diag_pick") or [])
-
-    async with SessionLocal() as session:
-        subject = await session.get(Subject, subject_id)
-
-        topics = list(
-            await session.scalars(
-                select(Topic).where(Topic.subject_id == subject_id)
-            )
-        )
-
-    if not topics:
-        await c.answer("Bu fanda mavzu yo'q.", show_alert=True)
-        return
-
-    topics.sort(key=lambda t: natural_key(t.name))
-
-    buttons = []
-
-    for topic in topics:
-        mark = "\u2705" if topic.id in selected else "\u2B1C"
-
-        buttons.append(
-            [
-                InlineKeyboardButton(
-                    text=f"{mark} {short(topic.name, 24)}",
-                    callback_data=f"diag:x:{topic.id}",
-                )
-            ]
-        )
-
-    buttons.append(
-        [
-            InlineKeyboardButton(
-                text="\u25B6\uFE0F Boshlash"
-                + (f" ({len(selected)} mavzu)" if selected else " (hammasi)"),
-                callback_data=f"diag:go:{subject_id}",
-            )
-        ]
-    )
-    buttons.append(
-        [
-            InlineKeyboardButton(
-                text="\u2B05\uFE0F Orqaga",
-                callback_data=f"diag:s:{subject_id}",
-            )
-        ]
-    )
-
-    await replace_text(
-        c,
-        "\U0001F3AF <b>DIAGNOSTIKA</b>\n\n"
-        f"\U0001F4DA {html.escape(subject.name if subject else '')}\n\n"
-        "Mavzularni belgilang. Hech biri belgilanmasa, "
-        "barcha mavzular olinadi.",
-        InlineKeyboardMarkup(inline_keyboard=buttons),
-    )
-
-
-@router.callback_query(F.data.startswith("diag:p:"))
-async def diagnostic_picker(c: CallbackQuery, state):
-    try:
-        subject_id = int(c.data.split(":")[-1])
-    except ValueError:
-        await c.answer("Noto'g'ri so'rov.", show_alert=True)
-        return
-
-    await c.answer()
-    await render_picker(c, state, subject_id)
-
-
-@router.callback_query(F.data.startswith("diag:x:"))
-async def diagnostic_toggle(c: CallbackQuery, state):
-    try:
-        topic_id = int(c.data.split(":")[-1])
-    except ValueError:
-        await c.answer("Noto'g'ri so'rov.", show_alert=True)
-        return
-
-    data = await state.get_data()
-    subject_id = data.get("diag_pick_subject")
-
-    if not subject_id:
-        await c.answer()
-        await show_expired(c)
-        return
-
-    selected = list(data.get("diag_pick") or [])
-
-    if topic_id in selected:
-        selected.remove(topic_id)
-    else:
-        selected.append(topic_id)
-
-    await state.update_data(diag_pick=selected)
-    await c.answer()
-    await render_picker(c, state, subject_id)
-
-
-@router.callback_query(F.data.startswith("diag:go:"))
+@router.callback_query(F.data == "diag:go")
 async def diagnostic_start(c: CallbackQuery, state):
-    try:
-        subject_id = int(c.data.split(":")[-1])
-    except ValueError:
-        await c.answer("Noto'g'ri so'rov.", show_alert=True)
-        return
-
     data = await state.get_data()
-    picked = list(data.get("diag_pick") or [])
+    budgets = dict(data.get("diag_budgets") or {})
+    topic_filter = list(data.get("diag_filter") or [])
+
+    budgets = {int(k): int(v) for k, v in budgets.items() if int(v) > 0}
+
+    if not budgets:
+        await c.answer("Avval savol sonini belgilang.", show_alert=True)
+        return
 
     await c.answer("Savollar tanlanmoqda...")
 
@@ -459,31 +549,24 @@ async def diagnostic_start(c: CallbackQuery, state):
             )
             return
 
-        questions = await build_diagnostic(
+        plan = await build_plan(
             session,
-            subject_id,
             user_id=user.id,
-            topic_ids=picked or None,
+            budgets=budgets,
+            topic_ids=topic_filter or None,
         )
 
-    if len(questions) < MIN_QUESTIONS:
+    if not plan.questions:
         await replace_text(
             c,
             "\U0001F3AF <b>DIAGNOSTIKA</b>\n\n"
-            "<i>Tanlangan mavzularda diagnostika uchun savol "
-            "yetarli emas. Boshqa mavzu qo'shing yoki butun fan "
-            "bo'yicha urinib ko'ring.</i>",
+            "<i>Tanlovingiz bo'yicha savol topilmadi. Boshqa fan "
+            "yoki mavzu tanlab ko'ring.</i>",
             InlineKeyboardMarkup(
                 inline_keyboard=[
                     [
                         InlineKeyboardButton(
-                            text="\U0001F4D6 Mavzularni tanlash",
-                            callback_data=f"diag:p:{subject_id}",
-                        )
-                    ],
-                    [
-                        InlineKeyboardButton(
-                            text="\u2B05\uFE0F Fanlar",
+                            text="⬅️ Sozlash",
                             callback_data="diag:menu",
                         )
                     ],
@@ -493,22 +576,50 @@ async def diagnostic_start(c: CallbackQuery, state):
         )
         return
 
+    info = {}
+
+    for topic_plan in plan.topics:
+        info[str(topic_plan.topic_id)] = [
+            topic_plan.topic_name,
+            topic_plan.subject_name,
+        ]
+
+    skipped = [
+        [topic_plan.topic_name, topic_plan.subject_name]
+        for topic_plan in plan.skipped
+    ]
+
     await state.clear()
     await state.update_data(
-        diag_subject=subject_id,
-        diag_qids=[q.id for q in questions],
-        diag_topics=[q.topic_id for q in questions],
+        diag_qids=[q.id for q in plan.questions],
+        diag_topic_ids=[q.topic_id for q in plan.questions],
+        diag_info=info,
+        diag_skipped=skipped,
         diag_index=0,
         diag_answers=[],
         diag_wait=True,
     )
 
-    await show_question(c, questions[0], 0, len(questions))
+    await show_question(c, plan.questions[0], 0, len(plan.questions))
 
 
 # ---------------------------------------------------------------
-#  3-ekran: javob
+#  Javob
 # ---------------------------------------------------------------
+
+async def next_valid_question(session, qids: list[int], index: int):
+    from ..services.diagnostic import usable
+
+    while index < len(qids):
+        question = await session.get(Question, qids[index])
+
+        if question is not None and question.is_active and usable(question):
+            return question, index
+
+        index += 1
+
+    return None, index
+
 
 @router.callback_query(F.data.startswith("diag:a:"))
 async def diagnostic_answer(c: CallbackQuery, state):
@@ -526,7 +637,8 @@ async def diagnostic_answer(c: CallbackQuery, state):
     data = await state.get_data()
 
     qids = data.get("diag_qids") or []
-    topics = data.get("diag_topics") or []
+    topic_ids = data.get("diag_topic_ids") or []
+    info = data.get("diag_info") or {}
     index = data.get("diag_index", 0)
 
     if not qids or not data.get("diag_wait"):
@@ -540,27 +652,40 @@ async def diagnostic_answer(c: CallbackQuery, state):
 
     answers = list(data.get("diag_answers") or [])
 
+    # Savolni darhol "band" qilamiz: ikki marta tez bosilsa ham
+    # javob bir marta hisoblanadi (natija ikki marta saqlanmaydi).
+    await state.update_data(diag_index=index + 1)
+
     async with SessionLocal() as session:
         question = await session.get(Question, qid)
 
-        if question is not None:
-            correct_option = (question.correct_option or "").strip().upper()
+        correct_option = (
+            (question.correct_option or "").strip().upper()
+            if question is not None
+            else ""
+        )
+
+        if question is not None and correct_option in ("A", "B", "C", "D"):
+
+            topic_id = (
+                topic_ids[index]
+                if index < len(topic_ids)
+                else question.topic_id
+            )
+
+            names = info.get(str(topic_id)) or ["—", "—"]
 
             answers.append(
                 {
                     "qid": qid,
-                    "topic_id": (
-                        topics[index]
-                        if index < len(topics)
-                        else question.topic_id
-                    ),
+                    "topic_id": topic_id,
+                    "topic_name": names[0],
+                    "subject_name": names[1],
                     "selected": option,
                     "correct": option == correct_option,
                 }
             )
         else:
-            # Savol javob berilgunga qadar o'chirilgan — uni
-            # hisobga olmaymiz, lekin test to'xtab qolmasin.
             log.info("Diagnostika: savol topilmadi (#%s)", qid)
 
     index += 1
@@ -581,7 +706,6 @@ async def diagnostic_answer(c: CallbackQuery, state):
             await c.answer()
             return
 
-    # Tugadi
     await state.update_data(diag_wait=False)
     await c.answer("Natija hisoblanmoqda...")
 
@@ -589,6 +713,8 @@ async def diagnostic_answer(c: CallbackQuery, state):
         await state.clear()
         await show_expired(c)
         return
+
+    skipped = data.get("diag_skipped") or []
 
     async with SessionLocal() as session:
         user = await session.scalar(
@@ -602,18 +728,14 @@ async def diagnostic_answer(c: CallbackQuery, state):
                 c,
                 "\U0001F3AF <b>DIAGNOSTIKA</b>\n\n"
                 "<i>Natijani saqlab bo'lmadi: hisobingiz topilmadi. "
-                "/start orqali ro'yxatdan o'ting va qaytadan "
-                "urinib ko'ring.</i>",
+                "/start orqali ro'yxatdan o'ting.</i>",
                 InlineKeyboardMarkup(inline_keyboard=[home_button()]),
             )
             return
 
         try:
             result = await save_diagnostic(
-                session,
-                user,
-                data.get("diag_subject"),
-                answers,
+                session, user, answers, skipped=skipped
             )
         except Exception as exc:
             log.exception("Diagnostika saqlanmadi: %s", exc)
@@ -624,8 +746,7 @@ async def diagnostic_answer(c: CallbackQuery, state):
             await replace_text(
                 c,
                 "\U0001F3AF <b>DIAGNOSTIKA</b>\n\n"
-                "\u26A0\uFE0F <i>Natijani saqlashda xato yuz berdi. "
-                "Qaytadan urinib ko'ring.</i>",
+                "⚠️ <i>Natijani saqlashda xato yuz berdi.</i>",
                 InlineKeyboardMarkup(
                     inline_keyboard=[
                         [
@@ -645,50 +766,79 @@ async def diagnostic_answer(c: CallbackQuery, state):
 
 
 # ---------------------------------------------------------------
-#  4-ekran: natija
+#  Natija
 # ---------------------------------------------------------------
+
+def group_lines(topics, icon: str, title: str) -> list:
+    if not topics:
+        return []
+
+    lines = [f"{icon} <b>{title}</b>"]
+
+    # Telegram xabari 4096 belgidan oshmasligi uchun ro'yxat qisqartiriladi
+    hidden = max(0, len(topics) - GROUP_LIMIT)
+
+    for topic in topics[:GROUP_LIMIT]:
+        lines.append(
+            f"  • {html.escape(short(topic.topic_name))} — "
+            f"<b>{topic.accuracy}%</b> "
+            f"<i>({topic.correct}/{topic.total})</i>"
+        )
+
+    if hidden:
+        lines.append(f"  <i>... va yana {hidden} ta mavzu</i>")
+
+    lines.append("")
+
+    return lines
+
 
 async def show_result(c, result):
     lines = [
         "\U0001F3AF <b>DIAGNOSTIKA NATIJASI</b>",
         "",
-        f"\U0001F4DA {html.escape(result.subject_name)}",
+        f"\U0001F4DA {html.escape(result.title)}",
         f"\U0001F3AF Umumiy: <b>{result.correct}/{result.total}</b> "
         f"({result.accuracy}%)",
         "",
     ]
 
-    if result.strong:
-        lines.append("\U0001F7E2 <b>Kuchli mavzular:</b>")
+    lines += group_lines(result.strong, "\U0001F7E2", "Kuchli mavzular")
+    lines += group_lines(result.medium, "\U0001F7E1", "O'rtacha")
+    lines += group_lines(result.weak, "\U0001F534", "Zaif mavzular")
 
-        for topic in result.strong:
+    if result.unclear:
+        lines.append("⚪ <b>Aniq baho uchun savol kam edi</b>")
+
+        for topic in result.unclear[:GROUP_LIMIT]:
             lines.append(
-                f"  • {html.escape(short(topic.topic_name, 24))} "
-                f"— {topic.accuracy}%"
+                f"  • {html.escape(short(topic.topic_name))} — "
+                f"{topic.correct}/{topic.total}"
             )
 
+        lines.append(
+            f"<i>Baho chiqishi uchun mavzudan kamida "
+            f"{MIN_FOR_VERDICT} ta savol kerak.</i>"
+        )
         lines.append("")
 
-    if result.medium:
-        lines.append("\U0001F7E1 <b>O'rtacha:</b>")
+    if result.skipped:
+        names = [
+            html.escape(short(item[0]))
+            for item in result.skipped[:8]
+        ]
 
-        for topic in result.medium:
+        lines.append("\U0001F4CB <b>Bu safar tekshirilmadi</b>")
+        lines.append("  " + ", ".join(names))
+
+        if len(result.skipped) > 8:
             lines.append(
-                f"  • {html.escape(short(topic.topic_name, 24))} "
-                f"— {topic.accuracy}%"
+                f"  <i>... va yana {len(result.skipped) - 8} ta mavzu</i>"
             )
 
-        lines.append("")
-
-    if result.weak:
-        lines.append("\U0001F534 <b>Zaif mavzular:</b>")
-
-        for topic in result.weak:
-            lines.append(
-                f"  • {html.escape(short(topic.topic_name, 24))} "
-                f"— {topic.accuracy}%"
-            )
-
+        lines.append(
+            "<i>Savol sonini oshirsangiz, ular ham qamrab olinadi.</i>"
+        )
         lines.append("")
 
     buttons = []
@@ -698,28 +848,40 @@ async def show_result(c, result):
     if nxt is not None:
         lines.append(
             "\U0001F4A1 <b>Tavsiya:</b> "
-            + html.escape(short(nxt.topic_name, 24))
-            + " dan boshlang — shu yerda eng ko'p xato bo'ldi."
+            + html.escape(short(nxt.topic_name))
+            + " dan boshlang."
         )
 
         buttons.append(
             [
                 InlineKeyboardButton(
-                    text=f"▶️ {short(nxt.topic_name, 22)} testi",
+                    text=f"▶️ {short(nxt.topic_name, 20)} testi",
                     callback_data=f"topic:{nxt.topic_id}",
                 )
             ]
         )
-    else:
+    elif result.topics:
         lines.append(
-            "\U0001F389 <b>Barcha mavzular yaxshi o'zlashtirilgan.</b>"
+            "\U0001F389 <b>Tekshirilgan mavzular yaxshi "
+            "o'zlashtirilgan.</b>"
         )
 
     lines.append("")
-    lines.append(
-        "<i>Xato javoblar Smart Takrorlash navbatiga qo'shildi.</i>"
-    )
+    if result.correct < result.total and os.getenv(
+        "SMART_REVIEW_ENABLED", "0"
+    ) == "1":
+        lines.append(
+            "<i>Xato javoblar Smart Takrorlash navbatiga qo'shildi.</i>"
+        )
 
+    buttons.append(
+        [
+            InlineKeyboardButton(
+                text="\U0001F504 Yana diagnostika",
+                callback_data="diag:menu",
+            )
+        ]
+    )
     buttons.append(
         [
             InlineKeyboardButton(
@@ -744,8 +906,8 @@ async def diagnostic_stop(c: CallbackQuery, state):
     await replace_text(
         c,
         "\U0001F3AF <b>DIAGNOSTIKA</b>\n\n"
-        "<i>To'xtatildi. Javoblaringiz saqlanmadi — "
-        "diagnostika oxirigacha ishlanishi kerak.</i>",
+        "<i>To'xtatildi. Javoblar saqlanmadi — diagnostika "
+        "oxirigacha ishlanishi kerak.</i>",
         InlineKeyboardMarkup(
             inline_keyboard=[
                 [

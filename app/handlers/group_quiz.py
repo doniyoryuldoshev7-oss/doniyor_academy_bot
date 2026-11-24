@@ -232,6 +232,27 @@ async def _finish_group_quiz_locked(
                 user.correct_answers += participant.score
                 user.total_score += participant.score
 
+        # Natijani umumiy test tarixiga ham yozamiz (hisobot, bilim
+        # xaritasi, Smart Takrorlash uchun). Xato chiqsa ham guruh
+        # natijasi e'lon qilinaveradi.
+        try:
+            async with session.begin_nested():
+                from ..services.group_results import (
+                    record_group_attempts,
+                )
+
+                await record_group_attempts(
+                    session,
+                    group_quiz,
+                    list(participants),
+                )
+        except Exception as exc:
+            print(
+                ">>> GROUP HISTORY ERROR: "
+                f"{type(exc).__name__}: {exc}",
+                flush=True,
+            )
+
         await session.commit()
 
     rows = []

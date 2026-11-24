@@ -377,7 +377,7 @@ def card_text(report) -> str:
                 "  • "
                 + fmt_datetime(attempt.created_at)
                 + " — "
-                + html.escape(short(attempt.topic_name, 22))
+                + html.escape(short(attempt.label, 22))
                 + f" — {attempt.correct}/{attempt.total} "
                 f"({attempt.accuracy}%)"
             )
@@ -515,9 +515,13 @@ async def reports_history(c: CallbackQuery):
             f"<b>{number}.</b> "
             + fmt_datetime(attempt.created_at)
             + "\n     "
-            + html.escape(short(attempt.subject_name, 18))
-            + " · "
-            + html.escape(short(attempt.topic_name, 22))
+            + (
+                html.escape(short(attempt.label, 28))
+                if attempt.is_diagnostic
+                else html.escape(short(attempt.subject_name, 18))
+                + " · "
+                + html.escape(short(attempt.label, 22))
+            )
             + f"\n     {bar(attempt.accuracy)} "
             f"{attempt.correct}/{attempt.total} ({attempt.accuracy}%)"
         )
@@ -621,7 +625,11 @@ def answer_line(number: int, answer) -> str:
             + html.escape(short(chosen_text, 28))
         )
     else:
-        lines.append(f"     javob: <b>{chosen or '—'}</b>")
+        lines.append(
+            "     javob: <i>variant noma'lum (guruh testi)</i>"
+            if chosen == "?"
+            else f"     javob: <b>{chosen or '—'}</b>"
+        )
 
     if not answer.is_correct:
         right = (answer.correct_option or "").upper()

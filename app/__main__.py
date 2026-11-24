@@ -70,6 +70,13 @@ async def main():
 
     await init_db()
 
+    # Oldin tugagan guruh testlarini test tarixiga qo'shish (bir marta)
+    from .services.group_results import backfill_group_attempts
+
+    _backfill_task = asyncio.create_task(
+        backfill_group_attempts(SessionLocal)
+    )
+
     session = AiohttpSession()
 
     bot = Bot(
@@ -80,8 +87,11 @@ async def main():
         session=session,
     )
 
+    from .db import engine as _engine
+    from .fsm_storage import make_storage
+
     dp = Dispatcher(
-        storage=MemoryStorage()
+        storage=await make_storage(_engine)
     )
 
     blocked_middleware = BlockedUserMiddleware()

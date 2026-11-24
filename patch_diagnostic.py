@@ -1,9 +1,9 @@
-"""Diagnostik testni loyihaga ulaydi.
+"""Diagnostikani loyihaga ulaydi va test yozuviga "manba" ustunini qo'shadi.
 
 Ishlatish (loyiha ildizida):
     python patch_diagnostic.py
 
-Oldin fayllarni joyiga ko'chiring:
+Fayllar joyida bo'lishi kerak:
     diagnostic.py          -> app/services/diagnostic.py
     diagnostic_handler.py  -> app/handlers/diagnostic.py
 """
@@ -68,7 +68,52 @@ if missing:
     sys.exit(1)
 
 
-# Bosh menyuga tugma
+# 1) models.py — test yozuviga manba ustuni
+patch(
+    "app/models.py",
+    "    score: Mapped[int]=mapped_column(Integer)\n"
+    "    created_at: Mapped[datetime]=mapped_column("
+    "DateTime,default=datetime.utcnow)\n"
+    "\n"
+    "class AnswerLog(Base):",
+    "    score: Mapped[int]=mapped_column(Integer)\n"
+    "    source: Mapped[str]=mapped_column(String(20),default=\"quiz\")\n"
+    "    created_at: Mapped[datetime]=mapped_column("
+    "DateTime,default=datetime.utcnow)\n"
+    "\n"
+    "class AnswerLog(Base):",
+    "models.py: test yozuviga manba ustuni",
+    marker='source: Mapped[str]=mapped_column(String(20)',
+)
+
+
+# 2) db.py — mavjud bazaga ustunni qo'shish
+patch(
+    "app/db.py",
+    "        await conn.run_sync(Base.metadata.create_all)\n",
+    "        await conn.run_sync(Base.metadata.create_all)\n"
+    "\n"
+    "        # test_attempts: yozuv manbasi (oddiy test / diagnostika)\n"
+    "        if database_url.startswith(\"postgresql+asyncpg://\"):\n"
+    "            await conn.execute(text(\n"
+    "                \"ALTER TABLE test_attempts ADD COLUMN IF NOT EXISTS \"\n"
+    "                \"source VARCHAR(20) NOT NULL DEFAULT 'quiz'\"\n"
+    "            ))\n"
+    "        else:\n"
+    "            _src_cols = await conn.execute(\n"
+    "                text(\"PRAGMA table_info(test_attempts)\")\n"
+    "            )\n"
+    "            if \"source\" not in {r[1] for r in _src_cols.fetchall()}:\n"
+    "                await conn.execute(text(\n"
+    "                    \"ALTER TABLE test_attempts ADD COLUMN \"\n"
+    "                    \"source VARCHAR(20) NOT NULL DEFAULT 'quiz'\"\n"
+    "                ))\n",
+    "db.py: manba ustuni migratsiyasi",
+    marker="ALTER TABLE test_attempts ADD COLUMN",
+)
+
+
+# 3) Bosh menyuga tugma
 TASK_BUTTON = (
     '          [InlineKeyboardButton(text="' + BS + 'U0001F4CB '
     'Topshiriqlar", callback_data="asg:my")]'
@@ -115,7 +160,7 @@ else:
     )
 
 
-# Router
+# 4) Router
 patch(
     "app/__main__.py",
     "    dp.include_router(admin.router)",
@@ -127,8 +172,22 @@ patch(
 )
 
 
+# 5) admin.py: rasmli savolni tahrirlashda FSInputFile import qilinmagan edi
+admin_text = (ROOT / "app/handlers/admin.py").read_text(encoding="utf-8")
+
+if "FSInputFile(" in admin_text and "FSInputFile" not in admin_text.split("FSInputFile(")[0]:
+    patch(
+        "app/handlers/admin.py",
+        "from aiogram.fsm.context import FSMContext\n",
+        "from aiogram.fsm.context import FSMContext\n"
+        "from aiogram.types import FSInputFile\n",
+        "admin.py: FSInputFile importi",
+        marker="from aiogram.types import FSInputFile",
+    )
+
+
 print("=" * 56)
-print("  DIAGNOSTIK TEST")
+print("  DIAGNOSTIKA")
 print("=" * 56)
 
 if changed:

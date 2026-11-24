@@ -139,6 +139,10 @@ class GroupQuizParticipant(Base):
         DateTime,
         default=datetime.utcnow
     )
+    attempt_id: Mapped[int | None] = mapped_column(
+        Integer,
+        nullable=True
+    )
 
 
 class GroupQuizAnswer(Base):
@@ -174,6 +178,7 @@ class TestAttempt(Base):
     total: Mapped[int]=mapped_column(Integer)
     correct: Mapped[int]=mapped_column(Integer)
     score: Mapped[int]=mapped_column(Integer)
+    source: Mapped[str]=mapped_column(String(20),default="quiz")
     created_at: Mapped[datetime]=mapped_column(DateTime,default=datetime.utcnow)
 
 class AnswerLog(Base):

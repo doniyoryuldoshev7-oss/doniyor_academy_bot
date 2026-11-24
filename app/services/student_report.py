@@ -205,6 +205,21 @@ class AttemptRow:
     total: int
     correct: int
     score: int
+    source: str = "quiz"
+
+    @property
+    def is_diagnostic(self) -> bool:
+        return self.source == "diagnostic"
+
+    @property
+    def label(self) -> str:
+        if self.is_diagnostic:
+            return "\U0001F3AF Diagnostika"
+
+        if self.source == "group":
+            return "\U0001F465 Guruh: " + self.topic_name
+
+        return self.topic_name
 
     @property
     def accuracy(self) -> int:
@@ -270,7 +285,14 @@ class StudentReport:
 
 
 def compute_trend(attempts: list[AttemptRow]) -> Trend | None:
-    """Urinishlar vaqt bo'yicha o'sgan yoki pasayganini aniqlaydi."""
+    """Urinishlar vaqt bo'yicha o'sgan yoki pasayganini aniqlaydi.
+
+    Diagnostika hisobga olinmaydi: u ataylab zaif mavzulardan
+    ko'proq savol beradi, shuning uchun natijasi tabiiy ravishda
+    past chiqadi va o'sish ko'rsatkichini buzgan bo'lardi.
+    """
+    attempts = [a for a in attempts if not a.is_diagnostic]
+
     count = len(attempts)
 
     if count < MIN_ATTEMPTS_FOR_TREND:
@@ -319,6 +341,7 @@ async def student_report(session, telegram_id: int) -> StudentReport | None:
             TestAttempt.score,
             Topic.name,
             Subject.name,
+            TestAttempt.source,
         )
         .join(Topic, Topic.id == TestAttempt.topic_id)
         .join(Subject, Subject.id == Topic.subject_id)
@@ -335,6 +358,7 @@ async def student_report(session, telegram_id: int) -> StudentReport | None:
             score=int(row[4] or 0),
             topic_name=row[5] or "—",
             subject_name=row[6] or "—",
+            source=row[7] or "quiz",
         )
         for row in rows
     ]
@@ -429,6 +453,7 @@ async def attempt_detail(session, attempt_id: int) -> AttemptDetail | None:
                 Subject.name,
                 User.full_name,
                 User.telegram_id,
+                TestAttempt.source,
             )
             .join(Topic, Topic.id == TestAttempt.topic_id)
             .join(Subject, Subject.id == Topic.subject_id)
@@ -474,14 +499,34 @@ async def attempt_detail(session, attempt_id: int) -> AttemptDetail | None:
         for row in rows
     ]
 
+    topic_name = head[5] or "—"
+    subject_name = head[6] or "—"
+
+    if head[9] == "group":
+        topic_name = "\U0001F465 Guruh: " + topic_name
+
+    if head[9] == "diagnostic":
+        # Diagnostika bitta mavzuga tegishli emas: fanlar javoblardan olinadi
+        names = await session.scalars(
+            select(Subject.name)
+            .distinct()
+            .select_from(AnswerLog)
+            .join(Question, Question.id == AnswerLog.question_id)
+            .join(Topic, Topic.id == Question.topic_id)
+            .join(Subject, Subject.id == Topic.subject_id)
+            .where(AnswerLog.attempt_id == attempt_id)
+        )
+        topic_name = "\U0001F3AF Diagnostika"
+        subject_name = ", ".join(sorted(names)) or "—"
+
     return AttemptDetail(
         attempt_id=head[0],
         created_at=head[1],
         total=int(head[2] or 0),
         correct=int(head[3] or 0),
         score=int(head[4] or 0),
-        topic_name=head[5] or "—",
-        subject_name=head[6] or "—",
+        topic_name=topic_name,
+        subject_name=subject_name,
         student_name=head[7] or "Nomsiz",
         student_telegram_id=head[8],
         answers=answers,

@@ -32,6 +32,38 @@ async def init_db():
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
 
+        # group_quiz_participants: yaratilgan test yozuvi havolasi
+        if database_url.startswith("postgresql+asyncpg://"):
+            await conn.execute(text(
+                "ALTER TABLE group_quiz_participants "
+                "ADD COLUMN IF NOT EXISTS attempt_id INTEGER"
+            ))
+        else:
+            _gp_cols = await conn.execute(
+                text("PRAGMA table_info(group_quiz_participants)")
+            )
+            if "attempt_id" not in {r[1] for r in _gp_cols.fetchall()}:
+                await conn.execute(text(
+                    "ALTER TABLE group_quiz_participants "
+                    "ADD COLUMN attempt_id INTEGER"
+                ))
+
+        # test_attempts: yozuv manbasi (oddiy test / diagnostika)
+        if database_url.startswith("postgresql+asyncpg://"):
+            await conn.execute(text(
+                "ALTER TABLE test_attempts ADD COLUMN IF NOT EXISTS "
+                "source VARCHAR(20) NOT NULL DEFAULT 'quiz'"
+            ))
+        else:
+            _src_cols = await conn.execute(
+                text("PRAGMA table_info(test_attempts)")
+            )
+            if "source" not in {r[1] for r in _src_cols.fetchall()}:
+                await conn.execute(text(
+                    "ALTER TABLE test_attempts ADD COLUMN "
+                    "source VARCHAR(20) NOT NULL DEFAULT 'quiz'"
+                ))
+
         # questions jadvaliga is_active ustunini qo'shish (soft delete)
         if database_url.startswith("postgresql+asyncpg://"):
             await conn.execute(text(

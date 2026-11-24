@@ -34,7 +34,7 @@ async def edit_or_answer(message, *args, **kwargs):
 
 
 def opt(q, l): 
-    return {"A": q.option_a, "B": q.option_b, "C": q.option_c, "D": q.option_d}[l]
+    return {"A": q.option_a, "B": q.option_b, "C": q.option_c, "D": q.option_d}.get((l or "").strip().upper()) or "—"
 
 def answer_kb(tid, qid): 
     return InlineKeyboardMarkup(inline_keyboard=[
