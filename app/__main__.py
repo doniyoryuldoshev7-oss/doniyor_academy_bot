@@ -147,6 +147,9 @@ async def main():
     from .services import profil_eslatma
 
     dp.include_router(profil_eslatma.router)
+    from .handlers import oqituvchi
+
+    dp.include_router(oqituvchi.router)
     from .handlers import knowledge_map
 
     dp.include_router(knowledge_map.router)

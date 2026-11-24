@@ -58,3 +58,23 @@ async def can_add_questions(user_id: int) -> bool:
         return True
 
     return await is_question_editor(user_id)
+
+
+async def is_teacher(user_id: int) -> bool:
+    """Tasdiqlangan, bloklanmagan ustozmi (bosh menyu tugmasi uchun)."""
+    from .models import Teacher
+
+    try:
+        async with SessionLocal() as session:
+            found = await session.scalar(
+                select(Teacher.id)
+                .join(User, User.id == Teacher.user_id)
+                .where(
+                    User.telegram_id == user_id,
+                    User.registration_status == "approved",
+                    User.is_blocked.is_(False),
+                )
+            )
+        return found is not None
+    except Exception:
+        return False

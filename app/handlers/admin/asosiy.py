@@ -22,7 +22,7 @@ from ...models import Subject, Topic, Question, User
 from ...states import AdminState
 from ...image_cropper import crop_questions
 from ...web_crop import create_session, web_app_url, finish_session, get_session
-from ...admin_roles import can_add_questions, is_superadmin
+from ...admin_roles import can_add_questions, is_superadmin, is_teacher
 from datetime import datetime, timedelta
 from aiogram.fsm.state import StatesGroup, State
 from ..start import registration_complete
@@ -63,7 +63,7 @@ async def cancel(c: CallbackQuery, state: FSMContext):
     await state.clear()
 
     # 2. Sizning asl bosh menyu tugmalaringizni olamiz
-    user_menu = main_menu()
+    user_menu = main_menu(is_teacher=await is_teacher(c.from_user.id))
 
     # 3. Agar foydalanuvchi admin bo'lsa, menyuning eng tagiga "Admin panel" tugmasini qo'shamiz
     # inline_keyboard bu massiv, unga yangi qator qo'shamiz

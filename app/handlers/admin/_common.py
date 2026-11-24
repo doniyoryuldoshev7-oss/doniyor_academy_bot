@@ -174,6 +174,7 @@ def admin_menu(limited=False):
                 )
             ],            [InlineKeyboardButton(text="📊 Statistika", callback_data="adm:stats")],
             [InlineKeyboardButton(text="📢 E'lonlar", callback_data="adm:send_ad")],
+            [InlineKeyboardButton(text="\U0001F9D1\u200D\U0001F3EB Ustozlar", callback_data="adm:ust")],
             [InlineKeyboardButton(text="❌ Bekor qilish", callback_data="adm:cancel")],
         ]
     )

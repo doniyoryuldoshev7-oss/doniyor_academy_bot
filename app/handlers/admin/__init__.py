@@ -19,6 +19,7 @@ from . import statistika  # noqa: E402
 from . import foydalanuvchilar  # noqa: E402
 from . import rollar  # noqa: E402
 from . import oquvchi_boshqaruv  # noqa: E402
+from . import oqituvchilar  # noqa: E402
 
 router.include_router(asosiy.router)
 router.include_router(ommaviy_savol.router)
@@ -29,6 +30,7 @@ router.include_router(statistika.router)
 router.include_router(foydalanuvchilar.router)
 router.include_router(rollar.router)
 router.include_router(oquvchi_boshqaruv.router)
+router.include_router(oqituvchilar.router)
 
 # Eski admin.py dagi nomlar boshqa joylardan chaqirilsa ishlashi uchun
 for _module in (_common, asosiy, ommaviy_savol, savol_qoshish, fayl_import, katalog, statistika, foydalanuvchilar, rollar):

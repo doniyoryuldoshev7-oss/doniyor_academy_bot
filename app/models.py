@@ -338,3 +338,37 @@ class Assignment(Base):
         DateTime,
         default=datetime.utcnow,
     )
+
+
+# O'qituvchi (ustoz) tizimi
+class Teacher(Base):
+    __tablename__ = "teachers"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+
+    user_id: Mapped[int] = mapped_column(
+        ForeignKey("users.id", ondelete="CASCADE"),
+        unique=True,
+        index=True,
+    )
+
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime,
+        default=datetime.utcnow,
+    )
+
+
+class TeacherGroup(Base):
+    __tablename__ = "teacher_groups"
+    __table_args__ = (
+        _UniqueConstraint("teacher_id", "group_name", name="uq_teacher_group"),
+    )
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+
+    teacher_id: Mapped[int] = mapped_column(
+        ForeignKey("teachers.id", ondelete="CASCADE"),
+        index=True,
+    )
+
+    group_name: Mapped[str] = mapped_column(String(100))
