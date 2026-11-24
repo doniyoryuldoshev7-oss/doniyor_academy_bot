@@ -158,6 +158,9 @@ async def start_cmd(message: Message, state: FSMContext):
 
             return
 
+        # guruh: oddiy /start menyu ochmaydi
+        return
+
     current_state = await state.get_state()
 
     # Agar foydalanuvchi test ishlayotgan bo‘lsa
