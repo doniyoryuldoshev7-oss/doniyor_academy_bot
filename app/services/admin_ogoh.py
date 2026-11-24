@@ -14,7 +14,7 @@ import logging
 import os
 import time
 import traceback
-from datetime import datetime
+from datetime import datetime, timedelta, timezone
 
 from .baza_zaxira import _recipients
 from .kv import kv_get, kv_set
@@ -25,6 +25,16 @@ COOLDOWN_SECONDS = 15 * 60
 START_COOLDOWN_SECONDS = 10 * 60
 
 _last_sent: dict[str, float] = {}
+
+
+def _local_now() -> datetime:
+    """Mahalliy vaqt (server UTC da ishlaydi). Standart: UTC+5."""
+    try:
+        hours = int(os.getenv("REVIEW_REMINDER_UTC_OFFSET", "5"))
+    except ValueError:
+        hours = 5
+
+    return datetime.now(timezone.utc) + timedelta(hours=hours)
 
 
 def _enabled() -> bool:
@@ -110,7 +120,7 @@ def describe_error(exc: BaseException, update=None) -> tuple[str, str]:
     if who:
         lines.append("👤 foydalanuvchi: " + who)
 
-    lines.append("🕒 " + datetime.now().strftime("%d.%m.%Y %H:%M:%S"))
+    lines.append("🕒 " + _local_now().strftime("%d.%m.%Y %H:%M:%S"))
 
     return "\n".join(lines), f"{name}|{where}"
 
@@ -146,7 +156,7 @@ async def announce_start(bot) -> None:
     await notify_admins(
         bot,
         "✅ <b>Bot ishga tushdi</b>\n🕒 "
-        + datetime.now().strftime("%d.%m.%Y %H:%M:%S"),
+        + _local_now().strftime("%d.%m.%Y %H:%M:%S"),
         "start",
         cooldown=0,
     )
