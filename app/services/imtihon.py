@@ -393,7 +393,9 @@ def hardest_units(items: list[Item], answers_list: list[dict], limit: int = 8):
 # ---------------------------------------------------------------
 #  Imtihon yaratish
 # ---------------------------------------------------------------
-def _topic_filter(subject_id: int, topic_id: int | None):
+def _topic_filter(subject_id, topic_id: int | None = None):
+    if isinstance(subject_id, (list, tuple, set)):  # bir nechta fan (fanlar2)
+        return [Topic.subject_id.in_(list(subject_id))]
     cond = [Topic.subject_id == subject_id]
     if topic_id:
         cond.append(Topic.id == topic_id)
@@ -517,6 +519,44 @@ async def pick_questions(
 
     open_count = len(payloads) - closed_count
     return payloads, closed_count, open_count
+
+
+async def pick_questions_multi(session, subject_ids, closed_n: int, open_n: int):
+    """Bir nechta fan: savollar fanlar orasida teng olinadi, yetmasa boshqa fanlardan to'ldiriladi."""
+    ids = list(subject_ids)
+
+    def quotas(total):
+        base, extra = divmod(total, len(ids))
+        return [base + (1 if i < extra else 0) for i in range(len(ids))]
+
+    closed, opened = [], []
+    seen_c, seen_o = set(), set()
+
+    def add(target, seen, key, items):
+        for item in items:
+            marker = item.get(key)
+            if marker in seen:
+                continue
+            seen.add(marker)
+            target.append(item)
+
+    for sid, c_n, o_n in zip(ids, quotas(closed_n), quotas(open_n)):
+        payloads, _, _ = await pick_questions(session, sid, None, c_n, o_n)
+        add(closed, seen_c, "qid", [p for p in payloads if p["k"] == "c"])
+        add(opened, seen_o, "oid", [p for p in payloads if p["k"] == "o"])
+
+    for sid in ids:
+        need_c, need_o = closed_n - len(closed), open_n - len(opened)
+        if need_c <= 0 and need_o <= 0:
+            break
+        payloads, _, _ = await pick_questions(
+            session, sid, None, closed_n if need_c > 0 else 0, open_n if need_o > 0 else 0
+        )
+        add(closed, seen_c, "qid", [p for p in payloads if p["k"] == "c"])
+        add(opened, seen_o, "oid", [p for p in payloads if p["k"] == "o"])
+
+    closed, opened = closed[:closed_n], opened[:open_n]
+    return closed + opened, len(closed), len(opened)
 
 
 async def create_exam(

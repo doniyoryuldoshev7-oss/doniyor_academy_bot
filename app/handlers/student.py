@@ -104,7 +104,8 @@ async def render(call, state, message=None):
 
 @router.callback_query(F.data == 'home')
 async def home(c, state): 
-    await state.clear()
+    from .milliy_yigish import clear_keep
+    await clear_keep(state)
     await edit_or_answer(c.message, '🎓 <b>Doniyor Academy</b>\n\nBosh menyu:', reply_markup=main_menu(await can_add_questions(c.from_user.id), is_teacher=await is_teacher(c.from_user.id)))
     await c.answer()
 

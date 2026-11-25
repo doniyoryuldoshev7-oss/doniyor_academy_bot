@@ -6,6 +6,8 @@ from aiogram import F, Router
 from aiogram.fsm.context import FSMContext
 from aiogram.types import CallbackQuery, InlineKeyboardButton, InlineKeyboardMarkup
 
+from .milliy_yigish import clear_keep
+
 router = Router()
 
 HUBS = {
@@ -61,7 +63,7 @@ def hub_kb(key: str) -> InlineKeyboardMarkup:
 @router.callback_query(F.data.regexp(r"^mn:(prof|test|rev|exam|res)$"))
 async def hub(c: CallbackQuery, state: FSMContext):
     key = c.data.split(":", 1)[1]
-    await state.clear()
+    await clear_keep(state)
     text, _ = HUBS[key]
     kb = hub_kb(key)
     msg = c.message

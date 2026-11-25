@@ -39,10 +39,12 @@ from ..services.imtihon import (
     hardest_units,
     parse_open_text,
     pick_questions,
+    pick_questions_multi,
     target_students,
 )
 from ..services.oqituvchi import get_teacher, teacher_groups
 from ..services.student_report import fmt_datetime, to_local
+from .milliy_yigish import clear_keep
 
 log = logging.getLogger(__name__)
 
@@ -124,18 +126,19 @@ async def groups_for(session, uid: int) -> list[str]:
 async def cb_home(c: CallbackQuery, state: FSMContext):
     if not await gate(c):
         return
-    await state.clear()
+    await clear_keep(state)
     await show(
         c,
-        "📝 <b>Imtihonlar</b>\n\n"
+        "🎓 <b>Milliy sertifikat imtihoni</b>\n\n"
         "Imtihon — vaqtli test: o'quvchi javobning to'g'riligini oxirigacha ko'rmaydi, "
         "faqat bir marta topshiradi. «Milliy sertifikat» shabloni: 35 yopiq + 10 ochiq savol, "
         "natija 75 ballik shkala va daraja (A+ … C) bilan.",
         kb([
-            [InlineKeyboardButton(text="➕ Yangi imtihon", callback_data="exm:n")],
+            [InlineKeyboardButton(text="🏅 Milliy sertifikatni yig'ish (1-35, 36-45)", callback_data="mly:home")],
+            [InlineKeyboardButton(text="➕ Yangi imtihon (bankdan)", callback_data="exm:n")],
             [InlineKeyboardButton(text="📋 Imtihonlarim", callback_data="exm:ml:0")],
             [InlineKeyboardButton(text="✍️ Ochiq savollar qo'shish", callback_data="exm:oa")],
-            [InlineKeyboardButton(text="📥 Savol yuklash", callback_data="imq:home")],
+            [InlineKeyboardButton(text="📥 Savollarni yuklash", callback_data="imq:home")],
             home_row(c.from_user.id),
         ]),
     )
@@ -158,7 +161,7 @@ async def _draft(state: FSMContext, c: CallbackQuery):
 async def cb_new(c: CallbackQuery, state: FSMContext):
     if not await gate(c):
         return
-    await state.clear()
+    await clear_keep(state)
     await show(
         c,
         "➕ <b>Yangi imtihon</b>\n\nShablonni tanlang:",
@@ -183,10 +186,10 @@ async def cb_template(c: CallbackQuery, state: FSMContext):
     if mode == "milliy":
         draft.update(c=MILLIY_CLOSED, o=MILLIY_OPEN)
     await state.update_data(d=draft)
-    await _ask_subject(c)
+    await _ask_subject(c, draft)
 
 
-async def _ask_subject(c: CallbackQuery):
+async def _ask_subject(c: CallbackQuery, draft: dict):
     async with SessionLocal() as session:
         subjects = (
             await session.scalars(
@@ -199,13 +202,95 @@ async def _ask_subject(c: CallbackQuery):
         await c.answer()
         return
 
+    picked = draft.get("pick") or []
     rows = [
-        [InlineKeyboardButton(text="📚 " + short(s.name, 40), callback_data=f"exm:ns:{s.id}")]
+        [InlineKeyboardButton(
+            text=("✅ " if s.id in picked else "☐ ") + short(s.name, 38),
+            callback_data=f"exm:nm:{s.id}",
+        )]
         for s in subjects[:40]
     ]
+    if picked:
+        rows.append([InlineKeyboardButton(
+            text=f"▶️ Davom etish ({len(picked)} ta fan)", callback_data="exm:nmo")])
     rows.append([InlineKeyboardButton(text="⬅️ Orqaga", callback_data="exm:n")])
-    await show(c, "➕ <b>Yangi imtihon</b>\n\n1-qadam: qaysi fandan?", kb(rows))
+    await show(
+        c,
+        "➕ <b>Yangi imtihon</b>\n\n1-qadam: qaysi fanlardan?\n"
+        "Bir yoki bir nechta fanni belgilang, keyin «Davom etish»ni bosing.",
+        kb(rows),
+    )
     await c.answer()
+
+
+@router.callback_query(F.data.regexp(r"^exm:nm:\d+$"))
+async def cb_subject_toggle(c: CallbackQuery, state: FSMContext):
+    if not await gate(c):
+        return
+    draft = await _draft(state, c)
+    if draft is None:
+        return
+    sid = int(c.data.split(":")[2])
+    picked = list(draft.get("pick") or [])
+    if sid in picked:
+        picked.remove(sid)
+    else:
+        picked.append(sid)
+    draft["pick"] = picked
+    await state.update_data(d=draft)
+    await _ask_subject(c, draft)
+
+
+@router.callback_query(F.data == "exm:nsel")
+async def cb_subject_again(c: CallbackQuery, state: FSMContext):
+    if not await gate(c):
+        return
+    draft = await _draft(state, c)
+    if draft is None:
+        return
+    await _ask_subject(c, draft)
+
+
+@router.callback_query(F.data == "exm:nmo")
+async def cb_subject_done(c: CallbackQuery, state: FSMContext):
+    if not await gate(c):
+        return
+    draft = await _draft(state, c)
+    if draft is None:
+        return
+    picked = draft.get("pick") or []
+    if not picked:
+        await c.answer("Kamida bitta fanni belgilang.", show_alert=True)
+        return
+
+    async with SessionLocal() as session:
+        found = [await session.get(Subject, i) for i in picked]
+    subjects = [s for s in found if s is not None]
+    if not subjects:
+        await c.answer("Fan topilmadi.", show_alert=True)
+        return
+
+    if len(subjects) == 1:
+        draft.pop("sids", None)
+        draft.update(sid=subjects[0].id, sname=subjects[0].name)
+        await state.update_data(d=draft)
+        await _ask_topic(c, state, draft)
+        return
+
+    # bir nechta fan: mavzu bosqichi o'tkaziladi (hamma mavzulardan olinadi)
+    ids = [s.id for s in subjects]
+    async with SessionLocal() as session:
+        closed, opened = await bank_counts(session, ids, None)
+    draft.pop("sid", None)
+    draft.update(
+        sids=ids, sname=" + ".join(s.name for s in subjects)[:200],
+        tid=None, tname=None, avail_c=closed, avail_o=opened,
+    )
+    await state.update_data(d=draft)
+    if draft["mode"] == "milliy":
+        await _ask_duration(c, draft)
+    else:
+        await _ask_closed(c, draft)
 
 
 async def _ask_topic(c: CallbackQuery, state: FSMContext, draft: dict, page: int = 0):
@@ -233,7 +318,7 @@ async def _ask_topic(c: CallbackQuery, state: FSMContext, draft: dict, page: int
         nav.append(InlineKeyboardButton(text="➡️", callback_data=f"exm:ntp:{page + 1}"))
     if nav:
         rows.append(nav)
-    rows.append([InlineKeyboardButton(text="⬅️ Orqaga", callback_data=f"exm:n:{'m' if draft['mode'] == 'milliy' else 'o'}")])
+    rows.append([InlineKeyboardButton(text="⬅️ Orqaga", callback_data="exm:nsel")])
 
     await show(
         c,
@@ -301,6 +386,8 @@ async def cb_topic(c: CallbackQuery, state: FSMContext):
 
 
 def _bank_line(draft: dict) -> str:
+    if draft.get("fixed"):  # tayyor (yig'ilgan) Milliy sertifikat
+        return f"Tayyor imtihon: <b>{draft['c']}</b> yopiq, <b>{draft['o']}</b> ochiq savol"
     return (
         f"Bazada: <b>{draft['avail_c']}</b> yopiq, <b>{draft['avail_o']}</b> ochiq savol"
         + (f" ({esc(draft['tname'])})" if draft.get("tname") else "")
@@ -310,7 +397,8 @@ def _bank_line(draft: dict) -> str:
 async def _ask_closed(c: CallbackQuery, draft: dict):
     sizes = [10, 20, 30, 35, 45]
     rows = [[InlineKeyboardButton(text=str(n), callback_data=f"exm:nc:{n}") for n in sizes]]
-    rows.append([InlineKeyboardButton(text="⬅️ Orqaga", callback_data="exm:ntp:0")])
+    rows.append([InlineKeyboardButton(
+        text="⬅️ Orqaga", callback_data="exm:nsel" if draft.get("sids") else "exm:ntp:0")])
     await show(
         c,
         f"➕ <b>Yangi imtihon</b>\n\n{_bank_line(draft)}\n\n3-qadam: nechta <b>yopiq</b> (A/B/C/D) savol?",
@@ -351,11 +439,36 @@ async def cb_open(c: CallbackQuery, state: FSMContext):
     await _ask_duration(c, draft)
 
 
+@router.callback_query(F.data == "exm:fx")
+async def cb_fixed(c: CallbackQuery, state: FSMContext):
+    """3-bosqich: yuklangan yopiq va ochiq savollarni birlashtirib, imtihonni sozlashga o'tish."""
+    if not await gate(c):
+        return
+    mly = (await state.get_data()).get("mly") or {}
+    closed, opened = mly.get("c") or [], mly.get("o") or []
+    if len(closed) != MILLIY_CLOSED or len(opened) != MILLIY_OPEN:
+        await c.answer(
+            f"Avval 1-bosqich (yopiq {MILLIY_CLOSED} ta) va 2-bosqich (ochiq {MILLIY_OPEN} ta) tugashi kerak.",
+            show_alert=True,
+        )
+        return
+    draft = {
+        "mode": "milliy", "c": len(closed), "o": len(opened),
+        "avail_c": len(closed), "avail_o": len(opened),
+        "sname": "Milliy sertifikat", "tid": None, "tname": None,
+        "fixed": closed + opened,
+    }
+    await state.update_data(d=draft)
+    await _ask_duration(c, draft)
+
+
 async def _ask_duration(c: CallbackQuery, draft: dict):
     rows = [
         [InlineKeyboardButton(text=f"{m} daq.", callback_data=f"exm:nd:{m}") for m in (30, 45, 60)],
         [InlineKeyboardButton(text=f"{m} daq.", callback_data=f"exm:nd:{m}") for m in (90, 120, 150, 180)],
     ]
+    if draft.get("fixed"):
+        rows.append([InlineKeyboardButton(text="⬅️ Orqaga", callback_data="mly:home")])
     await show(
         c,
         f"➕ <b>Yangi imtihon</b>\n\n{_bank_line(draft)}\n"
@@ -464,7 +577,8 @@ async def _preview(target, state: FSMContext, draft: dict, title: str):
     lines = [
         "➕ <b>Imtihonni tasdiqlang</b>", "",
         f"📝 <b>{esc(draft['title'])}</b>",
-        f"📚 {esc(draft['sname'])}" + (f" · {esc(draft['tname'])}" if draft.get("tname") else ""),
+        f"📚 {esc(draft['sname'])}" + (f" · {esc(draft['tname'])}" if draft.get("tname") else "")
+        + (" (savollar fanlar orasida teng olinadi)" if draft.get("sids") else ""),
         f"🏅 Shablon: {'Milliy sertifikat' if draft['mode'] == 'milliy' else 'Oddiy'}",
         f"👥 Kimlar: {esc(draft['grp']) if draft['grp'] else 'hamma o‘quvchilar'}",
         f"⏱ Vaqt: {draft['dur']} daqiqa · boshlash muddati: {draft['days']} kun",
@@ -529,9 +643,18 @@ async def cb_create(c: CallbackQuery, state: FSMContext):
     await c.answer("Yaratilmoqda…")
 
     async with SessionLocal() as session:
-        payloads, real_c, real_o = await pick_questions(
-            session, draft["sid"], draft.get("tid"), draft["c"], draft["o"]
-        )
+        if draft.get("fixed"):
+            payloads = list(draft["fixed"])
+            real_c = sum(1 for p in payloads if p.get("k") == "c")
+            real_o = len(payloads) - real_c
+        elif draft.get("sids"):
+            payloads, real_c, real_o = await pick_questions_multi(
+                session, draft["sids"], draft["c"], draft["o"]
+            )
+        else:
+            payloads, real_c, real_o = await pick_questions(
+                session, draft["sid"], draft.get("tid"), draft["c"], draft["o"]
+            )
         if not payloads:
             await show(c, "❌ Savol topilmadi. Imtihon yaratilmadi.",
                        kb([[InlineKeyboardButton(text="⬅️ Orqaga", callback_data="exm:t")]]))
@@ -565,7 +688,7 @@ async def cb_create(c: CallbackQuery, state: FSMContext):
         f"⏳ {len(chat_ids)} ta o'quvchiga xabar yuborilmoqda…",
         kb([
             [InlineKeyboardButton(text="📊 Boshqarish", callback_data=f"exm:m:{exam_id}")],
-            [InlineKeyboardButton(text="⬅️ Imtihonlar", callback_data="exm:t")],
+            [InlineKeyboardButton(text="⬅️ Orqaga", callback_data="exm:t")],
         ]),
     )
 
@@ -834,7 +957,7 @@ async def cb_delete(c: CallbackQuery):
             return
         exam.is_removed = True
         await session.commit()
-    await show(c, "✅ Imtihon o'chirildi.", kb([[InlineKeyboardButton(text="⬅️ Imtihonlar", callback_data="exm:t")]]))
+    await show(c, "✅ Imtihon o'chirildi.", kb([[InlineKeyboardButton(text="⬅️ Orqaga", callback_data="exm:t")]]))
     await c.answer()
 
 
@@ -962,6 +1085,6 @@ async def msg_open_paste(m: Message, state: FSMContext):
         text,
         reply_markup=kb([
             [InlineKeyboardButton(text="✍️ Yana qo'shish", callback_data="exm:oa")],
-            [InlineKeyboardButton(text="⬅️ Imtihonlar", callback_data="exm:t")],
+            [InlineKeyboardButton(text="⬅️ Orqaga", callback_data="exm:t")],
         ]),
     )

@@ -378,7 +378,7 @@ async def cb_save(c: CallbackQuery, state: FSMContext):
         rows.append([B("📜 Barcha yuklashlarim", "imq:hl")])
     if topic:
         rows.append([B("➕ Shu mavzuga yana yuklash", "imq:again")])
-    rows.append([B("📥 Boshqa yuklash", "imq:home"), B("📝 Imtihonlar", "exm:t")])
+    rows.append([B("📥 Boshqa yuklash", "imq:home"), B("🎓 Milliy sertifikat", "exm:t")])
     await show(c, msg, kb(rows))
     await c.answer()
 
