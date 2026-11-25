@@ -213,6 +213,7 @@ async def cb_group(c: CallbackQuery, state: FSMContext):
         ],
         [InlineKeyboardButton(text="📣 Guruhga xabar", callback_data=f"ust:m:{gid}")],
         [InlineKeyboardButton(text="📋 Topshiriqlar", callback_data="adm:assign")],
+        [InlineKeyboardButton(text="📝 Imtihonlar", callback_data="exm:t")],
         [InlineKeyboardButton(text="⬅️ Guruhlarim", callback_data="ust:home")],
     ])
 

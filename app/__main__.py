@@ -150,6 +150,10 @@ async def main():
     from .handlers import oqituvchi
 
     dp.include_router(oqituvchi.router)
+    from .handlers import imtihon, imtihon_ustoz
+
+    dp.include_router(imtihon.router)
+    dp.include_router(imtihon_ustoz.router)
     from .handlers import knowledge_map
 
     dp.include_router(knowledge_map.router)
@@ -245,6 +249,10 @@ async def main():
     profile_task = asyncio.create_task(
         profil_eslatma.profile_reminder_loop(bot)
     )
+
+    from .services.imtihon import expiry_loop
+
+    exam_task = asyncio.create_task(expiry_loop(bot))
 
     # Qayta ishga tushishdan oldin boshlangan guruh testlarini tekshirish
     try:

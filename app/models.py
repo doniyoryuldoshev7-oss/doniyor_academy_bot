@@ -372,3 +372,68 @@ class TeacherGroup(Base):
     )
 
     group_name: Mapped[str] = mapped_column(String(100))
+
+
+# Imtihon rejimi
+class Exam(Base):
+    __tablename__ = "exams"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    title: Mapped[str] = mapped_column(String(200))
+    subject_name: Mapped[str] = mapped_column(String(255))
+    mode: Mapped[str] = mapped_column(String(10), default="milliy")
+    created_by: Mapped[int] = mapped_column(BigInteger, index=True)
+    group_name: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    duration_min: Mapped[int] = mapped_column(Integer, default=60)
+    closes_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    is_open: Mapped[bool] = mapped_column(Boolean, default=True)
+    is_removed: Mapped[bool] = mapped_column(Boolean, default=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+
+
+class ExamItem(Base):
+    __tablename__ = "exam_items"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    exam_id: Mapped[int] = mapped_column(
+        ForeignKey("exams.id", ondelete="CASCADE"),
+        index=True,
+    )
+    position: Mapped[int] = mapped_column(Integer)
+    payload: Mapped[str] = mapped_column(Text)
+
+
+class ExamAttempt(Base):
+    __tablename__ = "exam_attempts"
+    __table_args__ = (
+        _UniqueConstraint("exam_id", "user_id", name="uq_exam_user"),
+    )
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    exam_id: Mapped[int] = mapped_column(
+        ForeignKey("exams.id", ondelete="CASCADE"),
+        index=True,
+    )
+    user_id: Mapped[int] = mapped_column(
+        ForeignKey("users.id", ondelete="CASCADE"),
+        index=True,
+    )
+    started_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    deadline_at: Mapped[datetime] = mapped_column(DateTime)
+    finished_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    status: Mapped[str] = mapped_column(String(12), default="active", index=True)
+    answers: Mapped[str] = mapped_column(Text, default="{}")
+
+
+class OpenQuestion(Base):
+    __tablename__ = "open_questions"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    topic_id: Mapped[int] = mapped_column(
+        ForeignKey("topics.id", ondelete="CASCADE"),
+        index=True,
+    )
+    stem: Mapped[str] = mapped_column(Text)
+    parts: Mapped[str] = mapped_column(Text)
+    created_by: Mapped[int] = mapped_column(BigInteger, default=0)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
