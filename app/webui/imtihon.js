@@ -283,6 +283,7 @@
   };
   const lines = (arr) => arr.join("\n").split("\n").filter((x) => x.trim()).length;
   function mlyHome(note, warnings) {
+    if (typeof note !== "string") { note = null; warnings = null; }   /* orqaga tugmasi hodisa (event) uzatadi */
     loadDraft();
     pollTok++;
     const cOk = !!D.c || !!D.a, oOk = !!D.o || !!D.a;
