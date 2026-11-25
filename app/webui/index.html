@@ -553,7 +553,7 @@ async function result(aid) {
   try { r = await api(`/api/attempts/${aid}/result`); }
   catch (e) { toast(e.message); return openTab("exams"); }
   backTo(() => openTab("results"));
-  const nodes = [el("div", { class: "row" }, el("div", { class: "grow" }, el("h1", {}, "Imtihon natijasi"), el("div", { class: "hint" }, r.title)), mascot())];
+  const nodes = [el("button", { class: "x", style: "margin-bottom:8px", onclick: () => openTab("results") }, icon("left")), el("div", { class: "row" }, el("div", { class: "grow" }, el("h1", {}, "Imtihon natijasi"), el("div", { class: "hint" }, r.title)), mascot())];
   const pct = r.mode === "milliy" ? Math.min(100, (r.value / r.scale) * 100) : Math.min(100, r.value);
   const head = el("div", { style: "text-align:center" });
   head.append(el("div", { class: "big" }, el("div", { class: "score", style: `--p:${pct}` }, el("i", {},
@@ -581,7 +581,7 @@ async function review(aid) {
   let r;
   try { r = await api(`/api/attempts/${aid}/review`); } catch (e) { return toast(e.message); }
   backTo(() => result(aid));
-  const nodes = [el("h1", {}, "Xatolar tahlili")];
+  const nodes = [el("button", { class: "x", style: "margin-bottom:8px", onclick: () => result(aid) }, icon("left")), el("h1", {}, "Xatolar tahlili")];
   for (const it of r.items) {
     const card = el("div", { class: "card" }, el("b", {}, `${it.ok ? "✅" : "❌"} ${it.pos}-savol`));
     if (it.src) card.append(el("div", { class: "src" }, it.src));

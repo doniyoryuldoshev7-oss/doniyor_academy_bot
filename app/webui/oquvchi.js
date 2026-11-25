@@ -196,6 +196,7 @@
     closing(false);
     backTo(testHub);
     show({ focus: false },
+      el("button", { class: "x", style: "margin-bottom:8px", onclick: testHub, "aria-label": "Orqaga" }, icon("left")),
       el("div", { class: "row" }, el("div", { class: "grow" }, el("h1", {}, "Test natijasi"), el("div", { class: "hint" }, Q.topic.name)), mascot()),
       el("div", { style: "text-align:center" },
         el("div", { class: "big" }, el("div", { class: "score", style: `--p:${r.pct}` }, el("i", {}, el("div", {}, el("b", {}, `${r.pct}%`), el("small", {}, `${r.correct}/${r.total}`))))),
