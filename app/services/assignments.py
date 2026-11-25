@@ -158,7 +158,8 @@ async def active_assignments(session, *, user: User | None = None):
                     Assignment.user_id.is_(None),
                     or_(
                         Assignment.group_name.is_(None),
-                        Assignment.group_name == user.group_name,
+                        func.lower(func.trim(Assignment.group_name))
+                        == (user.group_name or "").strip().lower(),
                     ),
                 ),
             )
@@ -252,7 +253,10 @@ async def target_users(session, assignment: Assignment) -> list[User]:
     )
 
     if assignment.group_name:
-        stmt = stmt.where(User.group_name == assignment.group_name)
+        stmt = stmt.where(
+            func.lower(func.trim(User.group_name))
+            == assignment.group_name.strip().lower()
+        )
 
     return list(await session.scalars(stmt))
 

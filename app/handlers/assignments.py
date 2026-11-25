@@ -26,7 +26,8 @@ from aiogram.types import (
 )
 from sqlalchemy import func, select
 
-from ..admin_roles import is_full_admin
+from ..admin_roles import is_full_admin, is_teacher
+from ..services.oqituvchi import get_teacher, teacher_groups
 from ..db import SessionLocal
 from ..models import Question, Subject, Topic, User
 from ..services.assignments import (
@@ -97,19 +98,65 @@ def admin_row():
 
 
 # ---------------------------------------------------------------
+#  Ustoz huquqlari: ustoz faqat o'z guruhlariga topshiriq beradi
+#  va faqat o'zi bergan topshiriqlarni ko'radi
+# ---------------------------------------------------------------
+
+async def _can_manage(uid: int) -> bool:
+    return is_full_admin(uid) or await is_teacher(uid)
+
+
+def _owns(uid: int, assignment) -> bool:
+    return is_full_admin(uid) or assignment.created_by == uid
+
+
+async def _groups_for(session, uid: int) -> list[str]:
+    if is_full_admin(uid):
+        return await group_names(session)
+
+    found = await get_teacher(session, uid)
+
+    if found is None:
+        return []
+
+    rows = await teacher_groups(session, found[0].id)
+    return sorted({g.group_name for g in rows}, key=str.casefold)
+
+
+async def _my_rows(session, uid: int):
+    if is_full_admin(uid):
+        return await all_assignments(session, limit=10)
+
+    rows = await all_assignments(session, limit=300)
+    return [row for row in rows if row[0].created_by == uid][:10]
+
+
+async def _home_row(uid: int):
+    if is_full_admin(uid):
+        return admin_row()
+
+    return [
+        InlineKeyboardButton(
+            text="\U0001F9D1\u200D\U0001F3EB Ustoz paneli",
+            callback_data="ust:home",
+        )
+    ]
+
+
+# ---------------------------------------------------------------
 #  Admin: bo'lim menyusi
 # ---------------------------------------------------------------
 
 @router.callback_query(F.data == "adm:assign")
 async def assign_menu(c: CallbackQuery):
-    if not is_full_admin(c.from_user.id):
+    if not await _can_manage(c.from_user.id):
         await c.answer("Ruxsat yo'q.", show_alert=True)
         return
 
     await c.answer()
 
     async with SessionLocal() as session:
-        rows = await all_assignments(session, limit=10)
+        rows = await _my_rows(session, c.from_user.id)
 
     lines = ["\U0001F4CB <b>USTOZ TOPSHIRIQLARI</b>", ""]
 
@@ -155,7 +202,7 @@ async def assign_menu(c: CallbackQuery):
                 ]
             )
 
-    buttons.append(admin_row())
+    buttons.append(await _home_row(c.from_user.id))
 
     try:
         await c.message.edit_text(
@@ -173,7 +220,7 @@ async def assign_menu(c: CallbackQuery):
 
 @router.callback_query(F.data == "asg:n")
 async def assign_subject(c: CallbackQuery):
-    if not is_full_admin(c.from_user.id):
+    if not await _can_manage(c.from_user.id):
         await c.answer("Ruxsat yo'q.", show_alert=True)
         return
 
@@ -217,7 +264,7 @@ async def assign_subject(c: CallbackQuery):
 
 @router.callback_query(F.data.startswith("asg:s:"))
 async def assign_topic(c: CallbackQuery):
-    if not is_full_admin(c.from_user.id):
+    if not await _can_manage(c.from_user.id):
         await c.answer("Ruxsat yo'q.", show_alert=True)
         return
 
@@ -278,7 +325,7 @@ async def assign_topic(c: CallbackQuery):
 
 @router.callback_query(F.data.startswith("asg:t:"))
 async def assign_count(c: CallbackQuery):
-    if not is_full_admin(c.from_user.id):
+    if not await _can_manage(c.from_user.id):
         await c.answer("Ruxsat yo'q.", show_alert=True)
         return
 
@@ -338,7 +385,7 @@ async def assign_count(c: CallbackQuery):
 
 @router.callback_query(F.data.startswith("asg:c:"))
 async def assign_deadline(c: CallbackQuery):
-    if not is_full_admin(c.from_user.id):
+    if not await _can_manage(c.from_user.id):
         await c.answer("Ruxsat yo'q.", show_alert=True)
         return
 
@@ -371,7 +418,7 @@ async def assign_deadline(c: CallbackQuery):
 
 @router.callback_query(F.data.startswith("asg:d:"))
 async def assign_group(c: CallbackQuery):
-    if not is_full_admin(c.from_user.id):
+    if not await _can_manage(c.from_user.id):
         await c.answer("Ruxsat yo'q.", show_alert=True)
         return
 
@@ -380,7 +427,7 @@ async def assign_group(c: CallbackQuery):
     await c.answer()
 
     async with SessionLocal() as session:
-        groups = await group_names(session)
+        groups = await _groups_for(session, c.from_user.id)
 
     buttons = [
         [
@@ -390,6 +437,18 @@ async def assign_group(c: CallbackQuery):
             )
         ]
     ]
+
+    if not is_full_admin(c.from_user.id):
+        buttons = []
+
+        if not groups:
+            await c.message.edit_text(
+                "Sizga hali guruh biriktirilmagan. Admin bilan bog'laning.",
+                reply_markup=InlineKeyboardMarkup(
+                    inline_keyboard=[back_row("adm:assign")]
+                ),
+            )
+            return
 
     for index, name in enumerate(groups):
         buttons.append(
@@ -418,7 +477,7 @@ async def assign_group(c: CallbackQuery):
 
 @router.callback_query(F.data.startswith("asg:ok:"))
 async def assign_create(c: CallbackQuery):
-    if not is_full_admin(c.from_user.id):
+    if not await _can_manage(c.from_user.id):
         await c.answer("Ruxsat yo'q.", show_alert=True)
         return
 
@@ -431,18 +490,29 @@ async def assign_create(c: CallbackQuery):
         await c.answer("Noto'g'ri so'rov.", show_alert=True)
         return
 
+    if group_text == "all" and not is_full_admin(c.from_user.id):
+        await c.answer("Guruhni tanlang.", show_alert=True)
+        return
+
     await c.answer("Yaratilmoqda...")
 
     async with SessionLocal() as session:
         group_name = None
 
         if group_text != "all":
-            groups = await group_names(session)
+            groups = await _groups_for(session, c.from_user.id)
 
             try:
                 group_name = groups[int(group_text)]
             except (ValueError, IndexError):
                 group_name = None
+
+            if group_name is None:
+                await c.message.answer(
+                    "⚠️ Guruh topilmadi (ro'yxat o'zgargan bo'lishi mumkin). "
+                    "Topshiriq yaratilmadi, qaytadan urinib ko'ring."
+                )
+                return
 
         assignment = await create_assignment(
             session,
@@ -535,7 +605,7 @@ async def assign_create(c: CallbackQuery):
 
 @router.callback_query(F.data.startswith("asg:p:"))
 async def assign_progress(c: CallbackQuery):
-    if not is_full_admin(c.from_user.id):
+    if not await _can_manage(c.from_user.id):
         await c.answer("Ruxsat yo'q.", show_alert=True)
         return
 
@@ -550,6 +620,10 @@ async def assign_progress(c: CallbackQuery):
 
         if assignment is None:
             await c.answer("Topshiriq topilmadi.", show_alert=True)
+            return
+
+        if not _owns(c.from_user.id, assignment):
+            await c.answer("Bu topshiriq sizniki emas.", show_alert=True)
             return
 
         rows = await assignment_progress(session, assignment)
@@ -618,7 +692,7 @@ async def assign_progress(c: CallbackQuery):
             )
         ],
         back_row("adm:assign", "\U0001F4CB Topshiriqlar"),
-        admin_row(),
+        await _home_row(c.from_user.id),
     ]
 
     try:
@@ -1049,7 +1123,7 @@ async def assign_personal_create(c: CallbackQuery):
 
 @router.callback_query(F.data.startswith("asg:del:"))
 async def assign_remove_ask(c: CallbackQuery):
-    if not is_full_admin(c.from_user.id):
+    if not await _can_manage(c.from_user.id):
         await c.answer("Ruxsat yo'q.", show_alert=True)
         return
 
@@ -1068,6 +1142,10 @@ async def assign_remove_ask(c: CallbackQuery):
 
         if assignment is None:
             await c.answer("Topshiriq topilmadi.", show_alert=True)
+            return
+
+        if not _owns(c.from_user.id, assignment):
+            await c.answer("Bu topshiriq sizniki emas.", show_alert=True)
             return
 
         rows = await assignment_progress(session, assignment)
@@ -1105,7 +1183,7 @@ async def assign_remove_ask(c: CallbackQuery):
 
 @router.callback_query(F.data.startswith("asg:delok:"))
 async def assign_remove_do(c: CallbackQuery):
-    if not is_full_admin(c.from_user.id):
+    if not await _can_manage(c.from_user.id):
         await c.answer("Ruxsat yo'q.", show_alert=True)
         return
 
@@ -1124,6 +1202,10 @@ async def assign_remove_do(c: CallbackQuery):
             await c.answer("Topshiriq topilmadi.", show_alert=True)
             return
 
+        if not _owns(c.from_user.id, assignment):
+            await c.answer("Bu topshiriq sizniki emas.", show_alert=True)
+            return
+
         removed = await remove_assignment(session, assignment_id)
 
     if not removed:
@@ -1140,7 +1222,7 @@ async def assign_remove_do(c: CallbackQuery):
         reply_markup=InlineKeyboardMarkup(
             inline_keyboard=[
                 back_row("adm:assign", "\U0001F4CB Topshiriqlar"),
-                admin_row(),
+                await _home_row(c.from_user.id),
             ]
         ),
     )
