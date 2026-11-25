@@ -18,7 +18,8 @@
     pollTok++;
     screen("Milliy sertifikat imtihoni", "", toHome,
       el("div", { class: "hint", style: "margin-bottom:8px" }, "Imtihon — vaqtli test: o'quvchi javobning to'g'riligini oxirigacha ko'rmaydi, faqat bir marta topshiradi. «Milliy sertifikat» shabloni: 35 yopiq + 10 ochiq savol, natija 75 ballik shkala va daraja (A+ … C) bilan."),
-      btn("", "➕ Yangi imtihon (bankdan)", template),
+      btn("", "🏅 Milliy sertifikatni yig'ish (1-35, 36-45)", () => mlyHome()),
+      btn("alt", "➕ Yangi imtihon (bankdan)", template),
       btn("alt", "📋 Imtihonlarim", list),
       btn("alt", "✍️ Ochiq savollar qo'shish", openSubjects));
   }
@@ -84,7 +85,7 @@
     if (W.mode === "milliy") return durations();
     closedSizes();
   }
-  const srcBack = () => (W.pick.length === 1 ? topics() : drawSubjects());
+  const srcBack = () => (W.fixed ? mlyHome() : W.pick.length === 1 ? topics() : drawSubjects());
   function closedSizes() {
     const nodes = [el("div", { class: "card" }, el("b", {}, W.sname), el("div", { class: "hint" }, bankLine())), el("div", { class: "hint" }, "3-qadam: nechta yopiq (A/B/C/D) savol?")];
     for (const n of OPT.closed) nodes.push(btn("alt", String(n), () => { W.c = n; openSizes(); }));
@@ -122,7 +123,7 @@
   function preview() {
     const rc = Math.min(W.c, W.ac), ro = Math.min(W.o, W.ao);
     const nodes = [el("div", { class: "card" }, el("b", {}, W.title || `${W.sname} (nom avtomatik)`),
-      stat("📚 Fan", W.sname + (W.tname ? " · " + W.tname : "") + (W.pick.length > 1 ? " (fanlar orasida teng olinadi)" : "")),
+      stat("📚 Fan", W.fixed ? "Milliy sertifikat (tayyor savollar)" : W.sname + (W.tname ? " · " + W.tname : "") + (W.pick.length > 1 ? " (fanlar orasida teng olinadi)" : "")),
       stat("🏅 Shablon", W.mode === "milliy" ? "Milliy sertifikat" : "Oddiy"), stat("👥 Kimlar", W.glabel),
       stat("⏱ Vaqt", `${W.dur} daqiqa`), stat("📅 Boshlash muddati", `${W.days} kun`),
       stat("Yopiq savollar", rc + (rc < W.c ? ` (so'raldi ${W.c}, bazada yetarli emas)` : "")),
@@ -135,9 +136,10 @@
     if (busy) return;
     busy = true; wait();
     let r;
-    try { r = await post("/api/ex/create", { mode: W.mode, sids: W.pick, tid: W.tid, c: W.c, o: W.o, dur: W.dur, group: W.group, days: W.days, title: W.title }); }
+    try { r = await post("/api/ex/create", { mode: W.mode, sids: W.pick, tid: W.tid, c: W.c, o: W.o, dur: W.dur, group: W.group, days: W.days, title: W.title, fixed: W.fixed || null }); }
     catch (e) { busy = false; return fail(e, preview); }
     busy = false;
+    if (W.fixed) { D = { a: null, c: null, o: null, buf: { c: [], o: [], a: [] } }; saveDraft(); }   /* botdagi kabi: yaratilgach qoralama tozalanadi */
     const tok = ++pollTok;
     const status = el("div", { class: "hint", style: "margin-top:8px" }, r.students ? `⏳ Xabar yuborilmoqda… 0/${r.students}` : "Bu guruhda o'quvchi yo'q — xabar yuborilmadi.");
     screen("Imtihon yaratildi", "", home,
@@ -256,6 +258,113 @@
     screen("Ochiq savollar", t.name, () => openTopics(sid),
       el("div", { class: "card" }, el("div", { class: "hint", style: "white-space:pre-wrap" }, h.help)), ta, out,
       btn("alt", "🔍 Tekshirish", () => send(true)), btn("", "💾 Saqlash", () => send(false)));
+  }
+
+
+  /* ---------- Milliy sertifikatni fayldan yig'ish (1-35 yopiq, 36-45 ochiq) ---------- */
+  const NC = 35, NO = 10, KEY = "mly_draft_v1";
+  const HELP = {
+    c: `Yopiq savollarni yuboring (${NC} ta, 1–${NC}): matn, .txt, .docx yoki .xlsx.\n\n1. Savol matni\nA) variant\nB) variant\nC) variant\nD) variant\nJavob: B\n\n• Ro'yxatli savol (1) 2) 3) yoki a) b) c) qatorlari, atamalar, asarlar va mualliflar) — savol matnida oddiy qator qilib yozing. Variantlar faqat KATTA A) B) C) D).\n• Rasmli savol (xarita, jadval, Venn diagrammasi): avval rasmni qo'shing, keyin savol matnini.\n• Hammasi rasmda bo'lsa: rasmni qo'shing, keyin faqat «17. Javob: C» deb yozing.\n• 33–35 kabi A–F li umumiy variantlar eng oxirida:\nUmumiy variantlar: javobni tanlang\nA) …\nF) …\n33. Savol\nJavob: B`,
+    o: `Ochiq savollarni yuboring (${NO} ta, ${NC + 1}–${NC + NO}). Har birida a) va b) qismi bor. Savollar --- qatori bilan ajratiladi.\n\nSavol matni\na) birinchi qism => javob1 | javob2\nb) ikkinchi qism => javob\n\n| — muqobil to'g'ri javoblar.`,
+    a: `Hamma savolni (1–${NC + NO}) bitta fayl qilib yuboring: .docx, .txt yoki .xlsx. Matnni to'g'ridan-to'g'ri yozsangiz ham bo'ladi. Rasmlar Word ichida turishi mumkin.\n\nTuzilishi: avval ${NC} ta yopiq savol, keyin «OCHIQ SAVOLLAR» deb yozilgan qator, keyin ${NO} ta ochiq savol.\n\n1. Savol matni\nA) variant\nB) variant\nC) variant\nD) variant\nJavob: B\n\n… (${NC} gacha)\n\nOCHIQ SAVOLLAR\n\n36. Savol matni\na) birinchi qism => javob1 | javob2\nb) ikkinchi qism => javob\n---\n37. …\n\n• Ochiq savollar --- qatori bilan ajratiladi, | — muqobil to'g'ri javoblar.\n• Rasmli savol va 33–35 kabi A–F li umumiy variantlar qoidasi yopiq savollarniki kabi.\n• Fayl 3 MB dan oshmasin; katta bo'lsa 2 qismga bo'lib qo'shing (ketma-ket qo'shiladi).`,
+  };
+  const STAGE_TITLE = { c: "Yopiq savollar", o: "Ochiq savollar", a: "Hammasi bitta fayldan" };
+  let D = { a: null, c: null, o: null, buf: { c: [], o: [], a: [] } };   /* c/o: tekshirilgan qismlar (yoki null) */
+  function loadDraft() {
+    try { const x = JSON.parse(localStorage.getItem(KEY) || "null"); if (x && x.buf) D = { a: x.a || null, c: x.c || null, o: x.o || null, buf: Object.assign({ c: [], o: [], a: [] }, x.buf) }; } catch (e) {}
+  }
+  function saveDraft() { try { localStorage.setItem(KEY, JSON.stringify(D)); } catch (e) {} }
+  const upload = async (url, file, headers) => {
+    const res = await fetch(url, { method: "POST", headers: Object.assign({ "X-Init-Data": (window.Telegram && Telegram.WebApp && Telegram.WebApp.initData) || "" }, headers || {}), body: file });
+    let d = null;
+    try { d = await res.json(); } catch (e) {}
+    if (!res.ok) throw new Error((d && d.error) || "Yuklanmadi");
+    return d;
+  };
+  const lines = (arr) => arr.join("\n").split("\n").filter((x) => x.trim()).length;
+  function mlyHome(note, warnings) {
+    loadDraft();
+    pollTok++;
+    const cOk = !!D.c || !!D.a, oOk = !!D.o || !!D.a;
+    const ready = cOk && oOk;
+    const stepLine = (n, label, ok, wait_) => el("div", { class: "hint", style: "margin:4px 0" }, `${n} ${label}: ` + (ok ? "✅ yuklandi" : wait_));
+    const nodes = [el("div", { class: "card" }, el("b", {}, "🏅 Milliy sertifikat imtihonini yig'ish"),
+      stepLine("1️⃣", `Yopiq savollar (1–${NC})`, cOk, "❌ hali yuklanmagan"),
+      stepLine("2️⃣", `Ochiq savollar (${NC + 1}–${NC + NO}, har birida a va b)`, oOk, "❌ hali yuklanmagan"),
+      stepLine("3️⃣", "Birlashtirib o'quvchilarga taqdim etish", ready, "⏳ avval 1 va 2-bosqichni tugating")),
+      btn("", "📄 Hammasini bitta fayldan yuklash (1–45)", () => collect("a")),
+      btn("alt", (D.c ? "♻️ " : "1️⃣ ") + "Yopiq savollarni yuklash", () => collect("c")),
+      btn("alt", (D.o ? "♻️ " : "2️⃣ ") + "Ochiq savollarni yuklash", () => collect("o")),
+      btn(ready ? "" : "alt", (ready ? "✅ " : "3️⃣ ") + "Birlashtirish va taqdim etish", () => {
+        if (!ready) return toast(`Avval 1-bosqich (yopiq ${NC} ta) va 2-bosqich (ochiq ${NO} ta) tugashi kerak.`);
+        W = { mode: "milliy", c: NC, o: NO, pick: [], sname: "Milliy sertifikat", ac: NC, ao: NO, tid: null, tname: null, fixed: D.a ? { a: D.a } : { c: D.c, o: D.o } };
+        afterSource();
+      })];
+    if (note) nodes.unshift(good(note + ((warnings || []).length ? "\n\nOgohlantirish:\n" + warnings.slice(0, 6).map((x) => "• " + x).join("\n") : "")));
+    if (D.c || D.o || D.a || D.buf.c.length || D.buf.o.length || D.buf.a.length) nodes.push(btn("alt", "🗑 Qoralamani o'chirish", () => confirmSheet("Qoralama o'chirilsinmi?",
+      "Yuklangan savollar o'chiriladi (bu qurilmadagi qoralama).", "Ha, o'chirish", () => { D = { a: null, c: null, o: null, buf: { c: [], o: [], a: [] } }; saveDraft(); toast("O'chirildi"); mlyHome(); })));
+    screen("Milliy sertifikatni yig'ish", "", home, ...nodes);
+  }
+  function collect(stage, msg) {
+    loadDraft();
+    const buf = D.buf[stage];
+    const ta = el("textarea", { class: "input", rows: "8", style: "width:100%;margin:8px 0", placeholder: "Savollarni shu yerga yozing yoki joylang, so'ng «Qo'shish» ni bosing" });
+    const info = el("div", { class: "hint", style: "margin:6px 0" }, buf.length ? `📎 Saqlangan: ${buf.length} qism, ${lines(buf)} qator.` : "Hali hech narsa qo'shilmagan.");
+    const out = el("div", {});
+    const refresh = () => { saveDraft(); collect(stage); };
+    const add = (chunk, note) => { buf.push(chunk); saveDraft(); toast(note || "Qabul qilindi"); collect(stage); };
+    const file = el("input", { type: "file", accept: ".txt,.docx,.xlsx", style: "display:none" });
+    const pic = el("input", { type: "file", accept: "image/*", style: "display:none" });
+    file.addEventListener("change", async () => {
+      const f = file.files[0]; if (!f) return;
+      try {
+        const d = await upload("/api/import/extract", f, { "X-Filename": encodeURIComponent(f.name) });
+        add(d.text, (d.notes && d.notes[0]) || "Fayl qabul qilindi");
+      } catch (e) { toast(e.message); }
+      file.value = "";
+    });
+    pic.addEventListener("change", async () => {
+      const f = pic.files[0]; if (!f) return;
+      try {
+        const d = await upload("/api/import/image", f);
+        const cap = ta.value.trim();
+        add(`[rasm:${d.name}]` + (cap ? "\n" + cap : ""), cap ? "Rasm va matn qo'shildi" : "Rasm qo'shildi: u keyingi yozgan savolingizga biriktiriladi");
+      } catch (e) { toast(e.message); }
+      pic.value = "";
+    });
+    const nodes = [];
+    if (msg) nodes.push(msg);
+    nodes.push(el("div", { class: "card" }, el("div", { class: "hint", style: "white-space:pre-wrap" }, HELP[stage])), info, ta,
+      btn("alt", "➕ Matnni qo'shish", () => { const v = ta.value; if (!v.trim()) return toast("Avval matn yozing."); add(v); }),
+      btn("alt", "📎 Fayl tanlash (.txt / .docx / .xlsx)", () => file.click()),
+      btn("alt", "🖼 Rasm qo'shish (matn yozgan bo'lsangiz, rasmning ostiga yoziladi)", () => pic.click()), file, pic, out);
+    {
+      nodes.push(btn("", "✅ Tayyor — tekshirish", async () => {
+        if (busy) return;
+        const pending = ta.value.trim();
+        if (pending) { buf.push(pending); saveDraft(); }
+        if (!buf.length) return toast("Avval savollarni kiriting.");
+        busy = true;
+        let r;
+        try { r = await post("/api/mly/check", { stage, chunks: buf }); } catch (e) { busy = false; return toast(e.message); }
+        busy = false;
+        if (r.ok) {
+          const keep = buf.slice();
+          if (stage === "a") { D.a = keep; D.c = D.o = null; D.buf.a = []; }
+          else { D[stage] = keep; D.a = null; D.buf[stage] = []; }
+          saveDraft();
+          const done = stage === "c" ? `✅ Yopiq savollar saqlandi: ${r.closed} ta (1–${NC}).` : stage === "o" ? `✅ Ochiq savollar saqlandi: ${r.open} ta (${NC + 1}–${NC + NO}).` : `✅ Hammasi saqlandi: yopiq ${r.closed} ta (1–${NC}), ochiq ${r.open} ta (${NC + 1}–${NC + NO}).`;
+          toast(done);
+          return mlyHome(done, r.warnings);
+        }
+        out.replaceChildren(el("div", { class: "card" }, el("b", {}, `⚠️ Saqlanmadi — ${r.errors.length} ta muammo`),
+          el("div", { class: "pre", style: "margin-top:6px;color:var(--r)" }, r.errors.slice(0, 12).map((x) => "• " + x).join("\n")),
+          r.errors.length > 12 ? el("div", { class: "hint" }, `… va yana ${r.errors.length - 12} ta.`) : null,
+          el("div", { class: "hint", style: "margin-top:6px" }, "Yetishmaganini yana qo'shishingiz mumkin (oldingilari saqlanib turadi) yoki tozalab boshidan boshlang.")));
+      }));
+      if (buf.length) nodes.push(btn("alt", "🗑 Yuborganlarimni tozalash", () => { D.buf[stage] = []; saveDraft(); toast("Tozalandi"); collect(stage); }));
+    }
+    screen(STAGE_TITLE[stage], "", mlyHome, ...nodes);
   }
 
   OQ.adminExam = home;

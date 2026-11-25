@@ -111,10 +111,13 @@ def exam_row(e, open_now, fmt):
 def validate_make(body, is_admin, groups):
     """Yaratish so'rovini tekshiradi. Qaytaradi: (ma'lumot, xato matni)."""
     mode = body.get("mode")
+    fixed = body.get("fixed") is not None
+    if fixed:
+        mode = "milliy"          # fayldan yig'ilgan imtihon faqat Milliy sertifikat
     if mode not in ("milliy", "oddiy"):
         return None, "Shablon noto'g'ri."
     try:
-        sids = [int(x) for x in (body.get("sids") or [])]
+        sids = [] if fixed else [int(x) for x in (body.get("sids") or [])]
         dur = int(body.get("dur"))
         days = int(body.get("days"))
         tid = int(body["tid"]) if body.get("tid") else None
@@ -122,7 +125,7 @@ def validate_make(body, is_admin, groups):
         o = MILLIY_O if mode == "milliy" else int(body.get("o"))
     except (TypeError, ValueError):
         return None, "Noto'g'ri so'rov."
-    if not sids or len(set(sids)) != len(sids):
+    if not fixed and (not sids or len(set(sids)) != len(sids)):
         return None, "Fanni tanlang."
     if tid and len(sids) != 1:
         return None, "Mavzu faqat bitta fan uchun tanlanadi."
@@ -140,7 +143,79 @@ def validate_make(body, is_admin, groups):
     elif group not in groups:
         return None, "Guruh topilmadi (ro'yxat o'zgargan bo'lishi mumkin). Imtihon yaratilmadi, qaytadan urinib ko'ring."
     title = str(body.get("title") or "").strip()[:200]
-    return {"mode": mode, "sids": sids, "tid": tid, "c": c, "o": o, "dur": dur, "days": days, "group": group, "title": title}, None
+    return {"mode": mode, "sids": sids, "tid": None if fixed else tid, "c": c, "o": o, "dur": dur, "days": days,
+            "group": group, "title": title, "fixed": fixed}, None
+
+
+MAX_CHUNKS = 500
+
+
+def clean_chunks(raw, max_text):
+    """Mijozdan kelgan qismlar ro'yxatini tekshiradi. Qaytaradi: (ro'yxat, xato)."""
+    if not isinstance(raw, list) or len(raw) > MAX_CHUNKS or not all(isinstance(x, str) for x in raw):
+        return None, "Qismlar noto'g'ri."
+    return [x for x in raw if x.strip()], None
+
+
+def check_stage(stage, chunks, fns):
+    """Botdagi «✅ Tayyor — tekshirish» bilan BIR XIL tekshiruv. fns = (_join, _check_closed, build_open, split_all, parse_text, MAX_TEXT).
+    Qaytaradi: (yopiq elementlar, ochiq elementlar, xatolar, ogohlantirishlar)."""
+    join, check_closed, build_open, split_all, parse_text, max_text = fns
+    buf = ""
+    for ch in chunks:
+        buf = join(buf, ch, stage)
+    if not buf.strip():
+        return [], [], ["Hali hech narsa yuborilmadi."], []
+    if len(buf) > max_text:
+        return [], [], ["Juda ko'p matn."], []
+    if stage == "c":
+        items, errors = check_closed(buf)
+        return items, [], list(errors), []
+    if stage == "o":
+        items, errors, warnings = build_open(parse_text(buf))
+        return [], items, list(errors), list(warnings)
+    sp = split_all(buf)
+    if sp is None:
+        return [], [], ["Yopiq va ochiq qismni ajratib bo'lmadi. Ochiq savollardan oldin alohida qatorga «OCHIQ SAVOLLAR» deb yozing."], []
+    citems, cerr = check_closed(sp[0])
+    oitems, oerr, warnings = build_open(parse_text(sp[1])) if sp[1].strip() else ([], ["Ochiq savollar topilmadi."], [])
+    errors = ["Yopiq qism: " + e for e in cerr] + ["Ochiq qism: " + e for e in oerr]
+    return citems, oitems, errors, list(warnings)
+
+
+def _stage_fns():
+    from .handlers.milliy_yigish import _check_closed, _join, build_open, split_all
+    from .handlers.milliy_yigish import parse_text
+    from .services.savol_import import MAX_TEXT
+
+    return _join, _check_closed, build_open, split_all, parse_text, MAX_TEXT
+
+
+def fixed_payloads(fixed, fns=None):
+    """Tayyor imtihon: qismlardan savollar QAYTA yig'iladi (mijozga ishonilmaydi). Qaytadan: (payloadlar, xato)."""
+    fns = fns or _stage_fns()
+    max_text = fns[5]
+    if not isinstance(fixed, dict):
+        return None, "Tayyor imtihon ma'lumoti noto'g'ri."
+    parts = {}
+    for key in ("a", "c", "o"):
+        if fixed.get(key) is not None:
+            parts[key], bad = clean_chunks(fixed.get(key), max_text)
+            if bad:
+                return None, bad
+    if parts.get("a"):
+        c, o, errors, _w = check_stage("a", parts["a"], fns)
+    elif parts.get("c") and parts.get("o"):
+        c, _x, e1, _w = check_stage("c", parts["c"], fns)
+        _y, o, e2, _w = check_stage("o", parts["o"], fns)
+        errors = list(e1) + list(e2)
+    else:
+        return None, "Avval yopiq (1-35) va ochiq (36-45) savollarni yuklang."
+    if errors:
+        return None, "Savollarda xato bor: " + "; ".join(errors[:3])
+    if len(c) != MILLIY_C or len(o) != MILLIY_O:
+        return None, f"Yopiq {MILLIY_C} ta va ochiq {MILLIY_O} ta savol bo'lishi kerak (hozir {len(c)} + {len(o)})."
+    return list(c) + list(o), None
 
 
 def announce_text(title, real_c, real_o, duration, deadline_text):
@@ -276,12 +351,25 @@ async def api_ex_create(request):
             d, bad = validate_make(body, is_admin, groups)
             if bad:
                 return _err(bad)
-            subs = [await s.get(Subject, i) for i in d["sids"]]
-            if any(x is None for x in subs):
-                return _err("Fan topilmadi.", 404)
-            sname = " + ".join(x.name for x in subs)[:200]
+            if d["fixed"]:
+                try:
+                    payloads, bad = fixed_payloads(body.get("fixed"))
+                except Exception:
+                    log.exception("veb: tayyor imtihonni yig'ishda xato")
+                    return _err("Savollarni tekshirib bo'lmadi. Qaytadan tekshiring.")
+                if bad:
+                    return _err(bad)
+                sname = "Milliy sertifikat"
+            else:
+                subs = [await s.get(Subject, i) for i in d["sids"]]
+                if any(x is None for x in subs):
+                    return _err("Fan topilmadi.", 404)
+                sname = " + ".join(x.name for x in subs)[:200]
             title = d["title"] or f"{sname} — {to_local(datetime.utcnow()).strftime('%d.%m.%Y')}"[:200]
-            if len(d["sids"]) > 1:
+            if d["fixed"]:
+                real_c = sum(1 for p in payloads if p.get("k") == "c")
+                real_o = len(payloads) - real_c
+            elif len(d["sids"]) > 1:
                 payloads, real_c, real_o = await pick_questions_multi(s, d["sids"], d["c"], d["o"])
             else:
                 payloads, real_c, real_o = await pick_questions(s, d["sids"][0], d["tid"], d["c"], d["o"])
@@ -308,6 +396,27 @@ async def api_ex_sendstatus(request):
     await _manager(request)
     st = _ANN.get(int(request.match_info["id"]))
     return web.json_response(st or {"sent": 0, "failed": 0, "total": 0, "done": True, "unknown": True})
+
+
+# ---------------- Milliy sertifikatni fayldan yig'ish ----------------
+async def api_mly_check(request):
+    await _manager(request)
+    _err, rj = _helpers()
+    body = await rj(request)
+    stage = body.get("stage")
+    if stage not in ("c", "o", "a"):
+        return _err("Bosqich noto'g'ri.")
+    try:
+        fns = _stage_fns()
+        chunks, bad = clean_chunks(body.get("chunks"), fns[5])
+        if bad:
+            return _err(bad)
+        c, o, errors, warnings = check_stage(stage, chunks, fns)
+    except Exception:
+        log.exception("veb: milliy tekshiruv xatosi")
+        return _err("Savollarni tekshirib bo'lmadi. Matnni tekshirib qaytadan yuboring.")
+    return web.json_response({"ok": not errors, "closed": len(c), "open": len(o), "errors": [str(e) for e in errors],
+                              "warnings": [str(w) for w in warnings], "need_c": MILLIY_C, "need_o": MILLIY_O})
 
 
 # ---------------- imtihonlarim va boshqarish ----------------
@@ -483,6 +592,7 @@ def setup(app: web.Application) -> None:
     r.add_post("/api/ex/avail", api_ex_avail)
     r.add_get("/api/ex/options", api_ex_options)
     r.add_get("/api/ex/groups", api_ex_groups)
+    r.add_post("/api/mly/check", api_mly_check)
     r.add_post("/api/ex/create", api_ex_create)
     r.add_get("/api/ex/send/{id:\\d+}", api_ex_sendstatus)
     r.add_get("/api/ex/list", api_ex_list)

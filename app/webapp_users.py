@@ -376,10 +376,25 @@ async def api_u_audit(request):
             logs.c.ok != TestAttempt.correct)) or 0)
         log_overflow = int(await s.scalar(select(func.count(TestAttempt.id)).join(logs, logs.c.aid == TestAttempt.id).where(
             logs.c.n > TestAttempt.total)) or 0)
+        log_samples = []
+        if log_mismatch:
+            try:
+                from .services.student_report import fmt_datetime as _fmt
+            except Exception:  # noqa: BLE001
+                _fmt = lambda d: d.strftime("%d.%m.%Y %H:%M")
+            lrows = (await s.execute(
+                select(TestAttempt.id, TestAttempt.user_id, TestAttempt.total, TestAttempt.correct, TestAttempt.source,
+                       TestAttempt.created_at, logs.c.n, logs.c.ok)
+                .join(logs, logs.c.aid == TestAttempt.id).where(logs.c.ok != TestAttempt.correct)
+                .order_by(TestAttempt.id.desc()).limit(SAMPLE))).all()
+            who = {u[0]: (u[1], u[2]) for u in users}
+            log_samples = [{"aid": r[0], "tg": who.get(r[1], (None, None))[0], "name": who.get(r[1], (None, None))[1] or "Nomsiz",
+                            "total": int(r[2] or 0), "correct": int(r[3] or 0), "source": r[4] or "quiz",
+                            "when": _fmt(r[5]) if r[5] else "", "log_n": int(r[6] or 0), "log_ok": int(r[7] or 0)} for r in lrows]
     diffs = compare_counters(users, agg)
     return web.json_response({
         "users": len(users), "mismatch": len(diffs), "samples": diffs[:SAMPLE],
-        "bad_attempts": bad_attempts, "log_mismatch": log_mismatch, "log_overflow": log_overflow,
+        "bad_attempts": bad_attempts, "log_mismatch": log_mismatch, "log_overflow": log_overflow, "log_samples": log_samples,
         "ok": not diffs and not bad_attempts and not log_mismatch and not log_overflow,
     })
 

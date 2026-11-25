@@ -121,6 +121,15 @@
         el("div", { class: "hint" }, `Profilda: ${x.counter[1]} savol, ${x.counter[2]} to'g'ri`),
         el("div", { class: "hint" }, `Test tarixida: ${x.real[1]} savol, ${x.real[2]} to'g'ri`)));
     }
+    if ((d.log_samples || []).length) {
+      nodes.push(el("div", { class: "sec" }, `Javoblar yozuvi natijaga mos kelmagan urinishlar (${d.log_samples.length} ta)`));
+      for (const x of d.log_samples) nodes.push(el("div", { class: "card tap", onclick: () => (x.tg ? userCard(x.tg) : null) },
+        el("b", {}, `${x.name} — urinish #${x.aid}`),
+        el("div", { class: "hint" }, `${x.when} · manba: ${x.source}`),
+        el("div", { class: "hint" }, `Natijada: ${x.correct} / ${x.total} to'g'ri`),
+        el("div", { class: "hint" }, `Javoblar yozuvida: ${x.log_ok} / ${x.log_n} to'g'ri`),
+        x.log_n < x.total ? el("div", { class: "hint" }, `Yozuvda ${x.total - x.log_n} ta javob yo'q (savol o'chirilgan bo'lishi mumkin).`) : null));
+    }
     if (!d.ok) nodes.push(el("div", { class: "hint", style: "margin-top:8px" },
       "Eng ko'p uchraydigan sabab: fan yoki mavzu o'chirilganda uning test tarixi ham o'chadi, lekin o'quvchi profilidagi umumiy sonlar (testlar, savollar, ball) o'zgarmay qoladi. Bunday farq xato emas, o'chirish natijasi."));
     nodes.push(el("div", { class: "hint", style: "margin-top:8px" }, "Bu tekshiruv hech narsani o'zgartirmaydi, faqat solishtiradi."));
