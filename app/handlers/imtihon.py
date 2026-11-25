@@ -170,7 +170,8 @@ def question_view(exam, attempt, items, pos: int, answers: dict):
             lines.append(esc(short(data["t"], 2500)))
             lines.append("")
         for letter, option in data["o"].items():
-            lines.append(f"<b>{letter})</b> {esc(short(option, 300))}")
+            if option:
+                lines.append(f"<b>{letter})</b> {esc(short(option, 300))}")
 
         picked = answers.get(str(pos))
         rows.append([
@@ -423,7 +424,7 @@ async def cb_question(c: CallbackQuery, state: FSMContext):
 # ---------------------------------------------------------------
 #  Javob berish
 # ---------------------------------------------------------------
-@router.callback_query(F.data.regexp(r"^exm:a:\d+:\d+:[A-D]$"))
+@router.callback_query(F.data.regexp(r"^exm:a:\d+:\d+:[A-F]$"))
 async def cb_answer(c: CallbackQuery):
     _, _, aid, pos_s, letter = c.data.split(":")
     pos = int(pos_s)
@@ -889,7 +890,7 @@ async def cb_review_item(c: CallbackQuery):
         mine = answers.get(str(pos))
         for letter, option in data["o"].items():
             mark = "✅" if letter == data["c"] else ("❌" if letter == mine else "▫️")
-            lines.append(f"{mark} <b>{letter})</b> {esc(short(option, 300))}")
+            lines.append(f"{mark} <b>{letter})</b>" + (f" {esc(short(option, 300))}" if option else ""))
         lines.append("")
         lines.append(f"Sizning javobingiz: <b>{mine or 'yo‘q'}</b> · To'g'ri javob: <b>{data['c']}</b>")
         if data.get("e"):

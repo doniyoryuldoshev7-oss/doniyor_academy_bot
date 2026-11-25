@@ -14,6 +14,7 @@ import html
 import io
 import logging
 import re
+from pathlib import Path
 
 from aiogram import F, Router
 from aiogram.exceptions import TelegramBadRequest
@@ -24,6 +25,10 @@ from aiogram.types import CallbackQuery, InlineKeyboardButton, InlineKeyboardMar
 
 from ..admin_roles import is_full_admin, is_teacher
 from ..services.savol_import import (
+    ANS_RE,
+    EXP_RE,
+    IMG_DIR,
+    IMG_RE,
     MAX_FILE,
     MAX_TEXT,
     extract_text,
@@ -92,10 +97,14 @@ async def clear_keep(state: FSMContext):
 #  Matnlar
 # ---------------------------------------------------------------
 HELP_CLOSED = (
-    f"Yopiq savollarni yuboring (<b>{CLOSED_N} ta</b>, 1–{CLOSED_N}). "
-    "Matn qilib (uzun bo'lsa bir necha xabar) yoki .txt / .docx / .xlsx fayl.\n\n"
+    f"Yopiq savollarni yuboring (<b>{CLOSED_N} ta</b>, 1–{CLOSED_N}): matn, .txt, .docx yoki .xlsx.\n\n"
     "<code>1. Savol matni\nA) variant\nB) variant\nC) variant\nD) variant\nJavob: B</code>\n\n"
-    "Rasmli savol: rasmni savol matni bilan birga (izoh qilib) yuboring.\n"
+    "• Ro'yxatli savol (1) 2) 3) yoki a) b) c) qatorlari, atamalar, asarlar va mualliflar) — "
+    "savol matnida oddiy qator qilib yozing. Variantlar faqat KATTA A) B) C) D).\n"
+    "• Rasmli savol (xarita, jadval, Venn diagrammasi): avval rasmni yuboring, keyin savol matnini.\n"
+    "• Hammasi rasmda bo'lsa: rasmni yuboring, keyin faqat <code>17. Javob: C</code> deb yozing.\n"
+    "• 33–35 kabi A–F li umumiy variantlar eng oxirida:\n"
+    "<code>Umumiy variantlar: javobni tanlang\nA) …\nF) …\n33. Savol\nJavob: B</code>\n\n"
     "Hammasini yuborgach «✅ Tayyor» ni bosing."
 )
 
@@ -331,22 +340,209 @@ async def cb_clear(c: CallbackQuery, state: FSMContext):
 # ---------------------------------------------------------------
 #  Tekshirish
 # ---------------------------------------------------------------
-def build_closed(res) -> tuple[list, list, list]:
-    """Qaytaradi: (elementlar, xatolar, ogohlantirishlar)."""
-    errors = list(res.errors)
-    if res.open:
-        errors.append(f"Bu bosqichda faqat yopiq savol bo'lishi kerak, lekin {len(res.open)} ta ochiq savol topildi.")
-    if len(res.closed) != CLOSED_N:
-        errors.append(f"Yopiq savol {CLOSED_N} ta bo'lishi kerak, topildi: {len(res.closed)} ta.")
-    items = [
-        {
-            "k": "c", "t": q["text"], "o": dict(q["options"]), "c": q["correct"],
-            "img": image_ref(q["image"]) if q.get("image") else None,
-            "e": q.get("explanation"), "qid": None,
-        }
-        for q in res.closed
-    ]
-    return items, errors, list(res.warnings)
+_SHARED = re.compile(r"^\s*(?:umumiy\s+variantlar|guruh)\s*:\s*(.*)$", re.I)
+_OPT = re.compile(r"^\s*[\(\[]?\s*([A-Fa-f])\s*[\)\]\.:]\s*(.*)$")
+_NUM = re.compile(r"^\s*(?:#|№\s*)?(\d{1,3})\s*(?:\.+|\)|:|-|–|—)\s*(.+)$")
+_ANS = re.compile(r"^\s*(?:javob|answer)\s*[:\-–—]\s*([A-Fa-f])\b", re.I)
+
+
+def split_shared(buf: str):
+    """Matnni oddiy qism va «Umumiy variantlar:» bloklariga ajratadi."""
+    plain, blocks, cur = [], [], None
+    for line in buf.splitlines():
+        if _SHARED.match(line):
+            cur = [line]
+            blocks.append(cur)
+        elif cur is not None:
+            cur.append(line)
+        else:
+            plain.append(line)
+    return "\n".join(plain), ["\n".join(b) for b in blocks]
+
+
+def parse_shared(block: str, n: int):
+    """Bitta «Umumiy variantlar» blokini yopiq savollarga aylantiradi. Qaytaradi: (elementlar, xatolar)."""
+    lines = block.splitlines()
+    intro = [_SHARED.match(lines[0]).group(1).strip()]
+    options, order = {}, []
+    questions = []          # [raqam, matn qatorlari, javob]
+    errors = []
+    tag = f"{n}-umumiy blok"
+    for line in lines[1:]:
+        if not line.strip():
+            continue
+        ans = _ANS.match(line)
+        if ans and questions:
+            questions[-1][2] = ans.group(1).upper()
+            continue
+        num = _NUM.match(line)
+        if num and not _OPT.match(line):
+            questions.append([num.group(1), [num.group(2).strip()], None])
+            continue
+        opt = _OPT.match(line)
+        if opt and not questions:
+            letter = opt.group(1).upper()
+            if letter in options:
+                errors.append(f"{tag}: {letter}) varianti ikki marta yozilgan.")
+            options[letter] = opt.group(2).strip()
+            order.append(letter)
+            continue
+        if questions:
+            questions[-1][1].append(line.strip())
+        elif order:
+            options[order[-1]] = (options[order[-1]] + " " + line.strip()).strip()
+        else:
+            intro.append(line.strip())
+
+    letters = "ABCDEF"[: len(order)]
+    if len(order) < 2:
+        errors.append(f"{tag}: kamida 2 ta variant (A, B …) kerak.")
+    elif order != list(letters):
+        errors.append(f"{tag}: variantlar A dan boshlab ketma-ket bo'lishi kerak (hozir: {', '.join(order)}).")
+    if len(order) > 6:
+        errors.append(f"{tag}: variantlar F gacha bo'lishi mumkin.")
+    for letter, text in options.items():
+        if not text:
+            errors.append(f"{tag}: {letter}) varianti bo'sh.")
+    if not questions:
+        errors.append(f"{tag}: birorta ham raqamlangan savol yo'q (33. Savol matni).")
+    items = []
+    head = " ".join(x for x in intro if x)
+    for num, qlines, answer in questions:
+        text = " ".join(qlines).strip()
+        if not text:
+            errors.append(f"{tag}: {num}-savol matni bo'sh.")
+        if answer is None:
+            errors.append(f"{tag}: {num}-savolda «Javob: …» yo'q.")
+        elif answer not in options:
+            errors.append(f"{tag}: {num}-savolda javob {answer} variantlar orasida yo'q.")
+        items.append({
+            "k": "c", "t": (head + "\n\n" + text) if head else text,
+            "o": dict(options), "c": answer, "img": None, "e": None, "qid": None,
+        })
+    return ([] if errors else items), errors
+
+
+_Q_START = re.compile(r"^\s*(?:#|№\s*)?(\d{1,3})\s*(?:\.+|\)|:|-|–|—)\s*(.*)$")
+_OPT_UP = re.compile(r"^\s*([A-D])\s*[\)\.]\s*(.*)$")        # faqat KATTA harf
+_LETTERS = "ABCD"
+
+
+def _img_ok(name: str) -> bool:
+    return (IMG_DIR / Path(name).name).is_file()
+
+
+def parse_closed_strict(text: str):
+    """Milliy sertifikat yopiq savollari: ro'yxatli (1) 2) a) b)) va rasmli savollarni buzmaydi.
+
+    Savol FAQAT oldingisi «Javob: X» bilan tugagandan keyin yangi raqam bilan boshlanadi.
+    Qaytaradi: (elementlar, xatolar).
+    """
+    questions, errors = [], []
+    cur = None
+    pending_img = None
+
+    def new_q(number, first):
+        q = {"n": number, "body": [first] if first else [], "opts": {}, "ans": None, "exp": [], "img": pending_img}
+        questions.append(q)
+        return q
+
+    for raw in (text or "").split("\n"):
+        line = raw.strip()
+        if not line:
+            continue
+        if line.startswith("#") and not re.match(r"^#\s*\d", line):
+            continue
+        if "=>" in line:
+            errors.append(f"«{line[:40]}» ochiq savolga o'xshaydi (=>). Ochiq savollar 2-bosqichda yuboriladi.")
+            continue
+
+        img = IMG_RE.match(line)
+        if img:
+            if cur is None or cur["ans"] is not None:
+                pending_img = img.group(1)
+            else:
+                cur["img"] = img.group(1)
+            continue
+
+        ans = ANS_RE.match(line)
+        if ans:
+            if cur is None or cur["ans"] is not None:
+                errors.append(f"«{line[:40]}» — bu «Javob» qatoriga mos savol topilmadi.")
+            else:
+                cur["ans"] = ans.group(1).upper()
+            continue
+
+        if cur is not None and cur["ans"] is not None:
+            exp = EXP_RE.match(line)
+            if exp:
+                cur["exp"].append(exp.group(1).strip())
+                continue
+
+        start = _Q_START.match(line)
+        if start:
+            number = int(start.group(1))
+            finished = cur is None or cur["ans"] is not None
+            # «Javob» unutilgan, lekin to'liq 4 variantdan keyin keyingi raqam kelsa — yangi savol
+            forgot = (not finished and len(cur["opts"]) == 4 and number == cur["n"] + 1
+                      and start.group(0).lstrip().split(None, 1)[0].rstrip(".").isdigit())
+            if finished or forgot:
+                rest = start.group(2).strip()
+                inline = ANS_RE.match(rest)          # «17. Javob: C» (hammasi rasmda)
+                cur = new_q(number, "" if inline else rest)
+                if inline:
+                    cur["ans"] = inline.group(1).upper()
+                pending_img = None
+                continue
+
+        if cur is None or cur["ans"] is not None:
+            errors.append(f"Raqamsiz matn: «{line[:40]}» (savol «1.» kabi raqamdan boshlanishi kerak).")
+            continue
+
+        opt = _OPT_UP.match(line)
+        if opt:
+            expected = _LETTERS[len(cur["opts"])] if len(cur["opts"]) < 4 else None
+            if opt.group(1) == expected:
+                cur["opts"][expected] = opt.group(2).strip()
+                continue
+        if cur["opts"]:
+            last = list(cur["opts"])[-1]
+            cur["opts"][last] = (cur["opts"][last] + " " + line).strip()   # variant davomi
+        else:
+            cur["body"].append(line)
+
+    items = []
+    for q in questions:
+        tag = f"{q['n']}-savol"
+        problems = []
+        body = "\n".join(" ".join(x.split()) for x in q["body"] if x.strip())
+        if q["ans"] is None:
+            problems.append("«Javob: A» qatori yo'q")
+        img_only = not q["opts"] and q["img"] and q["ans"]
+        if not img_only:
+            missing = [l for l in _LETTERS if l not in q["opts"]]
+            if missing:
+                problems.append("variant yetishmaydi: " + ", ".join(missing))
+            else:
+                empty = [l for l in _LETTERS if not q["opts"][l].strip()]
+                if empty:
+                    problems.append("bo'sh variant: " + ", ".join(empty))
+                elif len({" ".join(v.split()).casefold() for v in q["opts"].values()}) < 4:
+                    problems.append("ikki variant bir xil yozilgan")
+        if not body and not q["img"]:
+            problems.append("savol matni ham, rasmi ham yo'q")
+        if q["img"] and not _img_ok(q["img"]):
+            problems.append("rasm topilmadi (qayta yuboring)")
+        if problems:
+            errors.append(f"{tag}: " + "; ".join(problems))
+            continue
+        items.append({
+            "k": "c", "t": body,
+            "o": dict(q["opts"]) if q["opts"] else {l: "" for l in _LETTERS},
+            "c": q["ans"], "img": image_ref(q["img"]) if q["img"] else None,
+            "e": " ".join(" ".join(q["exp"]).split()) or None, "qid": None,
+        })
+    return items, errors
 
 
 def build_open(res) -> tuple[list, list, list]:
@@ -378,8 +574,18 @@ async def cb_done(c: CallbackQuery, state: FSMContext):
         await c.answer("Hali hech narsa yuborilmadi.", show_alert=True)
         return
 
-    res = parse_text(buf)
-    items, errors, warnings = (build_closed if stage == "c" else build_open)(res)
+    if stage == "c":
+        plain, blocks = split_shared(buf)
+        items, errors = parse_closed_strict(plain) if plain.strip() else ([], [])
+        for number, block in enumerate(blocks, start=1):
+            got, errs = parse_shared(block, number)
+            items += got
+            errors += errs
+        warnings = []
+        if not errors and len(items) != CLOSED_N:
+            errors.append(f"Yopiq savol {CLOSED_N} ta bo'lishi kerak, topildi: {len(items)} ta.")
+    else:
+        items, errors, warnings = build_open(parse_text(buf))
 
     if not errors:
         m["c" if stage == "c" else "o"] = items
