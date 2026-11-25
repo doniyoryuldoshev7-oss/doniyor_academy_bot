@@ -42,6 +42,7 @@ foiz ko'rsatiladi, lekin "zaif" yoki "kuchli" deyilmaydi.
 """
 
 from __future__ import annotations
+from ..numfmt import pct_int
 
 import logging
 import random
@@ -531,7 +532,7 @@ class TopicResult:
         if not self.total:
             return 0
 
-        return int(round(self.correct / self.total * 100))
+        return pct_int(self.correct, self.total)
 
     @property
     def level(self) -> str:
@@ -561,7 +562,7 @@ class DiagnosticResult:
         if not self.total:
             return 0
 
-        return int(round(self.correct / self.total * 100))
+        return pct_int(self.correct, self.total)
 
     def by_level(self, level: str) -> list:
         return [topic for topic in self.topics if topic.level == level]

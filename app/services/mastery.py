@@ -15,6 +15,7 @@ baho faqat yetarli ma'lumot bo'lganda beriladi.
 """
 
 from __future__ import annotations
+from ..numfmt import round_half_up
 
 from dataclasses import dataclass, field
 
@@ -143,7 +144,7 @@ def bar(value: float, width: int = BAR_WIDTH) -> str:
 
 
 def percent(value: float) -> int:
-    return int(round(max(0.0, min(1.0, value)) * 100))
+    return int(round_half_up(max(0.0, min(1.0, value)) * 100))
 
 
 # ---------------------------------------------------------------

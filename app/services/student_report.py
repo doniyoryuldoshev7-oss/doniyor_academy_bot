@@ -14,6 +14,7 @@ bu yaqin kunlardagi o'zgarishni aniqroq ko'rsatadi.
 """
 
 from __future__ import annotations
+from ..numfmt import pct_int
 
 import os
 from dataclasses import dataclass, field
@@ -89,7 +90,7 @@ def percent(correct: int, total: int) -> int:
     if not total:
         return 0
 
-    return int(round(correct / total * 100))
+    return pct_int(correct, total)
 
 
 # ---------------------------------------------------------------

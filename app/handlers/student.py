@@ -1,3 +1,4 @@
+from ..numfmt import pct_1
 import re
 import asyncio
 import os
@@ -570,7 +571,7 @@ async def quiz_finish(c, state):
         f"🏆 <b>TEST NATIJASI</b>\n"
         f"━━━━━━━━━━━━━━\n\n"
         f"🎯 Natija: <b>{correct}/{total}</b>\n"
-        f"📈 Foiz: <b>{percentage:.1f}%</b>\n"
+        f"📈 Foiz: <b>{pct_1(correct, total):.1f}%</b>\n"
         f"⭐ Ball: <b>+{correct}</b>\n"
         f"🏅 Baho: <b>{grade}</b>\n",
         reply_markup=InlineKeyboardMarkup(
@@ -900,7 +901,7 @@ async def history(c):
 
             lines.append(
                 f"<b>{i}. {topic.name if topic else 'Mavzu o‘chirilgan'}</b>\n"
-                f"   🎯 {a.correct}/{a.total} — {pct:.1f}%\n"
+                f"   🎯 {a.correct}/{a.total} — {pct_1(a.correct, a.total):.1f}%\n"
                 f"   ⭐ +{a.score} ball · {date}\n"
             )
 
@@ -954,7 +955,7 @@ async def attempt_detail(c):
         f"📚 Mavzu: <b>{topic.name if topic else 'Mavzu o‘chirilgan'}</b>",
         "",
         f"🎯 Natija: <b>{attempt.correct}/{attempt.total}</b>",
-        f"📈 Foiz: <b>{pct:.1f}%</b>",
+        f"📈 Foiz: <b>{pct_1(attempt.correct, attempt.total):.1f}%</b>",
         f"❓ Javob berilmagan: <b>{unanswered}</b>",
         f"⭐ Ball: <b>+{attempt.score}</b>",
         f"🏅 Baho: <b>{grade}</b>",
@@ -1013,7 +1014,7 @@ async def stats(c):
     async with SessionLocal() as s: 
         u = await s.scalar(select(User).where(User.telegram_id == c.from_user.id))
     pct = u.correct_answers / u.total_questions * 100 if u.total_questions else 0
-    await edit_or_answer(c.message, f'📊 <b>Statistika</b>\n\n📝 Savollar: {u.total_questions}\n✅ To‘g‘ri: {u.correct_answers}\n❌ Xato: {u.total_questions-u.correct_answers}\n📈 Aniqlik: {pct:.1f}%\n⭐ Ball: {u.total_score}', reply_markup=_back('prof'))
+    await edit_or_answer(c.message, f'📊 <b>Statistika</b>\n\n📝 Savollar: {u.total_questions}\n✅ To‘g‘ri: {u.correct_answers}\n❌ Xato: {u.total_questions-u.correct_answers}\n📈 Aniqlik: {pct_1(u.correct_answers, u.total_questions):.1f}%\n⭐ Ball: {u.total_score}', reply_markup=_back('prof'))
     await c.answer()
 
 @router.callback_query(F.data == 'leaderboard')

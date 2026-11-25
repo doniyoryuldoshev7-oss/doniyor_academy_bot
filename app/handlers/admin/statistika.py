@@ -1,5 +1,6 @@
 """Admin paneli: statistika bo'limi (admin.py dan ajratilgan)."""
 
+from ...numfmt import pct_1
 import sys
 import asyncio
 import logging
@@ -101,7 +102,7 @@ async def admin_statistics(c: CallbackQuery):
         f"• Haftalik faol (aktiv): <b>{active_users_7d} ta</b>\n\n"
         "📋 <b>Testlar sifati tahlili:</b>\n"
         f"• Jami yakunlangan testlar: <b>{total_attempts} marta</b>\n"
-        f"• To'g'ri javoblar foizi: <b>{success_pct:.1f}%</b>\n"
+        f"• To'g'ri javoblar foizi: <b>{pct_1(correct_answers, total_answers):.1f}%</b>\n"
         f"• ✅ To'g'ri: {correct_answers} ta | ❌ Xato: {wrong_answers} ta\n\n"
         "📢 <b>E'lonlar va kontent samaradorligi:</b>\n"
         f"• Mavzularni ko'rishlar soni: <b>{total_views} marta</b>\n\n"

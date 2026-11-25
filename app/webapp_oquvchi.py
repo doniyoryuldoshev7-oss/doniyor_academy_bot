@@ -17,6 +17,7 @@ from aiohttp import web
 from sqlalchemy import func, select
 
 from .db import SessionLocal
+from .numfmt import pct_1
 from .models import AnswerLog, Question, Subject, TestAttempt, Topic, User
 
 log = logging.getLogger(__name__)
@@ -230,7 +231,7 @@ async def api_s_finish(request):
     pct = correct / total * 100 if total else 0
     return web.json_response({
         "attempt_id": aid, "total": total, "correct": correct,
-        "pct": round(pct, 1), "score": correct, "grade": grade_of(pct),
+        "pct": pct_1(correct, total), "score": correct, "grade": grade_of(pct),
     })
 
 
@@ -254,7 +255,7 @@ async def api_s_history(request):
         out.append({
             "id": a.id, "topic": t.name if t else "Mavzu o'chirilgan",
             "total": a.total, "correct": a.correct,
-            "pct": round(a.correct / a.total * 100, 1) if a.total else 0,
+            "pct": pct_1(a.correct, a.total),
             "score": a.score, "date": _fmt(a.created_at),
         })
     return web.json_response({"attempts": out})
@@ -283,7 +284,7 @@ async def api_s_attempt(request):
         items.append(v)
     return web.json_response({
         "topic": topic.name if topic else "Mavzu o'chirilgan",
-        "total": a.total, "correct": a.correct, "pct": round(pct, 1), "score": a.score,
+        "total": a.total, "correct": a.correct, "pct": pct_1(a.correct, a.total), "score": a.score,
         "unanswered": max(0, a.total - len(logs)), "grade": grade_of(pct), "date": _fmt(a.created_at),
         "items": items,
     })
@@ -299,7 +300,7 @@ async def api_s_profile(request):
     return web.json_response({
         "name": u.full_name, "username": u.username, "group": u.group_name,
         "tests": u.total_tests, "questions": u.total_questions, "correct": u.correct_answers,
-        "wrong": max(0, u.total_questions - u.correct_answers), "pct": round(pct, 1), "score": u.total_score,
+        "wrong": max(0, u.total_questions - u.correct_answers), "pct": pct_1(u.correct_answers, u.total_questions), "score": u.total_score,
     })
 
 
@@ -378,7 +379,7 @@ async def api_s_qimg(request):
 
 # Qo'shimcha bo'limlar: har biri alohida modul (server: webapp_<nom>.py, brauzer: webui/<nom>.js).
 # Bittasi xato bersa, qolganlari ishlayveradi.
-MODULES = ["takror", "diagnostika", "topshiriq", "admin", "eksport"]
+MODULES = ["takror", "diagnostika", "topshiriq", "admin", "eksport", "users"]
 JS_FILES = {"oquvchi"} | set(MODULES)
 
 

@@ -10,6 +10,7 @@ test kodiga hech qanday o'zgartirish kiritilmaydi.
 """
 
 from __future__ import annotations
+from ..numfmt import pct_int
 
 import os
 from dataclasses import dataclass
@@ -227,7 +228,7 @@ class ProgressRow:
         if not self.best_total:
             return 0
 
-        return int(round(self.best_correct / self.best_total * 100))
+        return pct_int(self.best_correct, self.best_total)
 
     @property
     def progress_percent(self) -> int:
@@ -235,7 +236,7 @@ class ProgressRow:
         if not self.required:
             return 100 if self.done else 0
 
-        value = int(round(self.answered_best / self.required * 100))
+        value = pct_int(self.answered_best, self.required)
 
         return min(100, max(0, value))
 
@@ -276,7 +277,7 @@ class WeakTopic:
         if not self.answered:
             return 0
 
-        return int(round(self.correct / self.answered * 100))
+        return pct_int(self.correct, self.answered)
 
 
 async def weak_topics_for_user(
@@ -597,4 +598,4 @@ def progress_percent(answered: int, required: int) -> int:
     if not required:
         return 100 if answered else 0
 
-    return min(100, max(0, int(round(answered / required * 100))))
+    return min(100, max(0, pct_int(answered, required)))

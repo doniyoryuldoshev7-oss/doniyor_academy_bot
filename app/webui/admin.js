@@ -23,6 +23,8 @@
     t.push(menuTile("list", "o", "Savol qo'shish", "Bitta yoki ko'p savol", savolHub));
     if (ME.admin) t.push(menuTile("upload", "g", "Export / Import", "Excel, CSV, Word", eximHub));
     if (ME.admin) t.push(menuTile("chart", "p", "Savollar sifati", "Shubhali va qiyin savollar", () => (OQ.quality ? OQ.quality(admin) : soon("Savollar sifati"))));
+    if (ME.admin) t.push(menuTile("users", "b", "Foydalanuvchilar", "Ro'yxat, tasdiqlash, bloklash", () => (OQ.adminUsers ? OQ.adminUsers(true) : soon("Foydalanuvchilar"))));
+    if (ME.admin) t.push(menuTile("chart", "g", "Statistika", "Tizim statistikasi", () => (OQ.adminStats ? OQ.adminStats() : soon("Statistika"))));
     screen("Admin panel", "Kerakli bo'limni tanlang:", home, tiles(...t));
   }
 

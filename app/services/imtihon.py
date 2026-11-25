@@ -16,6 +16,7 @@ Bu rasmiy Rasch modeli emas, mashq uchun taxminiy hisob.
 """
 
 from __future__ import annotations
+from ..numfmt import pct_int, round_half_up
 
 import asyncio
 import itertools
@@ -315,13 +316,13 @@ def score_attempt(items: list[Item], answers: dict, factors: dict | None, mode: 
             sc.wrong.append(unit)
 
     share = earned / possible if possible else 0.0
-    sc.percent = int(round(raw_ok / raw_total * 100)) if raw_total else 0
+    sc.percent = pct_int(raw_ok, raw_total) if raw_total else 0
 
     if mode == "milliy":
-        sc.value = round(share * SCALE_MAX, 1)
+        sc.value = round_half_up(share * SCALE_MAX, 1)
         sc.level = level_for(sc.value)
     else:
-        sc.value = round(share * 100, 1)
+        sc.value = round_half_up(share * 100, 1)
 
     return sc
 

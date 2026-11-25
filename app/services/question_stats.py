@@ -15,6 +15,7 @@ uchraydigan nuqson.
 """
 
 from __future__ import annotations
+from ..numfmt import pct_int, round_half_up
 
 import os
 from dataclasses import dataclass
@@ -79,13 +80,13 @@ class QuestionStat:
 
     @property
     def difficulty_percent(self) -> int:
-        return int(round(self.difficulty * 100))
+        return pct_int(self.correct, self.answers)
 
     def pick_percent(self, key: str) -> int:
         if not self.answers:
             return 0
 
-        return int(round(self.picks.get(key, 0) / self.answers * 100))
+        return pct_int(self.picks.get(key, 0), self.answers)
 
     @property
     def top_wrong(self) -> tuple[str, int] | None:
@@ -325,7 +326,7 @@ def summarize(stats: list[QuestionStat]) -> StatsSummary:
 
     if stats:
         average = int(
-            round(sum(s.difficulty for s in stats) / len(stats) * 100)
+            round_half_up(sum(s.difficulty for s in stats) / len(stats) * 100)
         )
     else:
         average = 0

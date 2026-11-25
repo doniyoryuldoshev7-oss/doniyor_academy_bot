@@ -8,6 +8,7 @@ bo'shliqlar va harf kattaligi hisobga olinmaydi.
 """
 
 from __future__ import annotations
+from ..numfmt import pct_int
 
 from collections import Counter
 from dataclasses import dataclass
@@ -28,7 +29,7 @@ def norm(name: str | None) -> str:
 def percent(correct: int, total: int) -> int:
     if not total:
         return 0
-    return int(round(correct / total * 100))
+    return pct_int(correct, total)
 
 
 @dataclass

@@ -45,6 +45,7 @@
       el("h1", {}, title), sub ? el("div", { class: "hint" }, sub) : null, ...nodes, tabBar());
   }
   const tiles = (...t) => el("div", { class: "mt" }, ...t);
+  const p1 = (x) => (Number(x) || 0).toFixed(1); /* botdagidek: bitta kasr (50.0%) */
   const stat = (k, v, color) => el("div", { class: "stat" }, el("span", {}, k), el("b", color ? { style: "color:" + color } : {}, String(v)));
   const empty = (text) => el("div", { class: "card empty" }, mascot(), el("div", { style: "margin-top:8px" }, text));
   function qimage(id) {
@@ -207,7 +208,7 @@
       el("button", { class: "x", style: "margin-bottom:8px", onclick: goBack, "aria-label": "Orqaga" }, icon("left")),
       el("div", { class: "row" }, el("div", { class: "grow" }, el("h1", {}, "Test natijasi"), el("div", { class: "hint" }, Q.topic.name)), mascot()),
       el("div", { style: "text-align:center" },
-        el("div", { class: "big" }, el("div", { class: "score", style: `--p:${r.pct}` }, el("i", {}, el("div", {}, el("b", {}, `${r.pct}%`), el("small", {}, `${r.correct}/${r.total}`))))),
+        el("div", { class: "big" }, el("div", { class: "score", style: `--p:${r.pct}` }, el("i", {}, el("div", {}, el("b", {}, `${p1(r.pct)}%`), el("small", {}, `${r.correct}/${r.total}`))))),
         el("span", { class: "lvl" }, r.grade)),
       el("div", { class: "stats" },
         el("div", {}, String(r.correct), el("small", {}, "to'g'ri")),
@@ -230,7 +231,7 @@
       el("div", { class: "card tap", onclick: () => attempt(a.id, () => history(backFn)) },
         el("div", { class: "row" }, el("div", { class: "grow" }, el("b", {}, `${i + 1}. ${a.topic}`),
           el("div", { class: "hint" }, `${a.correct}/${a.total} · +${a.score} ball · ${a.date}`)),
-          el("b", { style: `color:${pc(a.pct)}` }, `${a.pct}%`), icon("chev"))))
+          el("b", { style: `color:${pc(a.pct)}` }, `${p1(a.pct)}%`), icon("chev"))))
       : [empty("Hozircha test ishlanmagan.")];
     screen("Testlar tarixi", "Oxirgi ishlagan testlaringiz:", backFn, ...nodes);
   }
@@ -241,7 +242,7 @@
     try { d = await api(`/api/s/attempt/${id}`); } catch (e) { toast(e.message); return backFn(); }
     const nodes = [
       el("div", { class: "card" },
-        stat("Mavzu", d.topic), stat("Natija", `${d.correct}/${d.total}`), stat("Foiz", `${d.pct}%`, pc(d.pct)),
+        stat("Mavzu", d.topic), stat("Natija", `${d.correct}/${d.total}`), stat("Foiz", `${p1(d.pct)}%`, pc(d.pct)),
         stat("Javobsiz", d.unanswered), stat("Ball", `+${d.score}`), stat("Baho", d.grade), stat("Sana", d.date)),
       el("div", { class: "sec" }, "Javoblar"),
     ];
@@ -285,7 +286,7 @@
     try { p = await api("/api/s/profile"); } catch (e) { toast(e.message); return backFn(); }
     screen("Statistikam", null, backFn,
       el("div", { class: "glass" },
-        el("div", { class: "row" }, el("b", { class: "grow" }, "Umumiy aniqlik"), el("b", { style: `color:${pc(p.pct)}` }, `${p.pct}%`)),
+        el("div", { class: "row" }, el("b", { class: "grow" }, "Umumiy aniqlik"), el("b", { style: `color:${pc(p.pct)}` }, `${p1(p.pct)}%`)),
         el("div", { class: "pbar", style: "margin-top:10px" }, el("i", { style: `width:${p.pct}%` }))),
       el("div", { class: "card" },
         stat("Savollar", p.questions), stat("To'g'ri", p.correct), stat("Xato", p.wrong),
@@ -373,7 +374,7 @@
   };
 
   /* qo'shimcha bo'limlar (har biri alohida fayl; biri yuklanmasa, qolganlari ishlayveradi) */
-  ["takror", "diagnostika", "topshiriq", "admin", "eksport"].forEach((n) => {
+  ["takror", "diagnostika", "topshiriq", "admin", "eksport", "users"].forEach((n) => {
     const sc = document.createElement("script");
     sc.src = `/app/${n}.js`;
     document.head.append(sc);

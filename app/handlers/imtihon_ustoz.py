@@ -4,6 +4,7 @@ Joylashuvi: app/handlers/imtihon_ustoz.py
 """
 
 from __future__ import annotations
+from ..numfmt import round_half_up
 
 import asyncio
 import html
@@ -897,7 +898,7 @@ async def cb_hard(c: CallbackQuery):
         else:
             label = short(item.data["p"][unit.part]["q"], 60)
             tag = f"{unit.pos}-savol, {'abcd'[unit.part]})"
-        lines.append(f"• <b>{tag}</b> — {int(round(share * 100))}% to'g'ri\n   <i>{esc(label)}</i>")
+        lines.append(f"• <b>{tag}</b> — {int(round_half_up(share * 100))}% to'g'ri\n   <i>{esc(label)}</i>")
     lines.append("\nShu mavzularni darsda takrorlash foydali.")
     await show(c, "\n".join(lines), kb([[InlineKeyboardButton(text="⬅️ Orqaga", callback_data=f"exm:m:{eid}")]]))
     await c.answer()
