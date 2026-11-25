@@ -38,9 +38,9 @@ def _deny(msg):
 
 
 async def has_panel(tg_id) -> bool:
-    from .admin_roles import can_add_questions
+    from .admin_roles import can_add_questions, is_teacher
 
-    return bool(await can_add_questions(tg_id))
+    return bool(await can_add_questions(tg_id) or await is_teacher(tg_id))
 
 
 async def _admin(request):
@@ -93,10 +93,11 @@ def snippet(text, n=70):
 
 # ---------------------------------------------------------------
 async def api_g_me(request):
-    from .admin_roles import can_add_questions, is_full_admin
+    from .admin_roles import can_add_questions, is_full_admin, is_teacher
 
     tg = request["tg_id"]
-    return web.json_response({"admin": bool(is_full_admin(tg)), "editor": bool(await can_add_questions(tg))})
+    return web.json_response({"admin": bool(is_full_admin(tg)), "editor": bool(await can_add_questions(tg)),
+                              "teacher": bool(await is_teacher(tg))})
 
 
 async def api_g_tree(request):

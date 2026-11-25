@@ -20,7 +20,7 @@
 
   /* ---------- 1: ro'yxat ---------- */
   async function list(reset, back) {
-    if (back) R.back = back;
+    if (typeof back === "function") R.back = back;
     if (reset) Object.assign(R, { q: "", sort: "faollik", page: 0 });
     wait();
     let d;
@@ -57,25 +57,37 @@
       : `oxirgi yarmi ${t.recent}%, birinchi yarmi ${t.earlier}%`;
     return el("div", { class: "hint" }, `${ic} ${w}: ${det} → ${sign}`);
   }
-  async function card(tg) {
-    wait();
-    let c;
-    try { c = await api(`/api/r/student/${tg}`); } catch (e) { return fail(e, () => list()); }
+  /* kartaning ichki qismi: admin ham, ustoz paneli ham ishlatadi (opts.attempts: testlarni ochish mumkinmi) */
+  function cardBody(c, opts) {
+    opts = opts || {};
     const nodes = [el("div", { class: "card" }, el("b", {}, c.name), c.group ? el("div", { class: "hint" }, "👥 Guruh: " + c.group) : null,
       el("div", { class: "hint" }, "📅 Ro'yxatdan o'tgan: " + c.registered))];
     if (!c.count) {
       nodes.push(empty("Bu o'quvchi hali birorta test ishlamagan."));
-    } else {
-      nodes.push(el("div", { class: "card" },
-        stat("🕓 Oxirgi test", `${c.last} (${c.when})`), stat("🆕 Birinchi test", c.first),
-        stat("📝 Jami", `${c.count} ta test · ${c.total} savol`),
-        stat("🎯 Umumiy natija", `${bar(c.pct)} ${c.pct}% (${c.correct}/${c.total})`), trendNode(c.trend)));
-      if (c.subjects.length) nodes.push(el("div", { class: "card" }, el("b", {}, "📚 Fanlar bo'yicha"),
-        ...c.subjects.map((s) => stat(s.name, `${s.pct}% (${s.attempts} test)`))));
-      nodes.push(el("div", { class: "card" }, el("b", {}, "🗓 Oxirgi testlar"),
-        ...c.recent.map((a) => el("div", { class: "card tap", style: "margin:6px 0", onclick: () => attempt(a.id, () => card(tg)) },
-          el("div", { class: "hint" }, a.at), el("div", {}, a.label), el("b", {}, `${a.correct}/${a.total} (${a.pct}%)`)))));
-      nodes.push(btn("", "📄 To'liq tarix", () => history(tg, 0), "clip"));
+      return nodes;
+    }
+    nodes.push(el("div", { class: "card" },
+      stat("🕓 Oxirgi test", `${c.last} (${c.when})`), stat("🆕 Birinchi test", c.first),
+      stat("📝 Jami", `${c.count} ta test · ${c.total} savol`),
+      stat("🎯 Umumiy natija", `${bar(c.pct)} ${c.pct}% (${c.correct}/${c.total})`), trendNode(c.trend)));
+    if (c.subjects.length) nodes.push(el("div", { class: "card" }, el("b", {}, "📚 Fanlar bo'yicha"),
+      ...c.subjects.map((s) => stat(s.name, `${s.pct}% (${s.attempts} test)`))));
+    nodes.push(el("div", { class: "card" }, el("b", {}, "🗓 Oxirgi testlar"),
+      ...c.recent.map((a) => {
+        const attrs = { class: "card" + (opts.attempts ? " tap" : ""), style: "margin:6px 0" };
+        if (opts.attempts) attrs.onclick = () => attempt(a.id, () => card(c.tg));
+        return el("div", attrs, el("div", { class: "hint" }, a.at), el("div", {}, a.label), el("b", {}, `${a.correct}/${a.total} (${a.pct}%)`));
+      })));
+    return nodes;
+  }
+  async function card(tg) {
+    wait();
+    let c;
+    try { c = await api(`/api/r/student/${tg}`); } catch (e) { return fail(e, () => list()); }
+    const nodes = cardBody(c, { attempts: true });
+    if (c.count) {
+      if (OQ.personalAssign) nodes.push(btn("", "📋 Topshiriq berish", () => OQ.personalAssign(tg, () => card(tg))));
+      nodes.push(btn("alt", "📄 To'liq tarix", () => history(tg, 0), "clip"));
       nodes.push(btn("alt", "❗ Eng ko'p xato qilingan savollar", () => wrong(tg)));
     }
     screen("O'quvchi kartasi", c.name, () => list(), ...nodes);
@@ -137,5 +149,6 @@
     screen("Eng ko'p xatolar", d.name, () => card(tg), ...nodes);
   }
 
+  OQ.reportCard = cardBody;
   OQ.adminReports = (back) => list(true, back);
 })();

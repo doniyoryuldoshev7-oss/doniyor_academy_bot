@@ -113,18 +113,12 @@ async def api_r_list(request):
     })
 
 
-async def api_r_student(request):
-    await _admin(request)
-    from .services.student_report import compute_trend, days_since, fmt_date, fmt_datetime, student_report
+def student_json(rep) -> dict:
+    """O'quvchi kartasi (admin va ustoz paneli uchun umumiy; botdagi card_text bilan bir xil raqamlar)."""
+    from .services.student_report import compute_trend, days_since, fmt_date, fmt_datetime
 
-    tg = int(request.match_info["tg"])
-    async with SessionLocal() as s:
-        rep = await student_report(s, tg)
-    _err, _ = _helpers()
-    if rep is None:
-        return _err("O'quvchi topilmadi.", 404)
     recent = [attempt_json(a, fmt_datetime) for a in reversed(rep.attempts[-5:])]
-    return web.json_response({
+    return {
         "tg": rep.telegram_id, "name": rep.full_name, "group": rep.group_name or "",
         "registered": fmt_date(rep.registered_at),
         "count": rep.attempt_count, "total": rep.total, "correct": rep.correct,
@@ -135,7 +129,20 @@ async def api_r_student(request):
         "trend": trend_json(compute_trend(rep.attempts)),
         "subjects": [{"name": x.name, "pct": x.accuracy, "attempts": x.attempts} for x in rep.subjects],
         "recent": recent,
-    })
+    }
+
+
+async def api_r_student(request):
+    await _admin(request)
+    from .services.student_report import student_report
+
+    tg = int(request.match_info["tg"])
+    async with SessionLocal() as s:
+        rep = await student_report(s, tg)
+    _err, _ = _helpers()
+    if rep is None:
+        return _err("O'quvchi topilmadi.", 404)
+    return web.json_response(student_json(rep))
 
 
 async def api_r_history(request):
