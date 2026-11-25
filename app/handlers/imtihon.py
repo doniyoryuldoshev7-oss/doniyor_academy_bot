@@ -184,6 +184,7 @@ def question_view(exam, attempt, items, pos: int, answers: dict):
     else:
         lines.append(esc(short(item.data.get("s", ""), 2000)))
         lines.append("")
+        photo = item.data.get("img")
         for i, part in enumerate(item.data["p"]):
             letter = "abcd"[i]
             typed = (answers.get(f"{pos}.{i}") or "").strip()
@@ -548,6 +549,18 @@ async def msg_typed(m: Message, state: FSMContext):
         pass
 
     old_id = data.get("mid")
+    if photo and Path(photo).is_file():
+        if old_id:
+            try:
+                await m.bot.delete_message(m.chat.id, old_id)
+            except Exception:
+                pass
+        if len(view_text) <= 1000:
+            await m.answer_photo(FSInputFile(photo), caption=view_text, reply_markup=markup)
+        else:
+            await m.answer_photo(FSInputFile(photo))
+            await m.answer(view_text, reply_markup=markup)
+        return
     if old_id and not data.get("photo"):
         try:
             await m.bot.edit_message_text(
@@ -883,6 +896,7 @@ async def cb_review_item(c: CallbackQuery):
         photo = data.get("img")
     else:
         lines += [esc(short(item.data.get("s", ""), 2000)), ""]
+        photo = item.data.get("img")
         units = {u.part: u for u in build_units([item])}
         for i, part in enumerate(item.data["p"]):
             ok = unit_correct(item, units[i], answers)

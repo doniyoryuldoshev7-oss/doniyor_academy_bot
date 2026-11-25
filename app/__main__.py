@@ -154,6 +154,9 @@ async def main():
 
     dp.include_router(imtihon.router)
     dp.include_router(imtihon_ustoz.router)
+    from .handlers import savol_yuklash
+
+    dp.include_router(savol_yuklash.router)
     from .handlers import knowledge_map
 
     dp.include_router(knowledge_map.router)
@@ -172,6 +175,10 @@ async def main():
     dp.include_router(admin.router)
 
     app = create_app()
+
+    from .webapp import setup_webapp
+
+    setup_webapp(app)
 
     webhook_path = "/telegram/webhook"
 

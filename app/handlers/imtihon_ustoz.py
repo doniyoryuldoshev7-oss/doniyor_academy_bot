@@ -135,6 +135,7 @@ async def cb_home(c: CallbackQuery, state: FSMContext):
             [InlineKeyboardButton(text="➕ Yangi imtihon", callback_data="exm:n")],
             [InlineKeyboardButton(text="📋 Imtihonlarim", callback_data="exm:ml:0")],
             [InlineKeyboardButton(text="✍️ Ochiq savollar qo'shish", callback_data="exm:oa")],
+            [InlineKeyboardButton(text="📥 Savol yuklash", callback_data="imq:home")],
             home_row(c.from_user.id),
         ]),
     )

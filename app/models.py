@@ -437,3 +437,14 @@ class OpenQuestion(Base):
     parts: Mapped[str] = mapped_column(Text)
     created_by: Mapped[int] = mapped_column(BigInteger, default=0)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+
+
+class ImportBatch(Base):
+    __tablename__ = "import_batches"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    user_tg_id: Mapped[int] = mapped_column(BigInteger, index=True)
+    closed_ids: Mapped[str] = mapped_column(Text, default="[]")
+    open_ids: Mapped[str] = mapped_column(Text, default="[]")
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    undone: Mapped[bool] = mapped_column(Boolean, default=False)

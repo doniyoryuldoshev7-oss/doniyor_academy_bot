@@ -510,7 +510,10 @@ async def pick_questions(
                     parts = json.loads(row.parts)
                 except ValueError:
                     continue
-                payloads.append({"k": "o", "s": row.stem, "p": parts, "oid": row.id})
+                _img = None
+                if parts and isinstance(parts[0], dict):
+                    _img = parts[0].pop("_img", None)
+                payloads.append({"k": "o", "s": row.stem, "p": parts, "oid": row.id, "img": _img})
 
     open_count = len(payloads) - closed_count
     return payloads, closed_count, open_count

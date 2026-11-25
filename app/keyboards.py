@@ -1,4 +1,4 @@
-from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
+from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton, WebAppInfo
 
 def main_menu(is_admin=False, is_teacher=False):
     rows=[[InlineKeyboardButton(text="📚 Fanlar",callback_data="subjects")],
@@ -11,6 +11,12 @@ def main_menu(is_admin=False, is_teacher=False):
           [InlineKeyboardButton(text="\U0001F4DD Imtihonlar", callback_data="exm:l")],
           [InlineKeyboardButton(text="\U0001F3AF Diagnostika", callback_data="diag:menu")]
     ]
+    try:
+        from .web_crop import public_base_url
+        _web = public_base_url()
+    except Exception:
+        _web = ""
+    if _web: rows.append([InlineKeyboardButton(text="\U0001F310 Veb-ilova", web_app=WebAppInfo(url=_web + "/app"))])
     if is_teacher: rows.append([InlineKeyboardButton(text="\U0001F9D1\u200D\U0001F3EB Ustoz paneli",callback_data="ust:home")])
     if is_admin: rows.append([InlineKeyboardButton(text="⚙️ Admin panel",callback_data="admin")])
     return InlineKeyboardMarkup(inline_keyboard=rows)

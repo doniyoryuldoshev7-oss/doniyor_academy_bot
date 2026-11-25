@@ -1,0 +1,637 @@
+<!doctype html>
+<html lang="uz">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover">
+<meta name="color-scheme" content="dark">
+<title>Doniyor Academy</title>
+<script src="https://telegram.org/js/telegram-web-app.js"></script>
+<style>
+  :root {
+    --bg:#060e22; --s1:#0b1730; --s2:#101f3f; --line:#ffffff14; --line2:#ffffff24;
+    --t:#f1f5ff; --h:#8ea2c9; --b:#3b8cff; --b2:#6db0ff;
+    --gold:#f5c04e; --gold2:#ffe19a; --g:#2fd38c; --o:#ffb84a; --r:#ff6b78;
+    --radius:16px;
+  }
+  * { box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
+  html,body { margin:0; background:var(--bg); color:var(--t);
+    font:16px/1.45 "Segoe UI",system-ui,-apple-system,Roboto,sans-serif; }
+  body { background:radial-gradient(90% 30% at 50% -4%,#14357a55 0,transparent 70%),var(--bg); min-height:100vh; }
+  #app { max-width:640px; margin:0 auto; padding:14px 16px calc(100px + env(safe-area-inset-bottom)); min-height:100vh; }
+  #app.focus { padding-bottom:calc(96px + env(safe-area-inset-bottom)); }
+  svg.i { width:1.1em; height:1.1em; stroke:currentColor; fill:none; stroke-width:1.9; stroke-linecap:round; stroke-linejoin:round; vertical-align:-.17em; }
+  h1 { font-size:23px; margin:4px 0 2px; letter-spacing:-.3px; }
+  h2 { font-size:17px; margin:0 0 8px; }
+  .hint { color:var(--h); font-size:13.5px; }
+  .pre { white-space:pre-wrap; word-break:break-word; }
+  .glass { background:linear-gradient(160deg,#ffffff0d,#ffffff05); border:1px solid var(--line); border-radius:20px; padding:14px; margin:12px 0; }
+  .card { background:var(--s1); border:1px solid var(--line); border-radius:var(--radius); padding:13px 14px; margin:10px 0; }
+  .card.tap { cursor:pointer; }
+  .card.tap:active { background:var(--s2); }
+  .row { display:flex; align-items:center; gap:12px; }
+  .grow { flex:1; min-width:0; }
+  .top { display:flex; align-items:center; gap:10px; margin-bottom:12px; }
+  .logo { width:40px; height:40px; border-radius:12px; display:grid; place-items:center; font-weight:900; font-size:22px; color:#3a2600;
+    background:linear-gradient(135deg,var(--gold2),var(--gold)); box-shadow:0 0 18px #f5c04e44; flex:none; font-family:Georgia,serif; }
+  .wm { font-weight:800; font-size:15px; line-height:1.1; background:linear-gradient(90deg,var(--gold2),var(--gold)); -webkit-background-clip:text; background-clip:text; color:transparent; }
+  .wm small { display:block; font-weight:600; font-size:10px; letter-spacing:1.4px; color:var(--h); -webkit-text-fill-color:var(--h); }
+  .chip { display:inline-flex; align-items:center; gap:5px; font-size:12.5px; font-weight:700; padding:6px 10px; border-radius:99px; background:var(--s2); border:1px solid var(--line); }
+  .btn { display:flex; align-items:center; justify-content:center; gap:8px; width:100%; border:0; border-radius:var(--radius); padding:14px 16px; min-height:50px;
+    background:linear-gradient(90deg,#1d63e0,#3b8cff); color:#fff; font-size:16px; font-weight:800; cursor:pointer; box-shadow:0 8px 22px #2f6fe044; }
+  .btn.alt { background:#ffffff0a; border:1px solid var(--line2); color:var(--t); box-shadow:none; font-weight:700; }
+  .btn.gold { background:linear-gradient(90deg,var(--gold),var(--gold2)); color:#3a2600; box-shadow:0 8px 22px #f5c04e33; }
+  .btn.small { width:auto; padding:8px 14px; min-height:40px; font-size:14px; }
+  .btn:disabled { opacity:.45; box-shadow:none; }
+  .btn + .btn, .card + .btn, .btn + .card { margin-top:10px; }
+  .nav .btn, .row .btn, .qbar .btn { margin-top:0; }
+  .tag { display:inline-block; font-size:12px; font-weight:700; padding:3px 10px; border-radius:99px; background:#3b8cff26; color:var(--b2); white-space:nowrap; }
+  .tag.done { background:#2fd38c22; color:var(--g); } .tag.active { background:#ffb84a22; color:var(--o); } .tag.gold { background:#f5c04e22; color:var(--gold); }
+  .cta { border-radius:20px; padding:16px; margin:12px 0; background:linear-gradient(135deg,#1d63e0,#2f8cff 60%,#5aa8ff); box-shadow:0 10px 30px #2f6fe055,inset 0 1px 0 #ffffff44; position:relative; overflow:hidden; cursor:pointer; }
+  .cta:after { content:""; position:absolute; right:-30px; top:-30px; width:120px; height:120px; border-radius:50%; background:#ffffff1f; }
+  .cta small { color:#d9e9ff; font-size:12.5px; } .cta b { display:block; font-size:18px; margin:2px 0 4px; }
+  .go { display:inline-flex; align-items:center; gap:6px; margin-top:10px; background:#fff; color:#1550bd; font-weight:800; border-radius:12px; padding:9px 15px; font-size:14px; position:relative; z-index:1; }
+  .tiles { display:grid; grid-template-columns:1fr 1fr; gap:10px; }
+  .tile { background:linear-gradient(160deg,#ffffff0d,#ffffff04); border:1px solid var(--line); border-radius:18px; padding:13px; position:relative; cursor:pointer; }
+  .tile .ic { width:38px; height:38px; border-radius:12px; display:grid; place-items:center; font-size:19px; margin-bottom:9px; }
+  .tile b { font-size:14.5px; } .tile small { display:block; color:var(--h); font-size:12px; margin-top:2px; }
+  .badge { position:absolute; right:12px; top:12px; min-width:20px; height:20px; border-radius:10px; background:var(--r); font-size:11px; font-weight:800; display:grid; place-items:center; padding:0 6px; }
+  .ic.b { background:#3b8cff26; color:var(--b2); } .ic.g { background:#2fd38c22; color:var(--g); } .ic.o { background:#ffb84a22; color:var(--o); } .ic.p { background:#a78bfa26; color:#b9a4ff; }
+  .tabs { position:fixed; left:10px; right:10px; bottom:calc(10px + env(safe-area-inset-bottom)); max-width:620px; margin:0 auto; background:#0d1a36ee; border:1px solid var(--line2);
+    border-radius:24px; display:flex; padding:7px 6px; backdrop-filter:blur(14px); -webkit-backdrop-filter:blur(14px); box-shadow:0 10px 30px #0009; z-index:10; }
+  .tabs button { flex:1; border:0; background:none; color:var(--h); font:inherit; font-size:11px; padding:5px 0; border-radius:16px; cursor:pointer; position:relative; }
+  .tabs button svg { display:block; margin:0 auto 2px; font-size:22px; }
+  .tabs button.on { color:var(--gold); background:#f5c04e14; font-weight:700; }
+  .tabs .dot { position:absolute; top:3px; left:calc(50% + 6px); min-width:16px; height:16px; border-radius:8px; background:var(--r); color:#fff; font-size:10px; font-weight:800; display:grid; place-items:center; padding:0 4px; }
+  /* savol ekrani */
+  .qbar { position:sticky; top:0; z-index:5; background:linear-gradient(var(--bg) 75%,transparent); padding:6px 0 12px; }
+  .x { width:36px; height:36px; border-radius:11px; background:var(--s2); border:1px solid var(--line); display:grid; place-items:center; font-size:17px; color:var(--t); cursor:pointer; flex:none; }
+  .pbar { height:6px; border-radius:9px; background:#ffffff14; overflow:hidden; }
+  .pbar i { display:block; height:100%; background:linear-gradient(90deg,var(--g),#7ef0c1); border-radius:9px; transition:width .25s; }
+  .timer { font-weight:800; font-variant-numeric:tabular-nums; color:var(--o); font-size:14px; padding:6px 11px; border-radius:99px; background:var(--s2); border:1px solid var(--line); white-space:nowrap; }
+  .timer.low { background:var(--r); color:#fff; border-color:transparent; }
+  .src { color:var(--h); font-size:12.5px; margin:6px 0 2px; font-weight:600; }
+  .q { font-size:18.5px; line-height:1.42; font-weight:600; margin:8px 0 12px; }
+  .opt { display:flex; gap:12px; align-items:center; min-height:58px; width:100%; text-align:left; padding:10px 14px; border-radius:16px; background:var(--s1);
+    border:1.5px solid var(--line); margin:9px 0; font-size:16px; color:var(--t); cursor:pointer; font-family:inherit; }
+  .opt em { font-style:normal; width:30px; height:30px; border-radius:10px; background:#ffffff0f; display:grid; place-items:center; font-weight:800; font-size:13px; color:var(--h); flex:none; }
+  .opt.sel { border-color:var(--b); background:#3b8cff17; box-shadow:0 0 0 4px #3b8cff1f; } .opt.sel em { background:var(--b); color:#fff; }
+  .opt.right { border-color:var(--g); background:#2fd38c14; } .opt.right em { background:var(--g); color:#06210f; }
+  .opt.wrong { border-color:var(--r); background:#ff6b7814; } .opt.wrong em { background:var(--r); color:#2a0509; }
+  .opt { cursor:pointer; } .opt.static { cursor:default; }
+  input.ans { width:100%; padding:14px; border-radius:14px; border:1.5px solid var(--line2); background:var(--bg); color:var(--t); font-size:16px; outline:none; font-family:inherit; }
+  input.ans:focus { border-color:var(--b); box-shadow:0 0 0 4px #3b8cff22; }
+  .part { background:var(--s1); border:1px solid var(--line); border-radius:16px; padding:13px; margin:10px 0; }
+  .part .lab { font-weight:800; color:var(--b2); margin-right:4px; }
+  .nav { position:fixed; left:0; right:0; bottom:0; padding:10px 16px calc(12px + env(safe-area-inset-bottom)); display:flex; gap:10px; max-width:640px; margin:0 auto;
+    background:linear-gradient(transparent,var(--bg) 35%); z-index:10; }
+  .nav .btn { min-height:52px; }
+  .nav .btn.sq { width:56px; flex:none; padding:0; }
+  .grid { display:grid; grid-template-columns:repeat(5,1fr); gap:9px; }
+  .cell { padding:13px 0; text-align:center; border-radius:13px; background:var(--s1); border:1.5px solid var(--line); font-weight:800; cursor:pointer; }
+  .cell.done { background:#2fd38c1f; border-color:#2fd38c55; color:var(--g); }
+  .cell.cur { border-color:var(--b); box-shadow:0 0 0 3px #3b8cff33; }
+  .legend { display:flex; gap:14px; margin:6px 0 12px; } .legend span { display:inline-flex; align-items:center; gap:6px; font-size:12.5px; color:var(--h); }
+  .legend i { width:12px; height:12px; border-radius:4px; display:inline-block; background:var(--s1); border:1.5px solid var(--line2); } .legend i.d { background:#2fd38c33; border-color:var(--g); }
+  /* natija */
+  .big { display:flex; justify-content:center; margin:10px 0 16px; }
+  .score { --p:50; width:176px; height:176px; border-radius:50%; background:conic-gradient(var(--gold) calc(var(--p)*1%),#ffffff14 0); display:grid; place-items:center; box-shadow:0 0 40px #f5c04e33; }
+  .score i { font-style:normal; width:148px; height:148px; border-radius:50%; background:var(--bg); display:grid; place-items:center; text-align:center; align-content:center; }
+  .score b { font-size:40px; line-height:1; background:linear-gradient(180deg,var(--gold2),var(--gold)); -webkit-background-clip:text; background-clip:text; color:transparent; }
+  .score small { display:block; color:var(--h); font-size:12px; margin-top:4px; }
+  .lvl { display:inline-block; font-weight:900; font-size:16px; padding:5px 16px; border-radius:99px; background:linear-gradient(90deg,var(--gold),var(--gold2)); color:#3a2600; }
+  .stats { display:grid; grid-template-columns:repeat(3,1fr); gap:8px; margin:12px 0; }
+  .stats div { background:var(--s1); border:1px solid var(--line); border-radius:14px; padding:10px 6px; text-align:center; font-weight:800; font-size:17px; }
+  .stats small { display:block; color:var(--h); font-weight:600; font-size:11.5px; margin-top:2px; }
+  .stat { display:flex; justify-content:space-between; padding:8px 0; border-bottom:1px solid var(--line); } .stat:last-child { border:0; }
+  img.q { max-width:100%; border-radius:14px; margin:8px 0; border:1px solid var(--line); }
+  .expl { border-radius:14px; background:#2fd38c12; border:1px solid #2fd38c33; padding:10px 12px; font-size:14px; color:#c8f5e0; margin-top:8px; }
+  .toast { position:fixed; left:50%; top:14px; transform:translateX(-50%); background:#1a2a50; border:1px solid var(--line2); color:#fff; padding:10px 18px; border-radius:99px; z-index:30; font-size:14px; max-width:90%; box-shadow:0 8px 24px #0009; }
+  .modal { position:fixed; inset:0; background:rgba(2,6,16,.65); display:flex; align-items:flex-end; justify-content:center; z-index:20; }
+  .sheet { background:var(--s1); border:1px solid var(--line2); width:100%; max-width:640px; border-radius:24px 24px 0 0; padding:18px 16px calc(18px + env(safe-area-inset-bottom)); }
+  .sheet .btn { margin-top:10px; }
+  select, textarea.imp { width:100%; border:1px solid var(--line2); border-radius:12px; padding:11px; font-size:15px; margin:5px 0; background:var(--s1); color:var(--t); font-family:inherit; }
+  textarea.imp { height:220px; font-family:Consolas,monospace; font-size:13px; }
+  .sec { color:var(--h); font-size:12px; font-weight:700; letter-spacing:1.2px; text-transform:uppercase; margin:18px 0 6px; }
+  .empty { text-align:center; padding:26px 10px; color:var(--h); }
+</style>
+</head>
+<body>
+<svg width="0" height="0" style="position:absolute"><defs>
+<symbol id="i-home" viewBox="0 0 24 24"><path d="M3 11l9-8 9 8"/><path d="M5 10v10h14V10"/></symbol>
+<symbol id="i-clip" viewBox="0 0 24 24"><rect x="5" y="4" width="14" height="17" rx="2"/><path d="M9 4h6v3H9zM9 12h6M9 16h4"/></symbol>
+<symbol id="i-chart" viewBox="0 0 24 24"><path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/></symbol>
+<symbol id="i-menu" viewBox="0 0 24 24"><path d="M4 7h16M4 12h16M4 17h16"/></symbol>
+<symbol id="i-x" viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></symbol>
+<symbol id="i-play" viewBox="0 0 24 24"><path d="M7 4l13 8-13 8z"/></symbol>
+<symbol id="i-clock" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></symbol>
+<symbol id="i-chev" viewBox="0 0 24 24"><path d="M9 6l6 6-6 6"/></symbol>
+<symbol id="i-left" viewBox="0 0 24 24"><path d="M15 6l-6 6 6 6"/></symbol>
+<symbol id="i-right" viewBox="0 0 24 24"><path d="M9 6l6 6-6 6"/></symbol>
+<symbol id="i-grid" viewBox="0 0 24 24"><rect x="4" y="4" width="6" height="6" rx="1"/><rect x="14" y="4" width="6" height="6" rx="1"/><rect x="4" y="14" width="6" height="6" rx="1"/><rect x="14" y="14" width="6" height="6" rx="1"/></symbol>
+<symbol id="i-flag" viewBox="0 0 24 24"><path d="M5 21V4M5 4h12l-2 4 2 4H5"/></symbol>
+<symbol id="i-trophy" viewBox="0 0 24 24"><path d="M8 4h8v6a4 4 0 0 1-8 0zM8 6H4v2a4 4 0 0 0 4 4M16 6h4v2a4 4 0 0 1-4 4M12 14v4M8 21h8"/></symbol>
+<symbol id="i-upload" viewBox="0 0 24 24"><path d="M4 16v4h16v-4M12 3v12M8 7l4-4 4 4"/></symbol>
+<symbol id="i-check" viewBox="0 0 24 24"><path d="M5 12l5 5 9-10"/></symbol>
+<symbol id="i-user" viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 21c1-4 4-6 8-6s7 2 8 6"/></symbol>
+</defs></svg>
+<div id="app"></div>
+<script>
+"use strict";
+const tg = window.Telegram && window.Telegram.WebApp;
+if (tg) {
+  tg.ready();
+  try { tg.expand(); } catch (e) {}
+  try { tg.setHeaderColor("#060e22"); tg.setBackgroundColor("#060e22"); } catch (e) {}
+}
+const $app = document.getElementById("app");
+const S = { att: null, pos: 1, offset: 0, timer: null, chain: Promise.resolve(), timers: {}, blobs: {}, tab: "home", me: null };
+const LET = "abcdef";
+
+/* ---------- yordamchilar ---------- */
+function el(tag, attrs, ...kids) {
+  const n = document.createElement(tag);
+  for (const [k, v] of Object.entries(attrs || {})) {
+    if (k === "class") n.className = v;
+    else if (k.startsWith("on")) n.addEventListener(k.slice(2), v);
+    else if (v !== null && v !== undefined && v !== false) n.setAttribute(k, v === true ? "" : v);
+  }
+  for (const kid of kids.flat()) {
+    if (kid === null || kid === undefined || kid === false) continue;
+    n.append(kid.nodeType ? kid : document.createTextNode(String(kid)));
+  }
+  return n;
+}
+function icon(name) {
+  const s = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+  s.setAttribute("class", "i");
+  const u = document.createElementNS("http://www.w3.org/2000/svg", "use");
+  u.setAttribute("href", "#i-" + name);
+  u.setAttributeNS("http://www.w3.org/1999/xlink", "xlink:href", "#i-" + name);
+  s.append(u);
+  return s;
+}
+function show(opts, ...nodes) {
+  if (!opts || !opts.nodeType && typeof opts === "object" && !Array.isArray(opts)) { /* sozlamalar */ }
+  else { nodes.unshift(opts); opts = {}; }
+  $app.classList.toggle("focus", !!opts.focus);
+  $app.replaceChildren(...nodes.flat());
+  window.scrollTo(0, 0);
+}
+function toast(msg) {
+  const t = el("div", { class: "toast" }, msg);
+  document.body.append(t); setTimeout(() => t.remove(), 2600);
+}
+function haptic(kind) { try { tg.HapticFeedback.impactOccurred(kind || "light"); } catch (e) {} }
+function notify(kind) { try { tg.HapticFeedback.notificationOccurred(kind); } catch (e) {} }
+async function api(path, opts) {
+  const res = await fetch(path, Object.assign({ headers: { "X-Init-Data": (tg && tg.initData) || "", "Content-Type": "application/json" } }, opts || {}));
+  let data = null;
+  try { data = await res.json(); } catch (e) {}
+  if (!res.ok) { const err = new Error((data && data.error) || "Xatolik yuz berdi"); err.status = res.status; throw err; }
+  return data;
+}
+function clock(ms) {
+  const s = Math.max(0, Math.floor(ms / 1000)), h = Math.floor(s / 3600), m = Math.floor((s % 3600) / 60), sec = s % 60;
+  const p = (x) => String(x).padStart(2, "0");
+  return h ? `${h}:${p(m)}:${p(sec)}` : `${p(m)}:${p(sec)}`;
+}
+function fmtDate(ms) {
+  if (!ms) return "";
+  return new Date(ms).toLocaleString("uz-UZ", { day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" });
+}
+function stopTimer() { if (S.timer) { clearInterval(S.timer); S.timer = null; } }
+function closing(on) { try { on ? tg.enableClosingConfirmation() : tg.disableClosingConfirmation(); } catch (e) {} }
+function backTo(fn) {
+  try {
+    if (!tg) return;
+    if (S.backFn) tg.BackButton.offClick(S.backFn);
+    S.backFn = fn;
+    if (fn) { tg.BackButton.show(); tg.BackButton.onClick(fn); } else tg.BackButton.hide();
+  } catch (e) {}
+}
+function fatal(msg) {
+  stopTimer(); backTo(null);
+  show(el("div", { class: "card" }, el("h2", {}, "⚠️ Ochilmadi"), el("div", { class: "pre" }, msg),
+    el("div", { class: "hint", style: "margin-top:8px" }, "Ilovani botdagi «🌐 Veb-ilova» tugmasi orqali oching.")));
+}
+function confirmSheet(title, text, yes, onYes) {
+  const close = () => m.remove();
+  const m = el("div", { class: "modal", onclick: (e) => { if (e.target === m) close(); } },
+    el("div", { class: "sheet" }, el("h2", {}, title), el("div", { class: "pre hint" }, text),
+      el("button", { class: "btn", onclick: () => { close(); onYes(); } }, yes),
+      el("button", { class: "btn alt", onclick: close }, "Bekor qilish")));
+  document.body.append(m);
+}
+async function blobUrl(path) {
+  if (S.blobs[path]) return S.blobs[path];
+  const res = await fetch(path, { headers: { "X-Init-Data": (tg && tg.initData) || "" } });
+  if (!res.ok) throw new Error("rasm");
+  return (S.blobs[path] = URL.createObjectURL(await res.blob()));
+}
+function image(aid, pos) {
+  const img = el("img", { class: "q", alt: "" });
+  blobUrl(`/api/img/${aid}/${pos}`).then((u) => (img.src = u)).catch(() => img.remove());
+  return img;
+}
+
+/* ---------- pastki menyu va asosiy ekranlar ---------- */
+const TABS = [["home", "Bosh", "home"], ["exams", "Imtihon", "clip"], ["results", "Natijam", "chart"], ["more", "Qo'shimcha", "menu"]];
+function tabBar() {
+  const newCount = (S.exams || []).filter((e) => e.state !== "done").length;
+  return el("div", { class: "tabs" }, TABS.map(([id, label, ic]) =>
+    el("button", { class: S.tab === id ? "on" : "", onclick: () => openTab(id) }, icon(ic), label,
+      id === "exams" && newCount ? el("span", { class: "dot" }, String(newCount)) : null)));
+}
+function page(...nodes) { show({ focus: false }, ...nodes, tabBar()); }
+function topBar() {
+  return el("div", { class: "top" }, el("div", { class: "logo" }, "D"),
+    el("div", { class: "grow" }, el("div", { class: "wm" }, "Doniyor Academy", el("small", {}, "BILIM · TAJRIBA · NATIJA"))),
+    S.me ? el("span", { class: "chip" }, icon("check"), `${S.me.tests} test`) : null);
+}
+async function load() {
+  const [me, data] = await Promise.all([api("/api/me"), api("/api/exams")]);
+  S.me = me; S.exams = data.exams || [];
+}
+async function openTab(id) {
+  S.tab = id; stopTimer(); closing(false); backTo(null);
+  if (!S.me) page(topBar(), el("div", { class: "hint" }, "Yuklanmoqda…"));
+  try { await load(); } catch (e) { return fatal(e.message); }
+  if (id === "home") return home();
+  if (id === "exams") return examsTab();
+  if (id === "results") return resultsTab();
+  return moreTab();
+}
+function examCard(ex) {
+  const tag = ex.state === "new" ? el("span", { class: "tag" }, "Yangi")
+    : ex.state === "active" ? el("span", { class: "tag active" }, "Davom etmoqda")
+    : el("span", { class: "tag done" }, "Topshirilgan");
+  return el("div", { class: "card tap", onclick: () => info(ex) },
+    el("div", { class: "row" }, el("div", { class: "grow" }, el("b", {}, ex.title),
+      el("div", { class: "hint" }, `${ex.subject} · ${ex.duration} daqiqa${ex.mode === "milliy" ? " · Milliy sertifikat" : ""}`)), tag));
+}
+function home() {
+  const ex = S.exams, act = ex.find((e) => e.state === "active"), fresh = ex.find((e) => e.state === "new");
+  const lead = act || fresh;
+  const nodes = [topBar(), el("h1", {}, `Salom, ${S.me.name}!`),
+    el("div", { class: "hint" }, S.me.group ? `Guruh: ${S.me.group}` : "Bugun ham bir qadam oldinga!")];
+  if (lead) nodes.push(el("div", { class: "cta", onclick: () => info(lead) },
+    el("small", {}, act ? "Davom eting" : "Yangi imtihon"), el("b", {}, lead.title),
+    el("div", { style: "font-size:13px;color:#d9e9ff" }, `${lead.subject} · ${lead.duration} daqiqa`),
+    el("span", { class: "go" }, icon("play"), act ? "Davom etish" : "Ochish")));
+  else nodes.push(el("div", { class: "glass" }, el("b", {}, "Hozircha yangi imtihon yo'q"), el("div", { class: "hint" }, "Ustoz yangi imtihon qo'shganda shu yerda ko'rinadi.")));
+  const open = ex.filter((e) => e.state !== "done").length, done = ex.filter((e) => e.state === "done").length;
+  nodes.push(el("div", { class: "tiles" },
+    el("div", { class: "tile", onclick: () => openTab("exams") }, open ? el("span", { class: "badge" }, String(open)) : null,
+      el("div", { class: "ic b" }, icon("clip")), el("b", {}, "Imtihon"), el("small", {}, "boshlash va davom etish")),
+    el("div", { class: "tile", onclick: () => openTab("results") },
+      el("div", { class: "ic g" }, icon("chart")), el("b", {}, "Natijam"), el("small", {}, `${done} ta topshirilgan`))));
+  const rest = ex.filter((e) => e !== lead).slice(0, 3);
+  if (rest.length) { nodes.push(el("div", { class: "sec" }, "Boshqa imtihonlar")); rest.forEach((e) => nodes.push(examCard(e))); }
+  page(...nodes);
+}
+function examsTab() {
+  const nodes = [topBar(), el("h1", {}, "Imtihonlar")];
+  const act = S.exams.filter((e) => e.state !== "done");
+  if (!S.exams.length) nodes.push(el("div", { class: "card empty" }, "Hozircha siz uchun imtihon yo'q."));
+  act.forEach((e) => nodes.push(examCard(e)));
+  const done = S.exams.filter((e) => e.state === "done");
+  if (done.length) { nodes.push(el("div", { class: "sec" }, "Topshirilganlar")); done.forEach((e) => nodes.push(examCard(e))); }
+  page(...nodes);
+}
+function resultsTab() {
+  const done = S.exams.filter((e) => e.state === "done");
+  const nodes = [topBar(), el("h1", {}, "Natijam"), el("div", { class: "hint" }, "Topshirgan imtihonlaringiz")];
+  if (!done.length) nodes.push(el("div", { class: "card empty" }, "Hali imtihon topshirmagansiz.", el("div", { style: "margin-top:12px" }, el("button", { class: "btn small", onclick: () => openTab("exams") }, "Imtihonlarga o'tish"))));
+  done.forEach((e) => nodes.push(el("div", { class: "card tap", onclick: () => result(e.attempt_id) },
+    el("div", { class: "row" }, el("div", { class: "grow" }, el("b", {}, e.title), el("div", { class: "hint" }, e.subject)),
+      el("span", { class: "tag gold" }, "Natija"), icon("chev")))));
+  page(...nodes);
+}
+function moreTab() {
+  const me = S.me;
+  const nodes = [topBar(),
+    el("div", { class: "glass row" }, el("div", { class: "logo", style: "width:52px;height:52px;border-radius:50%" }, (me.name || "?")[0].toUpperCase()),
+      el("div", { class: "grow" }, el("b", {}, me.name), el("div", { class: "hint" }, me.group ? `Guruh: ${me.group}` : "Guruhsiz")),
+      el("span", { class: "chip" }, `${me.tests} test`))];
+  if (me.staff) {
+    nodes.push(el("div", { class: "sec" }, "Ustoz uchun"));
+    nodes.push(el("div", { class: "card tap", onclick: importScreen }, el("div", { class: "row" },
+      el("div", { class: "ic o", style: "margin:0;width:38px;height:38px;border-radius:12px;display:grid;place-items:center;font-size:19px;flex:none" }, icon("upload")),
+      el("div", { class: "grow" }, el("b", {}, "📥 Savol yuklash"), el("div", { class: "hint" }, "Matn, Word, Excel yoki rasm")), icon("chev"))));
+  }
+  nodes.push(el("div", { class: "sec" }, "Ilova haqida"));
+  nodes.push(el("div", { class: "card" }, el("div", { class: "stat" }, el("span", {}, "Imtihon qoidasi"), el("b", {}, "Vaqt to'xtamaydi")),
+    el("div", { class: "stat" }, el("span", {}, "Javoblar"), el("b", {}, "Avtomatik saqlanadi"))));
+  nodes.push(el("div", { class: "hint", style: "text-align:center;margin-top:14px" }, "Doniyor Academy"));
+  page(...nodes);
+}
+
+/* ---------- imtihon haqida ---------- */
+function info(ex) {
+  backTo(() => openTab(S.tab));
+  const nodes = [el("button", { class: "x", style: "margin-bottom:8px", onclick: () => openTab(S.tab) }, icon("left")),
+    el("h1", {}, ex.title), el("div", { class: "hint" }, `${ex.subject} · ${ex.mode === "milliy" ? "Milliy sertifikat" : "Oddiy"}`)];
+  nodes.push(el("div", { class: "card" },
+    el("div", { class: "stat" }, el("span", {}, "⏱ Vaqt"), el("b", {}, `${ex.duration} daqiqa`)),
+    ex.closes_ms ? el("div", { class: "stat" }, el("span", {}, "📅 Muddat"), el("b", {}, fmtDate(ex.closes_ms))) : null));
+  if (ex.state === "new") {
+    nodes.push(el("div", { class: "card pre" }, "⚠️ Qoidalar\n• Boshlagach taymer to'xtamaydi.\n• Imtihon faqat bir marta topshiriladi.\n• Savollar orasida erkin yurasiz, javobni o'zgartirish mumkin.\n• Imtihon davomida to'g'ri javob ko'rsatilmaydi."));
+    nodes.push(el("button", { class: "btn", onclick: () => start(ex) }, icon("play"), "Boshlash"));
+  } else if (ex.state === "active") {
+    nodes.push(el("button", { class: "btn", onclick: () => start(ex) }, icon("play"), "Davom etish"));
+  } else {
+    nodes.push(el("button", { class: "btn gold", onclick: () => result(ex.attempt_id) }, "📊 Natijam"));
+  }
+  show({ focus: false }, ...nodes, tabBar());
+}
+
+/* ---------- imtihon ---------- */
+async function start(ex) {
+  try { S.att = await api(`/api/exams/${ex.id}/start`, { method: "POST" }); }
+  catch (e) { return toast(e.message); }
+  begin();
+}
+function begin() {
+  if (S.att.status === "finished") return result(S.att.attempt_id);
+  S.offset = S.att.server_ms - Date.now();
+  S.pos = 1;
+  stopTimer();
+  S.timer = setInterval(tick, 500);
+  closing(true);
+  backTo(null);
+  renderQuestion();
+}
+function remaining() { return S.att.deadline_ms - (Date.now() + S.offset); }
+async function tick() {
+  const left = remaining();
+  const t = document.getElementById("timer");
+  if (t) { t.textContent = clock(left); t.classList.toggle("low", left < 5 * 60000); }
+  if (left <= 0) { stopTimer(); toast("⏰ Vaqt tugadi"); await finishNow(); }
+}
+function answered(item) {
+  const a = S.att.answers;
+  return item.k === "c" ? !!a[String(item.pos)] : item.p.some((_, i) => (a[`${item.pos}.${i}`] || "").trim());
+}
+function setAnswer(key, value) {
+  if (value) S.att.answers[key] = value; else delete S.att.answers[key];
+  S.chain = S.chain.then(() => save(key, value));
+}
+async function save(key, value, tries = 0) {
+  try {
+    const r = await api(`/api/attempts/${S.att.attempt_id}/answer`, { method: "POST", body: JSON.stringify({ key, value }) });
+    if (r.status === "finished") { stopTimer(); toast("⏰ Vaqt tugadi"); result(S.att.attempt_id); }
+  } catch (e) {
+    if (e.status && e.status < 500 && e.status !== 429) return toast(e.message);
+    if (tries < 3) { await new Promise((r) => setTimeout(r, 800 * (tries + 1))); return save(key, value, tries + 1); }
+    toast("Javob saqlanmadi. Internetni tekshiring.");
+  }
+}
+async function flush() {
+  for (const k of Object.keys(S.timers)) { clearTimeout(S.timers[k]); delete S.timers[k]; }
+  await S.chain;
+}
+function go(pos) { flush().then(() => { S.pos = pos; renderQuestion(); }); }
+function leaveExam() {
+  flush().then(() => { stopTimer(); closing(false); toast("Imtihon davom etmoqda: vaqt ketadi"); openTab("exams"); });
+}
+
+function renderQuestion() {
+  const items = S.att.items, total = items.length;
+  const item = items[S.pos - 1];
+  const doneN = items.filter(answered).length;
+  const nodes = [
+    el("div", { class: "qbar" },
+      el("div", { class: "row" },
+        el("button", { class: "x", onclick: () => confirmSheet("Imtihondan chiqasizmi?", "Taymer to'xtamaydi. Qaytib kirib davom ettirishingiz mumkin.", "Chiqish", leaveExam) }, icon("x")),
+        el("div", { class: "grow" }, el("b", {}, `${S.pos}-savol `), el("span", { class: "hint" }, `(${S.pos}/${total})`)),
+        el("span", { class: "timer", id: "timer" }, clock(remaining()))),
+      el("div", { class: "pbar", style: "margin-top:10px" }, el("i", { style: `width:${doneN / total * 100}%` }))),
+  ];
+  if (item.src) nodes.push(el("div", { class: "src" }, item.src));
+  if (item.k === "c") {
+    if (item.t) nodes.push(el("div", { class: "q pre" }, item.t));
+    if (item.img) nodes.push(image(S.att.attempt_id, item.pos));
+    const picked = S.att.answers[String(item.pos)];
+    for (const [letter, text] of Object.entries(item.o)) {
+      nodes.push(el("button", { class: "opt" + (picked === letter ? " sel" : ""), onclick: () => {
+        haptic(); setAnswer(String(item.pos), picked === letter ? "" : letter); renderQuestion();
+      } }, el("em", {}, letter), el("span", { class: "pre grow" }, text)));
+    }
+  } else {
+    nodes.push(el("div", { class: "q pre" }, item.s));
+    if (item.img) nodes.push(image(S.att.attempt_id, item.pos));
+    if (item.p.length > 1) nodes.push(el("div", { class: "hint" }, "Har bir qismga javob yozing"));
+    item.p.forEach((part, i) => {
+      const key = `${item.pos}.${i}`;
+      const input = el("input", { class: "ans", type: "text", maxlength: "200", placeholder: "Javobingizni yozing", autocomplete: "off", value: S.att.answers[key] || "" });
+      input.addEventListener("input", () => {
+        const v = input.value.trim();
+        if (v) S.att.answers[key] = v; else delete S.att.answers[key];
+        clearTimeout(S.timers[key]);
+        S.timers[key] = setTimeout(() => { delete S.timers[key]; S.chain = S.chain.then(() => save(key, v)); }, 600);
+      });
+      nodes.push(el("div", { class: "part" }, el("div", { class: "pre", style: "margin-bottom:9px" }, el("span", { class: "lab" }, LET[i] + ")"), part.q), input));
+    });
+  }
+  nodes.push(el("div", { class: "nav" },
+    el("button", { class: "btn alt sq", disabled: S.pos <= 1, onclick: () => go(S.pos - 1), "aria-label": "Oldingi" }, icon("left")),
+    el("button", { class: "btn alt", onclick: () => grid() }, icon("grid"), "Savollar"),
+    el("button", { class: "btn sq", onclick: () => (S.pos < total ? go(S.pos + 1) : grid()), "aria-label": "Keyingi" }, icon(S.pos < total ? "right" : "flag"))));
+  show({ focus: true }, ...nodes);
+}
+
+function grid() {
+  flush().then(() => {
+    const items = S.att.items, done = items.filter(answered).length;
+    show({ focus: true },
+      el("div", { class: "qbar" }, el("div", { class: "row" }, el("h2", { class: "grow", style: "margin:0" }, "Savollar"),
+        el("span", { class: "timer", id: "timer" }, clock(remaining())))),
+      el("div", { class: "hint" }, `Javob berilgan: ${done} / ${items.length}`),
+      el("div", { class: "legend" }, el("span", {}, el("i", { class: "d" }), "javob berilgan"), el("span", {}, el("i", {}), "javobsiz")),
+      el("div", { class: "grid" }, items.map((it) =>
+        el("div", { class: "cell" + (answered(it) ? " done" : "") + (it.pos === S.pos ? " cur" : ""), onclick: () => go(it.pos) }, String(it.pos)))),
+      el("div", { class: "nav" },
+        el("button", { class: "btn alt", onclick: () => go(S.pos) }, icon("left"), "Qaytish"),
+        el("button", { class: "btn gold", onclick: askFinish }, icon("flag"), "Yakunlash")));
+  });
+}
+function askFinish() {
+  const empty = S.att.items.filter((it) => !answered(it)).map((it) => it.pos);
+  let text = "Yakunlagandan keyin javoblarni o'zgartirib bo'lmaydi.";
+  if (empty.length) text = `⚠️ Javobsiz savollar: ${empty.length} ta (${empty.slice(0, 20).join(", ")}${empty.length > 20 ? " …" : ""})\n\n` + text;
+  confirmSheet("Imtihonni yakunlaysizmi?", text, "✅ Ha, yakunlash", finishNow);
+}
+async function finishNow() {
+  stopTimer();
+  try { await flush(); await api(`/api/attempts/${S.att.attempt_id}/finish`, { method: "POST" }); }
+  catch (e) { toast(e.message); }
+  closing(false);
+  result(S.att.attempt_id);
+}
+
+/* ---------- natija va tahlil ---------- */
+async function result(aid) {
+  stopTimer(); closing(false);
+  show({ focus: false }, el("div", { class: "hint" }, "Natija hisoblanmoqda…"));
+  let r;
+  try { r = await api(`/api/attempts/${aid}/result`); }
+  catch (e) { toast(e.message); return openTab("exams"); }
+  backTo(() => openTab("results"));
+  const nodes = [el("h1", {}, "Imtihon natijasi"), el("div", { class: "hint" }, r.title)];
+  const pct = r.mode === "milliy" ? Math.min(100, (r.value / r.scale) * 100) : Math.min(100, r.value);
+  const head = el("div", { style: "text-align:center" });
+  head.append(el("div", { class: "big" }, el("div", { class: "score", style: `--p:${pct}` }, el("i", {},
+    el("div", {}, el("b", {}, r.mode === "milliy" ? `${r.value}` : `${r.value}%`), r.mode === "milliy" ? el("small", {}, `${r.scale} balldan`) : null)))));
+  if (r.mode === "milliy") head.append(el("span", { class: "lvl" }, r.level));
+  nodes.push(head);
+  nodes.push(el("div", { class: "stats" },
+    el("div", {}, `${r.c_ok}/${r.c_total}`, el("small", {}, "yopiq")),
+    el("div", {}, r.o_total ? `${r.o_ok}/${r.o_total}` : "—", el("small", {}, "yozma")),
+    el("div", {}, `${r.rank}/${r.total}`, el("small", {}, "o'rningiz"))));
+  nodes.push(el("div", { class: "card" }, el("div", { class: "stat" }, el("span", {}, icon("clock"), " Vaqt"), el("b", {}, `${r.minutes} daqiqa`))));
+  nodes.push(el("div", { class: "hint" }, r.weighted
+    ? "Ball qiyin savollarga ko'proq ball berish bilan hisoblangan. Boshqalar topshirgach biroz o'zgarishi mumkin."
+    : `Ishtirokchilar hali ${r.min_stats} tadan kam, shuning uchun ball oddiy hisoblangan.`));
+  if (r.mode === "milliy") nodes.push(el("div", { class: "hint" }, "Bu mashq uchun taxminiy ball, rasmiy natija emas."));
+  if (r.top.length) nodes.push(el("div", { class: "card" }, el("h2", {}, "🏆 Reyting"),
+    r.top.map((t, i) => el("div", { class: "stat" }, el("span", {}, `${i + 1}. ${t.name}${t.me ? " ← siz" : ""}`), el("b", {}, String(t.value))))));
+  nodes.push(r.review ? el("button", { class: "btn", onclick: () => review(aid) }, "🔍 Xatolar tahlili")
+    : el("div", { class: "hint", style: "margin:10px 0" }, "🔒 Xatolar tahlili imtihon yopilgach ochiladi."));
+  nodes.push(el("button", { class: "btn alt", onclick: () => openTab("exams") }, "Imtihonlar"));
+  show({ focus: false }, ...nodes, tabBar());
+}
+
+async function review(aid) {
+  let r;
+  try { r = await api(`/api/attempts/${aid}/review`); } catch (e) { return toast(e.message); }
+  backTo(() => result(aid));
+  const nodes = [el("h1", {}, "Xatolar tahlili")];
+  for (const it of r.items) {
+    const card = el("div", { class: "card" }, el("b", {}, `${it.ok ? "✅" : "❌"} ${it.pos}-savol`));
+    if (it.src) card.append(el("div", { class: "src" }, it.src));
+    if (it.k === "c") {
+      if (it.t) card.append(el("div", { class: "pre", style: "margin:6px 0" }, it.t));
+      if (it.img) card.append(image(aid, it.pos));
+      for (const [letter, text] of Object.entries(it.o))
+        card.append(el("div", { class: "opt static " + (letter === it.correct ? "right" : letter === it.yours ? "wrong" : "") }, el("em", {}, letter), el("span", { class: "pre grow" }, text)));
+      card.append(el("div", { class: "hint" }, `Sizniki: ${it.yours || "yo'q"} · To'g'ri: ${it.correct}`));
+      if (it.e) card.append(el("div", { class: "expl pre" }, "💡 " + it.e));
+    } else {
+      card.append(el("div", { class: "pre", style: "margin:6px 0" }, it.s));
+      if (it.img) card.append(image(aid, it.pos));
+      for (const [i, p] of it.p.entries())
+        card.append(el("div", { class: "pre", style: "margin:6px 0" }, `${p.ok ? "✅" : "❌"} ${LET[i]}) ${p.q}\nSizniki: ${p.yours || "yo'q"}` + (p.ok ? "" : `\nTo'g'ri: ${p.a.join(" / ")}`)));
+    }
+    nodes.push(card);
+  }
+  nodes.push(el("button", { class: "btn alt", onclick: () => result(aid) }, "⬅️ Natijam"));
+  show({ focus: false }, ...nodes);
+}
+
+/* ---------- savol yuklash (ustoz/admin) ---------- */
+async function importScreen() {
+  stopTimer();
+  backTo(() => openTab("more"));
+  show({ focus: false }, el("div", { class: "hint" }, "Yuklanmoqda…"));
+  let tp;
+  try { tp = await api("/api/import/topics"); } catch (e) { return toast(e.message); }
+  const selS = el("select", {}, el("option", { value: "" }, "Fan (yoki faylda yozilgan)"),
+    tp.subjects.map((s) => el("option", { value: s.id }, s.name)));
+  const selT = el("select", {}, el("option", { value: "" }, "Mavzu"));
+  selS.addEventListener("change", () => {
+    const s = tp.subjects.find((x) => String(x.id) === selS.value);
+    selT.replaceChildren(el("option", { value: "" }, "Mavzu"), ...(s ? s.topics.map((t) => el("option", { value: t.id }, t.name)) : []));
+  });
+  const ta = el("textarea", { class: "imp", placeholder: "Savollarni shu yerga qo'ying yoki fayl tanlang…" });
+  const out = el("div", {});
+  const file = el("input", { type: "file", accept: ".txt,.docx,.xlsx,.csv", style: "display:none" });
+  const pic = el("input", { type: "file", accept: "image/*", style: "display:none" });
+  const hist = el("div", {});
+  pic.addEventListener("change", async () => {
+    const f = pic.files[0]; if (!f) return;
+    try {
+      const res = await fetch("/api/import/image", { method: "POST", headers: { "X-Init-Data": (tg && tg.initData) || "" }, body: f });
+      const d = await res.json();
+      if (!res.ok) throw new Error(d.error || "Rasm yuklanmadi");
+      const at = ta.selectionStart == null ? ta.value.length : ta.selectionStart;
+      ta.value = ta.value.slice(0, at) + (at && ta.value[at - 1] !== "\n" ? "\n" : "") + `[rasm:${d.name}]\n` + ta.value.slice(at);
+      toast("Rasm qo'shildi");
+    } catch (e) { toast(e.message); }
+    pic.value = "";
+  });
+  async function loadHist() {
+    let h;
+    try { h = await api("/api/import/history"); } catch (e) { return; }
+    hist.replaceChildren(el("div", { class: "sec" }, "📜 Yuklashlarim"));
+    if (!(h.items || []).length) hist.append(el("div", { class: "hint" }, "Hali yuklash yo'q."));
+    for (const b of (h.items || [])) {
+      const btn = el("button", { class: "btn alt small", onclick: async () => {
+        try { const u = await api(`/api/import/${b.undone ? "redo" : "undo"}/${b.id}`, { method: "POST" }); toast(u.message); loadHist(); }
+        catch (e) { toast(e.message); }
+      } }, b.undone ? "♻️ Tiklash" : "↩️ Bekor qilish");
+      hist.append(el("div", { class: "card row" }, el("div", { class: "grow" },
+        el("b", {}, `${b.undone ? "↩️" : "✅"} #${b.id}`), el("div", { class: "hint" }, `${fmtDate(b.ms)} · ${b.closed} yopiq, ${b.open} ochiq`)), btn));
+    }
+  }
+  loadHist();
+  const saveBox = el("div", {});
+  let busy = false;
+  file.addEventListener("change", async () => {
+    const f = file.files[0]; if (!f) return;
+    try {
+      const res = await fetch("/api/import/extract", { method: "POST",
+        headers: { "X-Init-Data": (tg && tg.initData) || "", "X-Filename": encodeURIComponent(f.name) }, body: f });
+      const d = await res.json();
+      if (!res.ok) throw new Error(d.error || "Fayl o'qilmadi");
+      ta.value = ta.value ? ta.value + "\n" + d.text : d.text;
+      if (d.notes && d.notes.length) toast(d.notes[0]);
+      check();
+    } catch (e) { toast(e.message); }
+    file.value = "";
+  });
+  async function check() {
+    saveBox.replaceChildren(); out.replaceChildren();
+    if (!ta.value.trim()) return toast("Avval savollarni kiriting.");
+    let r;
+    try { r = await api("/api/import/preview", { method: "POST", body: JSON.stringify({ text: ta.value, topic_id: selT.value }) }); }
+    catch (e) { return toast(e.message); }
+    const card = el("div", { class: "card" },
+      el("b", {}, `${r.errors.length ? "⚠️" : "✅"} Yopiq: ${r.closed} ta, ochiq: ${r.open} ta` + (r.errors.length ? `, xato: ${r.errors.length} ta` : "")));
+    if (r.errors.length) card.append(el("div", { class: "pre", style: "margin-top:6px;color:var(--r)" }, r.errors.slice(0, 12).map((x) => "• " + x).join("\n")));
+    if (r.warnings.length) card.append(el("div", { class: "pre hint", style: "margin-top:6px" }, r.warnings.slice(0, 6).map((x) => "• " + x).join("\n")));
+    if (r.new_topics.length) card.append(el("div", { class: "hint" }, "🆕 Yangi mavzu: " + r.new_topics.join("; ")));
+    for (const s of r.sample) card.append(el("div", { class: "hint", style: "margin-top:4px" }, "• " + s.t + "  → " + s.a));
+    out.replaceChildren(card);
+    if (r.can_save) {
+      const n = r.closed + r.open;
+      saveBox.append(el("button", { class: "btn", onclick: async () => {
+        if (busy) return; busy = true;
+        try {
+          const d = await api("/api/import/save", { method: "POST", body: JSON.stringify({ text: ta.value, topic_id: selT.value }) });
+          ta.value = ""; out.replaceChildren(); saveBox.replaceChildren();
+          const done = el("div", { class: "card" }, el("b", {}, `✅ Saqlandi: ${d.closed} yopiq, ${d.open} ochiq`),
+            d.dup ? el("div", { class: "hint" }, `♻️ Takror: ${d.dup} ta o'tkazib yuborildi`) : null);
+          if (d.batch) done.append(el("button", { class: "btn alt", onclick: async () => {
+            try { const u = await api(`/api/import/undo/${d.batch}`, { method: "POST" }); toast(u.message); done.remove(); loadHist(); } catch (e) { toast(e.message); }
+          } }, "↩️ Bekor qilish"));
+          out.append(done); loadHist();
+        } catch (e) { toast(e.message); } finally { busy = false; }
+      } }, r.errors.length ? `💾 Faqat to'g'rilarini saqlash (${n})` : `💾 Saqlash (${n})`));
+    }
+  }
+  show({ focus: false }, el("button", { class: "x", style: "margin-bottom:8px", onclick: () => openTab("more") }, icon("left")),
+    el("h1", {}, "📥 Savol yuklash"), el("div", { class: "hint" }, "Yopiq (Javob: B) va ochiq (a) … => javob) savollar."),
+    selS, selT, ta,
+    el("div", { class: "row", style: "margin:8px 0" },
+      el("button", { class: "btn alt grow", onclick: () => file.click() }, "📎 Fayl"),
+      el("button", { class: "btn alt grow", onclick: () => pic.click() }, "🖼 Rasm"),
+      el("button", { class: "btn alt grow", onclick: async () => { try { ta.value = (await api("/api/import/template")).text; } catch (e) { toast(e.message); } } }, "📄 Namuna")),
+    file, pic, el("button", { class: "btn", onclick: check }, "Tekshirish"), out, saveBox, hist);
+}
+
+/* ---------- boshlash ---------- */
+if (!tg || !tg.initData) fatal("Telegram ma'lumotlari topilmadi.");
+else openTab("home");
+</script>
+</body>
+</html>
