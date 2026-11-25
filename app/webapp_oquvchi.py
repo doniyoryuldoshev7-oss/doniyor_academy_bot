@@ -379,7 +379,7 @@ async def api_s_qimg(request):
 
 # Qo'shimcha bo'limlar: har biri alohida modul (server: webapp_<nom>.py, brauzer: webui/<nom>.js).
 # Bittasi xato bersa, qolganlari ishlayveradi.
-MODULES = ["takror", "diagnostika", "topshiriq", "admin", "eksport", "users"]
+MODULES = ["takror", "diagnostika", "topshiriq", "admin", "eksport", "users", "hisobot", "usersx"]
 JS_FILES = {"oquvchi"} | set(MODULES)
 
 

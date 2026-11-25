@@ -26,6 +26,10 @@
     inp.addEventListener("keydown", (ev) => { if (ev.key === "Enter") go(); });
     nodes.push(el("div", { class: "row", style: "gap:6px;margin-bottom:8px" }, inp, btn("small sq", "🔍", go)));
     if (U.q) nodes.push(btn("alt small", "✖ Qidiruvni tozalash", () => { U.q = ""; U.page = 0; users(); }));
+    if (OQ.usersX) nodes.push(el("div", { class: "row", style: "gap:6px;margin-bottom:8px;flex-wrap:wrap" },
+      btn("alt small grow", "⚠️ Profili to'liq emas", () => OQ.usersX.incomplete()),
+      btn("alt small grow", "🗑 Tanlab o'chirish", () => OQ.usersX.del()),
+      btn("alt small grow", "🚫 Botni bloklaganlar", () => OQ.usersX.blocked())));
     nodes.push(el("div", { class: "hint", style: "margin:8px 0" }, `Jami: ${d.total} · Sahifa ${d.page + 1}/${d.pages}`));
     if (!d.items.length) nodes.push(empty("Hech narsa topilmadi."));
     for (const x of d.items) nodes.push(el("div", { class: "card tap", onclick: () => userCard(x.tg) },
@@ -54,6 +58,7 @@
     if (c.can_reject) nodes.push(btn("alt", "❌ Rad etish", () => confirmSheet("Arizani rad etasizmi?", `${c.name}ga rad etilgani haqida xabar boradi.`, "Ha, rad etish", () => act("reject", tg, "Foydalanuvchi rad etildi."))));
     if (c.blocked) nodes.push(btn("alt", "🔓 Blokdan chiqarish", () => act("unblock", tg, "Foydalanuvchi blokdan chiqarildi.")));
     else if (c.can_block) nodes.push(btn("alt", "🚫 Bloklash", () => confirmSheet("Bloklaysizmi?", `${c.name} botdan foydalana olmaydi.`, "Ha, bloklash", () => act("block", tg, "Foydalanuvchi bloklandi."))));
+    if (OQ.usersX) { try { nodes.push(...(await OQ.usersX.roleBox(c, here))); } catch (e) { /* huquq bloki ixtiyoriy */ } }
     screen("Foydalanuvchi", c.name, () => users(), ...nodes);
   }
 
