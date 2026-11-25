@@ -51,6 +51,7 @@ _PART = re.compile(r"^\s*[a-dA-D]\s*[\)\.]")
 class MilliyYig(StatesGroup):
     closed = State()
     opened = State()
+    everything = State()   # 1-45 bitta fayldan
 
 
 def kb(rows):
@@ -117,6 +118,24 @@ HELP_OPEN = (
 )
 
 
+HELP_ALL = (
+    f"Hamma savolni (1–{CLOSED_N + OPEN_N}) <b>bitta fayl</b> qilib yuboring: .docx, .txt yoki .xlsx. "
+    "Matnni to'g'ridan-to'g'ri yozsangiz ham bo'ladi. Rasmlar Word ichida turishi mumkin.\n\n"
+    f"<b>Tuzilishi:</b> avval {CLOSED_N} ta yopiq savol, keyin <code>OCHIQ SAVOLLAR</code> deb yozilgan qator, "
+    f"keyin {OPEN_N} ta ochiq savol.\n\n"
+    "<code>1. Savol matni\nA) variant\nB) variant\nC) variant\nD) variant\nJavob: B\n\n"
+    "… (35 gacha)\n\n"
+    "OCHIQ SAVOLLAR\n\n"
+    "36. Savol matni\na) birinchi qism =&gt; javob1 | javob2\nb) ikkinchi qism =&gt; javob\n---\n"
+    "37. …</code>\n\n"
+    "• Ochiq savollar <code>---</code> qatori bilan ajratiladi, <code>|</code> — muqobil to'g'ri javoblar.\n"
+    "• Rasmli savol va 33–35 kabi A–F li umumiy variantlar qoidasi yopiq savollarniki kabi "
+    "(rasm savol matnidan keyin; umumiy variantlar yopiq qismning oxirida).\n"
+    "• Fayl 3 MB dan oshmasin; katta bo'lsa 2 qismga bo'lib yuboring (ketma-ket qo'shiladi).\n\n"
+    "Yuborgach «✅ Tayyor» ni bosing: bot ikkala qismni o'zi ajratadi va tekshiradi."
+)
+
+
 def _draft(data) -> dict:
     return dict(data.get("mly") or {})
 
@@ -139,6 +158,7 @@ def _home_kb(m: dict):
     nc, no = len(m.get("c") or []), len(m.get("o") or [])
     ready = nc == CLOSED_N and no == OPEN_N
     rows = [
+        [B("📄 Hammasini bitta fayldan yuklash (1–45)", "mly:a")],
         [B(("♻️ " if nc == CLOSED_N else "1️⃣ ") + "Yopiq savollarni yuklash", "mly:c")],
         [B(("♻️ " if no == OPEN_N else "2️⃣ ") + "Ochiq savollarni yuklash", "mly:o")],
         [B(("✅ " if ready else "3️⃣ ") + "Birlashtirish va taqdim etish", "exm:fx")],
@@ -200,10 +220,14 @@ async def _start(c: CallbackQuery, state: FSMContext, stage: str):
     if not await gate(c):
         return
     m = _draft(await state.get_data())
-    await state.set_state(MilliyYig.closed if stage == "c" else MilliyYig.opened)
+    await state.set_state({"c": MilliyYig.closed, "o": MilliyYig.opened, "a": MilliyYig.everything}[stage])
     buf = m.get("b" + stage) or ""
     lines = len([x for x in buf.splitlines() if x.strip()])
-    text = ("1️⃣ <b>Yopiq savollar</b>\n\n" + HELP_CLOSED) if stage == "c" else ("2️⃣ <b>Ochiq savollar</b>\n\n" + HELP_OPEN)
+    text = {
+        "c": "1️⃣ <b>Yopiq savollar</b>\n\n" + HELP_CLOSED,
+        "o": "2️⃣ <b>Ochiq savollar</b>\n\n" + HELP_OPEN,
+        "a": "📄 <b>Hammasi bitta fayldan</b>\n\n" + HELP_ALL,
+    }[stage]
     if lines:
         text += f"\n\n📎 Oldin yuborganlaringiz saqlangan ({lines} qator). Davom eting yoki tozalang."
     await show(c, text, _collect_kb(bool(lines)))
@@ -220,20 +244,62 @@ async def cb_start_open(c: CallbackQuery, state: FSMContext):
     await _start(c, state, "o")
 
 
+@router.callback_query(F.data == "mly:a")
+async def cb_start_all(c: CallbackQuery, state: FSMContext):
+    await _start(c, state, "a")
+
+
 async def _stage(state: FSMContext) -> str | None:
     cur = await state.get_state()
     if cur == MilliyYig.closed.state:
         return "c"
     if cur == MilliyYig.opened.state:
         return "o"
+    if cur == MilliyYig.everything.state:
+        return "a"
     return None
+
+
+_OPEN_HDR = re.compile(r"^[\W_]*ochiq\s+savol", re.I)
+_CLOSED_HDR = re.compile(r"^[\W_]*yopiq\s+savol", re.I)
+_FIRST_OPEN = re.compile(r"^\s*(?:#|№\s*)?36\s*(?:\.+|\)|:)\s*\S")
+_OPEN_NUM = re.compile(r"(?m)^[ \t]*(?:№\s*)?(3[6-9]|4[0-5])\s*[.)]\s+")
+
+
+def _is_marker(ln: str) -> bool:
+    s = ln.strip()
+    return len(s) <= 70 and "=>" not in s and bool(_OPEN_HDR.match(s))
+
+
+def _has_marker(buf: str) -> bool:
+    return any(_is_marker(ln) for ln in buf.split("\n"))
+
+
+def split_all(buf: str):
+    """Bitta fayldagi matnni (yopiq qism, ochiq qism) ga ajratadi.
+    Ajratgich: «OCHIQ SAVOLLAR» qatori; bo'lmasa — «36.» bilan boshlangan birinchi qator."""
+    lines = buf.split("\n")
+    idx = next((i for i, ln in enumerate(lines) if _is_marker(ln)), None)
+    if idx is not None:
+        closed, opened = lines[:idx], lines[idx + 1:]
+    else:
+        idx = next((i for i, ln in enumerate(lines) if _FIRST_OPEN.match(ln)), None)
+        if idx is None:
+            return None
+        closed, opened = lines[:idx], lines[idx:]
+    while closed and (not closed[0].strip() or (len(closed[0].strip()) <= 70 and _CLOSED_HDR.match(closed[0].strip()))):
+        if not closed[0].strip() or _CLOSED_HDR.match(closed[0].strip()):
+            closed.pop(0)
+        else:
+            break
+    return "\n".join(closed), _OPEN_NUM.sub("", "\n".join(opened))
 
 
 def _join(buf: str, chunk: str, stage: str) -> str:
     """Yangi xabarni oldingisiga ulaydi: savollar bir-biriga yopishib ketmasin."""
     if not buf:
         return chunk
-    if stage == "c":
+    if stage == "c" or (stage == "a" and not _has_marker(buf)):
         return buf + "\n\n" + chunk
     first = next((ln for ln in chunk.splitlines() if ln.strip()), "")
     last = next((ln for ln in reversed(buf.splitlines()) if ln.strip()), "")
@@ -280,7 +346,7 @@ async def _take_image(msg: Message, state: FSMContext, file_obj, caption):
                   ["Rasm savol matnisiz keldi: u keyingi yuborgan savolingizga biriktiriladi."])
 
 
-COLLECTING = StateFilter(MilliyYig.closed, MilliyYig.opened)
+COLLECTING = StateFilter(MilliyYig.closed, MilliyYig.opened, MilliyYig.everything)
 
 
 @router.message(COLLECTING, F.photo)
@@ -563,6 +629,18 @@ def build_open(res) -> tuple[list, list, list]:
     return items, errors, warnings
 
 
+def _check_closed(buf: str):
+    plain, blocks = split_shared(buf)
+    items, errors = parse_closed_strict(plain) if plain.strip() else ([], [])
+    for number, block in enumerate(blocks, start=1):
+        got, errs = parse_shared(block, number)
+        items += got
+        errors += errs
+    if not errors and len(items) != CLOSED_N:
+        errors.append(f"Yopiq savol {CLOSED_N} ta bo'lishi kerak, topildi: {len(items)} ta.")
+    return items, errors
+
+
 @router.callback_query(COLLECTING, F.data == "mly:done")
 async def cb_done(c: CallbackQuery, state: FSMContext):
     if not await gate(c):
@@ -574,20 +652,35 @@ async def cb_done(c: CallbackQuery, state: FSMContext):
         await c.answer("Hali hech narsa yuborilmadi.", show_alert=True)
         return
 
-    if stage == "c":
-        plain, blocks = split_shared(buf)
-        items, errors = parse_closed_strict(plain) if plain.strip() else ([], [])
-        for number, block in enumerate(blocks, start=1):
-            got, errs = parse_shared(block, number)
-            items += got
-            errors += errs
+    if stage == "a":
+        sp = split_all(buf)
+        if sp is None:
+            errors, warnings = [
+                "Yopiq va ochiq qismni ajratib bo'lmadi. Ochiq savollardan oldin alohida qatorga "
+                "«OCHIQ SAVOLLAR» deb yozing."], []
+        else:
+            citems, cerr = _check_closed(sp[0])
+            oitems, oerr, warnings = build_open(parse_text(sp[1])) if sp[1].strip() else ([], ["Ochiq savollar topilmadi."], [])
+            errors = ["Yopiq qism: " + e for e in cerr] + ["Ochiq qism: " + e for e in oerr]
+            if not errors:
+                m["c"], m["o"], m["ba"] = citems, oitems, ""
+                await state.update_data(mly=m)
+                await state.set_state(None)
+                done = (f"✅ <b>Hammasi saqlandi:</b> yopiq {len(citems)} ta (1–{CLOSED_N}), "
+                        f"ochiq {len(oitems)} ta ({CLOSED_N + 1}–{CLOSED_N + OPEN_N}).")
+                if warnings:
+                    done += "\n\n<b>Ogohlantirish:</b>\n" + "\n".join("• " + esc(w) for w in warnings[:6])
+                done += "\n\n" + _home_text(m)
+                await show(c, done[:3900], _home_kb(m))
+                await c.answer()
+                return
+    elif stage == "c":
+        items, errors = _check_closed(buf)
         warnings = []
-        if not errors and len(items) != CLOSED_N:
-            errors.append(f"Yopiq savol {CLOSED_N} ta bo'lishi kerak, topildi: {len(items)} ta.")
     else:
         items, errors, warnings = build_open(parse_text(buf))
 
-    if not errors:
+    if stage != "a" and not errors:
         m["c" if stage == "c" else "o"] = items
         m["b" + stage] = ""
         await state.update_data(mly=m)
