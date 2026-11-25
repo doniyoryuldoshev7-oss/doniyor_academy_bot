@@ -207,13 +207,19 @@ async def smart_review_dashboard(c, state):
     await c.answer()
 
 
+def _back(key):
+    from .menyu import back_kb
+    return back_kb(key)
+
+
 @router.callback_query(F.data == 'subjects')
 async def subjects(c, state):
     await state.clear()
     async with SessionLocal() as s: 
         xs = (await s.scalars(select(Subject).where(Subject.is_active.is_(True)).order_by(Subject.name))).all()
     kb = [[InlineKeyboardButton(text=f'📚 {x.name}', callback_data=f'sub:{x.id}')] for x in xs]
-    kb.append([InlineKeyboardButton(text='⬅️ Bosh menyu', callback_data='home')])
+    kb.append([InlineKeyboardButton(text='⬅️ Orqaga', callback_data='mn:test')])
+    kb.append([InlineKeyboardButton(text='🏠 Bosh menyu', callback_data='home')])
     await edit_or_answer(c.message, '📚 <b>Fanlar</b>\n\nFanni tanlang:', reply_markup=InlineKeyboardMarkup(inline_keyboard=kb))
     await c.answer()
 
@@ -226,7 +232,8 @@ async def topics(c, state):
         xs = (await s.scalars(select(Topic).where(Topic.subject_id == sid).order_by(Topic.name))).all()
     xs = sorted(xs, key=natural_topic_key)
     kb = [[InlineKeyboardButton(text=f'📖 {x.name}', callback_data=f'topic:{x.id}')] for x in xs]
-    kb.append([InlineKeyboardButton(text='⬅️ Fanlar', callback_data='subjects')])
+    kb.append([InlineKeyboardButton(text='⬅️ Orqaga', callback_data='subjects')])
+    kb.append([InlineKeyboardButton(text='🏠 Bosh menyu', callback_data='home')])
     await edit_or_answer(c.message, f'📚 <b>{sub.name}</b>\n\nMavzuni tanlang:', reply_markup=InlineKeyboardMarkup(inline_keyboard=kb))
     await c.answer()
 
@@ -270,7 +277,7 @@ async def choose(c, state):
         ],
         [
             InlineKeyboardButton(
-                text="\u2B05\uFE0F Mavzular",
+                text="\u2B05\uFE0F Orqaga",
                 callback_data=f"sub:{topic.subject_id}",
             )
         ],
@@ -346,7 +353,7 @@ async def answer(c, state):
                 inline_keyboard=[
                     [InlineKeyboardButton(text="A", callback_data=f"answer:{tid}:{qid}:A"), InlineKeyboardButton(text="B", callback_data=f"answer:{tid}:{qid}:B")],
                     [InlineKeyboardButton(text="C", callback_data=f"answer:{tid}:{qid}:C"), InlineKeyboardButton(text="D", callback_data=f"answer:{tid}:{qid}:D")],
-                    [InlineKeyboardButton(text="⬅️ Xatolarimga qaytish", callback_data="my_errors")]
+                    [InlineKeyboardButton(text="⬅️ Orqaga", callback_data="my_errors")]
                 ]
             )
 
@@ -796,7 +803,7 @@ async def error_question(c, state):
             ],
             [
                 InlineKeyboardButton(
-                    text="⬅️ Xatolarimga qaytish",
+                    text="⬅️ Orqaga",
                     callback_data="my_errors"
                 )
             ],
@@ -837,7 +844,8 @@ async def profile(c):
 
     kb = InlineKeyboardMarkup(inline_keyboard=[
         [InlineKeyboardButton(text="📋 Testlar tarixi", callback_data="history")],
-        [InlineKeyboardButton(text="⬅️ Bosh menyu", callback_data="home")]
+        [InlineKeyboardButton(text="⬅️ Orqaga", callback_data="mn:prof")],
+        [InlineKeyboardButton(text="🏠 Bosh menyu", callback_data="home")]
     ])
 
     await edit_or_answer(c.message, 
@@ -866,7 +874,7 @@ async def history(c):
         ).all()
 
         if not attempts:
-            await edit_or_answer(c.message, "📋 <b>Testlar tarixi</b>\n\nHozircha test ishlanmagan.", reply_markup=back_menu())
+            await edit_or_answer(c.message, "📋 <b>Testlar tarixi</b>\n\nHozircha test ishlanmagan.", reply_markup=_back("profile"))
             await c.answer()
             return
 
@@ -897,7 +905,8 @@ async def history(c):
 
             buttons.append([InlineKeyboardButton(text=f"📖 {i}-test natijasini ko‘rish", callback_data=f"attempt:{a.id}")])
 
-        buttons.append([InlineKeyboardButton(text="↩️ Profil", callback_data="profile")])
+        buttons.append([InlineKeyboardButton(text="⬅️ Orqaga", callback_data="profile")])
+        buttons.append([InlineKeyboardButton(text="🏠 Bosh menyu", callback_data="home")])
 
         await edit_or_answer(c.message, "\n".join(lines), reply_markup=InlineKeyboardMarkup(inline_keyboard=buttons))
     await c.answer()
@@ -990,7 +999,7 @@ async def attempt_detail(c):
         "\n".join(lines),
         reply_markup=InlineKeyboardMarkup(
             inline_keyboard=[
-                [InlineKeyboardButton(text="⬅️ Testlar tarixi", callback_data="history")],
+                [InlineKeyboardButton(text="⬅️ Orqaga", callback_data="history")],
                 [InlineKeyboardButton(text="👤 Profil", callback_data="profile")],
                 [InlineKeyboardButton(text="🏠 Bosh menyu", callback_data="home")]
             ]
@@ -1003,7 +1012,7 @@ async def stats(c):
     async with SessionLocal() as s: 
         u = await s.scalar(select(User).where(User.telegram_id == c.from_user.id))
     pct = u.correct_answers / u.total_questions * 100 if u.total_questions else 0
-    await edit_or_answer(c.message, f'📊 <b>Statistika</b>\n\n📝 Savollar: {u.total_questions}\n✅ To‘g‘ri: {u.correct_answers}\n❌ Xato: {u.total_questions-u.correct_answers}\n📈 Aniqlik: {pct:.1f}%\n⭐ Ball: {u.total_score}', reply_markup=back_menu())
+    await edit_or_answer(c.message, f'📊 <b>Statistika</b>\n\n📝 Savollar: {u.total_questions}\n✅ To‘g‘ri: {u.correct_answers}\n❌ Xato: {u.total_questions-u.correct_answers}\n📈 Aniqlik: {pct:.1f}%\n⭐ Ball: {u.total_score}', reply_markup=_back('prof'))
     await c.answer()
 
 @router.callback_query(F.data == 'leaderboard')
@@ -1014,7 +1023,7 @@ async def leaderboard(c):
     medals = {1: '🥇', 2: '🥈', 3: '🥉'}
     for i, u in enumerate(us, 1): 
         lines.append(f"{medals.get(i, str(i) + '.')} {u.full_name} — <b>{u.total_score}</b> ball")
-    await edit_or_answer(c.message, '\n'.join(lines), reply_markup=back_menu())
+    await edit_or_answer(c.message, '\n'.join(lines), reply_markup=_back('prof'))
     await c.answer()
 
 @router.callback_query(F.data == 'announcements')

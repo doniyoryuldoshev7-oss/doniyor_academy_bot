@@ -273,6 +273,7 @@ async def cb_list(c: CallbackQuery, state: FSMContext):
     else:
         lines.append("🆕 yangi · ⏳ davom etmoqda · ✅ topshirilgan")
 
+    rows.append([InlineKeyboardButton(text="⬅️ Orqaga", callback_data="mn:test")])
     rows.append([InlineKeyboardButton(text="🏠 Bosh menyu", callback_data="home")])
     await present(c, "\n".join(lines), kb(rows), photo=_milliy_banner())
     await c.answer()

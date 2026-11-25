@@ -96,3 +96,15 @@ async def send_welcome(message, text, reply_markup=None):
     except Exception:
         _FILE_ID = None
         return await message.answer(text, reply_markup=reply_markup)
+
+
+def back_kb(key: str) -> InlineKeyboardMarkup:
+    """Ichki ekran uchun: bir qadam orqaga (guruh ekraniga) + Bosh menyu.
+
+    key: 'prof' | 'test' -> mn:<key>;  'profile' -> profil ekrani.
+    """
+    target = "profile" if key == "profile" else f"mn:{key}"
+    return InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(text="⬅️ Orqaga", callback_data=target)],
+        [InlineKeyboardButton(text="\U0001F3E0 Bosh menyu", callback_data="home")],
+    ])

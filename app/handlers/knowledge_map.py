@@ -163,7 +163,7 @@ def subject_keyboard(stat, weakest) -> InlineKeyboardMarkup:
     rows.append(
         [
             InlineKeyboardButton(
-                text="⬅️ Fanlar",
+                text="⬅️ Orqaga",
                 callback_data="km:menu",
             )
         ]
@@ -237,6 +237,7 @@ async def knowledge_map_menu(c: CallbackQuery):
             ]
         )
 
+    rows.append([InlineKeyboardButton(text="⬅️ Orqaga", callback_data="mn:prof")])
     rows.append(
         [
             InlineKeyboardButton(

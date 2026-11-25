@@ -188,6 +188,7 @@ async def render_setup(c, state):
             ]
         )
 
+    rows.append([InlineKeyboardButton(text="⬅️ Orqaga", callback_data="mn:test")])
     rows.append(home_button())
 
     lines = [
