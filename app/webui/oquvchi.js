@@ -30,15 +30,17 @@
   })();
 
   /* ---------- umumiy yordamchilar ---------- */
+  const clean = (arr) => arr.flat().filter((x) => x !== null && x !== undefined && x !== false);
+  const showN = (opts, ...nodes) => show(opts, ...clean(nodes));
   const pc = (p) => (p >= 70 ? "var(--g)" : p >= 50 ? "var(--o)" : "var(--r)");
   const toOrigin = () => openTab(S.tab || "home");
 
-  function wait() { show({ focus: false }, el("div", { class: "empty" }, "Yuklanmoqda…")); }
+  function wait() { showN({ focus: false }, el("div", { class: "empty" }, "Yuklanmoqda…")); }
 
   /* oddiy ekran: orqaga (x) tugmasi + sarlavha + tab-bar */
   function screen(title, sub, backFn, ...nodes) {
     backTo(backFn);
-    show({ focus: false },
+    showN({ focus: false },
       el("button", { class: "x", style: "margin-bottom:8px", onclick: backFn, "aria-label": "Orqaga" }, icon("left")),
       el("h1", {}, title), sub ? el("div", { class: "hint" }, sub) : null, ...nodes, tabBar());
   }
@@ -79,7 +81,7 @@
       el("button", { class: "btn alt sq", onclick: c.onFinish, "aria-label": "Tugatish" }, icon("flag")),
       a ? el("button", { class: "btn", onclick: c.onNext }, c.nextLabel, icon(c.last ? "flag" : "right"))
         : (c.onSkip ? el("button", { class: "btn alt", onclick: c.onSkip }, "O'tkazib yuborish") : el("div", { class: "grow" }))));
-    show({ focus: true }, ...nodes);
+    showN({ focus: true }, ...nodes);
   }
 
   /* ---------- markaziy menyular (botdagi tuzilma) ---------- */
@@ -195,7 +197,7 @@
     } catch (e) { toast(e.message); return quizView(); }
     closing(false);
     backTo(testHub);
-    show({ focus: false },
+    showN({ focus: false },
       el("button", { class: "x", style: "margin-bottom:8px", onclick: testHub, "aria-label": "Orqaga" }, icon("left")),
       el("div", { class: "row" }, el("div", { class: "grow" }, el("h1", {}, "Test natijasi"), el("div", { class: "hint" }, Q.topic.name)), mascot()),
       el("div", { style: "text-align:center" },

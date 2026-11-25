@@ -208,7 +208,7 @@ function show(opts, ...nodes) {
   if (!opts || !opts.nodeType && typeof opts === "object" && !Array.isArray(opts)) { /* sozlamalar */ }
   else { nodes.unshift(opts); opts = {}; }
   $app.classList.toggle("focus", !!opts.focus);
-  $app.replaceChildren(...nodes.flat());
+  $app.replaceChildren(...nodes.flat().filter((x) => x !== null && x !== undefined && x !== false));
   window.scrollTo(0, 0);
 }
 function toast(msg) {
