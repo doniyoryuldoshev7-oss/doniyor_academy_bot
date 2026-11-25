@@ -165,6 +165,7 @@
 <symbol id="i-user" viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 21c1-4 4-6 8-6s7 2 8 6"/></symbol>
 </defs></svg>
 <div id="app"></div>
+<script src="/app/oquvchi.js"></script>
 <script>
 "use strict";
 const tg = window.Telegram && window.Telegram.WebApp;
@@ -327,10 +328,12 @@ function home() {
       el("div", { class: "motto" }, "«Har bir yutuq bilimdan boshlanadi!»")))];
   if (act) nodes.push(cta(act));
   nodes.push(el("div", { class: "mt" },
-    menuTile("clip", "b", "Test yechish", "O'zingizni sinab ko'ring", () => openTab("exams"), { badge: open }),
-    menuTile("book", "o", "Mavzular", "Mavzular ro'yxati", () => soon("Mavzular"), { soon: true }),
+    menuTile("user", "g", "Profil", "Ma'lumotlar va natijalar", () => (window.OQ ? window.OQ.profileHub() : openTab("more"))),
+    menuTile("clip", "b", "Sinov va imtihon", "O'zingizni sinab ko'ring", () => (window.OQ ? window.OQ.testHub() : openTab("exams")), { badge: open }),
+    menuTile("alert", "o", "Mening xatolarim", "Xatolarni qayta ishlash", () => (window.OQ ? window.OQ.errors() : soon("Mening xatolarim"))),
+    menuTile("brain", "p", "Smart Takrorlash", "Xotirani mustahkamlash", () => (window.OQ && window.OQ.smart ? window.OQ.smart() : soon("Smart Takrorlash"))),
+    menuTile("list", "b", "Topshiriqlar", "Ustoz topshiriqlari", () => soon("Topshiriqlar"), { soon: true }),
     menuTile("chart", "b", "Natijalarim", "Natijalarni ko'rish", () => openTab("results")),
-    menuTile("user", "g", "Profilim", "Shaxsiy ma'lumotlar", () => openTab("more")),
     menuTile("gear", "p", "Sozlamalar", "Til va boshqa", () => soon("Sozlamalar"), { soon: true }),
     menuTile("help", "b", "Yordam", "Qo'llanma va savollar", helpScreen)));
   const st = S.stats;
@@ -378,7 +381,7 @@ function examsTab() {
 }
 function resultsTab() {
   const done = S.exams.filter((e) => e.state === "done");
-  const nodes = [topBar(), el("h1", {}, "Natijam"), el("div", { class: "hint" }, "Topshirgan imtihonlaringiz")];
+  const nodes = [topBar(), el("h1", {}, "Natijam"), window.OQ ? window.OQ.resultTiles() : null, el("div", { class: "hint" }, "Topshirgan imtihonlaringiz")];
   if (!done.length) nodes.push(el("div", { class: "card empty" }, mascot(), el("div", { style: "margin-top:8px" }, "Hali imtihon topshirmagansiz."), el("div", { style: "margin-top:12px" }, el("button", { class: "btn small", onclick: () => openTab("exams") }, "Imtihonlarga o'tish"))));
   done.forEach((e) => nodes.push(el("div", { class: "card tap", onclick: () => result(e.attempt_id) },
     el("div", { class: "row" }, el("div", { class: "grow" }, el("b", {}, e.title), el("div", { class: "hint" }, e.subject)),

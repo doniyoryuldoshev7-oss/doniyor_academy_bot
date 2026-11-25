@@ -438,6 +438,14 @@ async def api_image(request: web.Request):
 def setup_webapp(app: web.Application) -> None:
     app.middlewares.append(auth_middleware)
     app.router.add_get("/app", page)
+    try:
+        from .webapp_oquvchi import setup_oquvchi
+
+        setup_oquvchi(app)
+    except Exception:
+        import logging as _lg
+
+        _lg.getLogger(__name__).exception("veb-ilova: o'quvchi bo'limi ulanmadi")
     app.router.add_get("/api/me", api_me)
     app.router.add_get("/api/stats", api_stats)
     app.router.add_get("/api/exams", api_exams)
