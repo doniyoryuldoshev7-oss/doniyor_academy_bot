@@ -239,7 +239,7 @@ async def cb_list(c: CallbackQuery, state: FSMContext):
             ).all()
         }
 
-    rows, lines = [], ["📝 <b>Imtihonlar</b>", ""]
+    rows, lines = [], ["🎓 <b>Milliy Sertifikat Imtihoni</b>", ""]
     shown = 0
 
     for exam in exams:
@@ -274,7 +274,7 @@ async def cb_list(c: CallbackQuery, state: FSMContext):
         lines.append("🆕 yangi · ⏳ davom etmoqda · ✅ topshirilgan")
 
     rows.append([InlineKeyboardButton(text="🏠 Bosh menyu", callback_data="home")])
-    await present(c, "\n".join(lines), kb(rows))
+    await present(c, "\n".join(lines), kb(rows), photo=_milliy_banner())
     await c.answer()
 
 
@@ -335,7 +335,7 @@ async def cb_info(c: CallbackQuery):
     else:
         rows.append([InlineKeyboardButton(text="📊 Natijam", callback_data=f"exm:r:{attempt.id}")])
 
-    rows.append([InlineKeyboardButton(text="⬅️ Imtihonlar", callback_data="exm:l")])
+    rows.append([InlineKeyboardButton(text="⬅️ Orqaga", callback_data="exm:l")])
     await present(c, "\n".join(lines), kb(rows))
     await c.answer()
 
@@ -743,7 +743,7 @@ async def show_result(c: CallbackQuery, attempt_id: int, note: str = ""):
         lines += ["", "🔒 Xatolar tahlili imtihon yopilgach ochiladi."]
     else:
         rows.insert(0, [InlineKeyboardButton(text="🔍 Xatolar tahlili", callback_data=f"exm:rw:{attempt.id}:0")])
-    rows.append([InlineKeyboardButton(text="📝 Imtihonlar", callback_data="exm:l")])
+    rows.append([InlineKeyboardButton(text="🎓 Milliy sertifikat imtihoni", callback_data="exm:l")])
     rows.append([InlineKeyboardButton(text="🏠 Bosh menyu", callback_data="home")])
 
     await present(c, "\n".join(lines), kb(rows))
@@ -912,3 +912,9 @@ async def cb_review_item(c: CallbackQuery):
         photo,
     )
     await c.answer()
+
+
+def _milliy_banner():
+    """Milliy sertifikat bannerining yo'li (fayl bo'lmasa None)."""
+    p = Path(__file__).resolve().parent.parent / "assets" / "milliy_banner.jpg"
+    return str(p) if p.is_file() else None

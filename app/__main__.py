@@ -135,6 +135,9 @@ async def main():
 
     dp.include_router(start.router)
     dp.include_router(student.router)
+    from .handlers import menyu
+
+    dp.include_router(menyu.router)
     dp.include_router(smart_review.router)
     dp.include_router(group_quiz.router)
     dp.include_router(export.router)

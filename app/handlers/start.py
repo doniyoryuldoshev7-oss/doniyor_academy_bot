@@ -275,7 +275,10 @@ async def start_cmd(message: Message, state: FSMContext):
 
             await state.clear()
 
-            await message.answer(
+            from .menyu import send_welcome
+
+            await send_welcome(
+                message,
                 f"🎓 <b>Doniyor Academy</b>\n\n"
                 f"Assalomu alaykum, "
                 f"<b>{message.from_user.first_name}</b>!\n\n"
