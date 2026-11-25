@@ -336,6 +336,7 @@ function home() {
     menuTile("chart", "b", "Natijalarim", "Natijalarni ko'rish", () => openTab("results")),
     menuTile("gear", "p", "Sozlamalar", "Til va boshqa", () => soon("Sozlamalar"), { soon: true }),
     menuTile("help", "b", "Yordam", "Qo'llanma va savollar", helpScreen)));
+  if (S.me && S.me.panel) nodes.push(el("button", { class: "btn alt", style: "margin:4px 0 12px", onclick: () => (window.OQ && window.OQ.admin ? window.OQ.admin() : soon("Admin panel")) }, icon("gear"), "Admin panel"));
   const st = S.stats;
   if (st && st.channel) nodes.push(el("button", { class: "chan", onclick: () => {
     try { if (tg && /^https:\/\/t\.me\//.test(st.channel)) return tg.openTelegramLink(st.channel); } catch (e) {}
@@ -607,7 +608,9 @@ async function review(aid) {
 /* ---------- savol yuklash (ustoz/admin) ---------- */
 async function importScreen() {
   stopTimer();
-  backTo(() => openTab("more"));
+  const _back = S.importBack || (() => openTab("more"));
+  S.importBack = null;
+  backTo(_back);
   show({ focus: false }, el("div", { class: "hint" }, "Yuklanmoqda…"));
   let tp;
   try { tp = await api("/api/import/topics"); } catch (e) { return toast(e.message); }
@@ -695,7 +698,7 @@ async function importScreen() {
       } }, r.errors.length ? `💾 Faqat to'g'rilarini saqlash (${n})` : `💾 Saqlash (${n})`));
     }
   }
-  show({ focus: false }, el("button", { class: "x", style: "margin-bottom:8px", onclick: () => openTab("more") }, icon("left")),
+  show({ focus: false }, el("button", { class: "x", style: "margin-bottom:8px", onclick: _back }, icon("left")),
     el("h1", {}, "📥 Savol yuklash"), el("div", { class: "hint" }, "Yopiq (Javob: B) va ochiq (a) … => javob) savollar."),
     selS, selT, ta,
     el("div", { class: "row", style: "margin:8px 0" },

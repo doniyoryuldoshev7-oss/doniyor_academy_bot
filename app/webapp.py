@@ -198,6 +198,15 @@ async def page(request: web.Request):
 # ---------------------------------------------------------------
 #  API
 # ---------------------------------------------------------------
+async def _panel_flag(tg_id):
+    try:
+        from .webapp_admin import has_panel
+
+        return bool(await has_panel(tg_id))
+    except Exception:
+        return False
+
+
 async def api_me(request: web.Request):
     async with SessionLocal() as session:
         user = await session.get(User, request["user_id"])
@@ -205,6 +214,7 @@ async def api_me(request: web.Request):
         "name": user.full_name, "group": user.group_name,
         "tests": user.total_tests,
         "staff": await _is_staff(request["tg_id"]),
+        "panel": await _panel_flag(request["tg_id"]),
     })
 
 
