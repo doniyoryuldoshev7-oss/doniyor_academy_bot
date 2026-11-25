@@ -22,6 +22,7 @@
     if (ME.admin) t.push(menuTile("book", "b", "Fanlar", "Fan, mavzu, savollar", fanlar));
     t.push(menuTile("list", "o", "Savol qo'shish", "Bitta yoki ko'p savol", savolHub));
     if (ME.admin) t.push(menuTile("upload", "g", "Export / Import", "Excel, CSV, Word", eximHub));
+    if (ME.admin) t.push(menuTile("chart", "p", "Savollar sifati", "Shubhali va qiyin savollar", () => (OQ.quality ? OQ.quality(admin) : soon("Savollar sifati"))));
     screen("Admin panel", "Kerakli bo'limni tanlang:", home, tiles(...t));
   }
 
@@ -233,8 +234,9 @@
     if (!ME.admin) return admin();
     screen("Export / Import", "Kerakli amalni tanlang:", admin, tiles(
       menuTile("upload", "b", "Excel/CSV import", "Fayldan savol yuklash", () => { S.importBack = eximHub; importScreen(); }),
-      menuTile("book", "o", "Word eksport", "Tez orada", () => soon("Word eksport"), { soon: true })));
+      menuTile("book", "o", "Word eksport", "Javobli yoki javobsiz", () => (OQ.wordExport ? OQ.wordExport(eximHub) : soon("Word eksport")))));
   }
 
   OQ.admin = admin;
+  OQ.adminQuestion = questionView;
 })();

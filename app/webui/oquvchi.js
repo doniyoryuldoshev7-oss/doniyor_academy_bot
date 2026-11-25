@@ -373,7 +373,7 @@
   };
 
   /* qo'shimcha bo'limlar (har biri alohida fayl; biri yuklanmasa, qolganlari ishlayveradi) */
-  ["takror", "diagnostika", "topshiriq", "admin"].forEach((n) => {
+  ["takror", "diagnostika", "topshiriq", "admin", "eksport"].forEach((n) => {
     const sc = document.createElement("script");
     sc.src = `/app/${n}.js`;
     document.head.append(sc);
