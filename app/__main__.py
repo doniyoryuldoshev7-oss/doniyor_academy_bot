@@ -254,6 +254,13 @@ async def main():
         flush=True,
     )
 
+    from .bot_commands import install_commands as _bc_install
+
+    print(
+        f">>> BUYRUQLAR MENYUSI: {await _bc_install(bot, settings.admins)}",
+        flush=True,
+    )
+
     from .services.review_reminder import reminder_loop
 
     reminder_task = asyncio.create_task(reminder_loop(bot))
