@@ -13,6 +13,8 @@ from __future__ import annotations
 
 import re
 from datetime import datetime
+
+from ..textfix import now_uz
 from io import BytesIO
 from pathlib import Path
 
@@ -105,7 +107,7 @@ def export_filename(
     stamp: datetime | None = None,
 ) -> str:
     """Masalan: DA_tarix_1_mavzu_javobli_2026-11-23.docx"""
-    moment = stamp or datetime.now()
+    moment = stamp or now_uz()
     suffix = "javobli" if with_answers else "javobsiz"
 
     return (
@@ -306,7 +308,7 @@ def build_questions_docx(
     stamp: datetime | None = None,
 ) -> bytes:
     """Savollar ro'yxatidan .docx fayl yasaydi va baytlarni qaytaradi."""
-    moment = stamp or datetime.now()
+    moment = stamp or now_uz()
 
     document = Document()
     _setup_styles(document)
@@ -344,7 +346,7 @@ def build_multi_topic_docx(
 
     sections = [(mavzu nomi, savollar ro'yxati), ...]
     """
-    moment = stamp or datetime.now()
+    moment = stamp or now_uz()
     total = sum(len(items) for _, items in sections)
 
     document = Document()

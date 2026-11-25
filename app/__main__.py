@@ -96,6 +96,12 @@ async def main():
         flush=True,
     )
 
+    # mavzu nomidagi & belgisini § ga avtomatik tuzatish (yangi va mavjud nomlar)
+    from .textfix import fix_existing as _tf_fix, install as _tf_install
+
+    _tf_install()
+    print(f"MAVZU NOMLARI: tuzatildi={await _tf_fix()}", flush=True)
+
     # Oldin tugagan guruh testlarini test tarixiga qo'shish (bir marta)
     from .services.group_results import backfill_group_attempts
 

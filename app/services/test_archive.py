@@ -17,6 +17,8 @@ from __future__ import annotations
 import html
 import logging
 from datetime import datetime
+
+from ..textfix import now_uz
 from pathlib import Path
 
 from aiogram.types import BufferedInputFile
@@ -58,7 +60,7 @@ def build_caption(
         "\U0001F4DA Fan: <b>" + html.escape(subject_name or "—") + "</b>",
         "\U0001F4D6 Mavzu: <b>" + html.escape(topic_name or "—") + "</b>",
         "\U0001F522 Savollar: <b>" + str(count) + "</b>",
-        "\U0001F553 " + datetime.now().strftime("%d.%m.%Y %H:%M"),
+        "\U0001F553 " + now_uz().strftime("%d.%m.%Y %H:%M"),
     ]
 
     if author:
