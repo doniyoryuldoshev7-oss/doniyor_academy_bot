@@ -374,7 +374,7 @@
   };
 
   /* qo'shimcha bo'limlar (har biri alohida fayl; biri yuklanmasa, qolganlari ishlayveradi) */
-  ["takror", "diagnostika", "topshiriq", "admin", "eksport", "users", "hisobot", "usersx", "ustoz", "ustozt"].forEach((n) => {
+  ["takror", "diagnostika", "topshiriq", "admin", "eksport", "users", "hisobot", "usersx", "ustoz", "ustozt", "imtihon"].forEach((n) => {
     const sc = document.createElement("script");
     sc.src = `/app/${n}.js`;
     document.head.append(sc);
