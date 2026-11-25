@@ -106,8 +106,8 @@ async def export_start(c: CallbackQuery):
     rows.append(
         [
             InlineKeyboardButton(
-                text="⚙️ Admin panel",
-                callback_data="admin",
+                text="⬅️ Orqaga",
+                callback_data="adm:g:exim",
             )
         ]
     )

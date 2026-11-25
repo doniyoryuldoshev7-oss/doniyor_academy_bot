@@ -364,7 +364,7 @@ async def delete_subject_menu(c: CallbackQuery):
         for subject in subjects
     ]
 
-    buttons.append([InlineKeyboardButton(text="⬅️ Admin panel", callback_data="admin")])
+    buttons.append([InlineKeyboardButton(text="⬅️ Orqaga", callback_data="adm:g:fan")])
 
     await c.message.edit_text(
         "🗑 <b>FANNI O'CHIRISH</b>\n\n" "O'chirmoqchi bo'lgan fanni tanlang:",

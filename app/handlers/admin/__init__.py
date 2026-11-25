@@ -20,8 +20,10 @@ from . import foydalanuvchilar  # noqa: E402
 from . import rollar  # noqa: E402
 from . import oquvchi_boshqaruv  # noqa: E402
 from . import oqituvchilar  # noqa: E402
+from . import guruhlar  # noqa: E402
 
 router.include_router(asosiy.router)
+router.include_router(guruhlar.router)
 router.include_router(ommaviy_savol.router)
 router.include_router(savol_qoshish.router)
 router.include_router(fayl_import.router)

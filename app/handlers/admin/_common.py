@@ -83,6 +83,24 @@ def is_admin(uid: int) -> bool:
 
 
 def admin_menu(limited=False):
+    """Admin menyu: Fanlar / Savol qo'shish / Export-Import guruhlari (eski menyudan filtrlab olinadi)."""
+    old = _admin_menu_eski(limited)
+    if limited:
+        return old
+    drop = {
+        "adm:add_subject", "adm:add_topic", "adm:add_question", "adm:add_questions_bulk",
+        "adm:import", "adm:export", "adm:catalog", "adm:delete_subject_menu",
+    }
+    rows = [r for r in old.inline_keyboard if not any(b.callback_data in drop for b in r)]
+    hub = [
+        [InlineKeyboardButton(text="\U0001F4DA Fanlar", callback_data="adm:g:fan")],
+        [InlineKeyboardButton(text="\u2795 Savol qo'shish", callback_data="adm:g:sav")],
+        [InlineKeyboardButton(text="\U0001F4E4 Export / Import", callback_data="adm:g:exim")],
+    ]
+    return InlineKeyboardMarkup(inline_keyboard=hub + rows)
+
+
+def _admin_menu_eski(limited=False):
     if limited:
         return InlineKeyboardMarkup(
             inline_keyboard=[

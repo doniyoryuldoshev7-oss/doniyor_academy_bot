@@ -1,0 +1,18 @@
+========== TOZALASH 2 ==========
+Ko'chirildi: 5 ta
+  tools/fix_admin_157.py
+  tools/fix_admin_encoding.py
+  tools/fix_line.py
+  tools/repair_admin.py
+  tools/repair_admin_full.py
+[master 8a59e66] Tozalash: eski bir martalik tuzatish skriptlari olib tashlandi (tools)
+ 5 files changed, 181 deletions(-)
+ delete mode 100644 tools/fix_admin_157.py
+ delete mode 100644 tools/fix_admin_encoding.py
+ delete mode 100644 tools/fix_line.py
+ delete mode 100644 tools/repair_admin.py
+ delete mode 100644 tools/repair_admin_full.py
+To https://github.com/doniyoryuldoshev7-oss/doniyor_academy_bot.git
+   a18dfaf..8a59e66  master -> master
+
+TAYYOR

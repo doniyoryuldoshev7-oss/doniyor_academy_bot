@@ -57,7 +57,7 @@ async def catalog(c: CallbackQuery):
         for sub in subjects
     ]
 
-    buttons.append([InlineKeyboardButton(text="⬅️ Admin panel", callback_data="admin")])
+    buttons.append([InlineKeyboardButton(text="⬅️ Orqaga", callback_data="adm:g:fan")])
 
     await c.message.edit_text(
         "📚 <b>Fanlar</b>\n\nKerakli fanni tanlang:",

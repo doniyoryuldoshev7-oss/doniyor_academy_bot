@@ -1,0 +1,55 @@
+==================================================
+  ZAXIRA NUSXALARNI TOZALASH
+==================================================
+_arxiv_eski/bak_20261125_1221/ ga ko'chirildi: 51 ta
+   app/__main__.py.bak_before_imtihon
+   app/__main__.py.bak_before_menyu
+   app/__main__.py.bak_before_milliy
+   app/__main__.py.bak_before_profil
+   app/__main__.py.bak_before_savol
+   app/__main__.py.bak_before_ustoz
+   app/__main__.py.bak_before_veb
+   app/admin_roles.py.bak_before_ustoz
+   app/handlers/admin/__init__.py.bak_before_profil
+   app/handlers/admin/__init__.py.bak_before_ustoz
+   app/handlers/admin/_common.py.bak_before_imtihon
+   app/handlers/admin/_common.py.bak_before_nomlar
+   app/handlers/admin/_common.py.bak_before_savol
+   app/handlers/admin/_common.py.bak_before_ustoz
+   app/handlers/admin/asosiy.py.bak_before_ustoz
+   app/handlers/admin/foydalanuvchilar.py.bak_before_blok
+   app/handlers/admin/foydalanuvchilar.py.bak_before_profil
+   app/handlers/assignments.py.bak_before_ustoz3
+   app/handlers/diagnostic.py.bak_before_orqaga
+   app/handlers/imtihon.py.bak_before_menyu
+   app/handlers/imtihon.py.bak_before_milliy
+   app/handlers/imtihon.py.bak_before_orqaga
+   app/handlers/imtihon.py.bak_before_savol
+   app/handlers/imtihon_ustoz.py.bak_before_fanlar
+   app/handlers/imtihon_ustoz.py.bak_before_milliy
+   app/handlers/imtihon_ustoz.py.bak_before_nomlar
+   app/handlers/imtihon_ustoz.py.bak_before_savol
+   app/handlers/knowledge_map.py.bak_before_orqaga
+   app/handlers/oqituvchi.py.bak_before_imtihon
+   app/handlers/oqituvchi.py.bak_before_nomlar
+   app/handlers/savol_yuklash.py.bak_before_nomlar
+   app/handlers/start.py.bak_before_menyu
+   app/handlers/start.py.bak_before_ustoz
+   app/handlers/start.py.bak_before_ustoz2
+   app/handlers/student.py.bak_before_milliy
+   app/handlers/student.py.bak_before_orqaga
+   app/handlers/student.py.bak_before_ustoz
+   app/keyboards.py.bak_before_imtihon
+   app/keyboards.py.bak_before_menyu
+   app/keyboards.py.bak_before_ustoz
+   app/keyboards.py.bak_before_veb
+   app/models.py.bak_before_imtihon
+   app/models.py.bak_before_savol
+   app/models.py.bak_before_ustoz
+   app/services/assignments.py.bak_before_ustoz3
+   app/services/imtihon.py.bak_before_fanlar
+   app/services/imtihon.py.bak_before_savol
+   app/webapp.py.bak_before_savol
+   app/webapp.py.bak_before_stats
+   app/webui/index.html.bak_before_savol
+   app/webui/index.html.bak_before_veb2

@@ -60,6 +60,11 @@ async def cancel(c: CallbackQuery, state: FSMContext):
         return
 
     # 1. Admin holatlarini tozalaymiz
+    _g = (await state.get_data()).get("g")
+    if _g:
+        from .guruhlar import show_section
+        if await show_section(c, state, _g):
+            return
     await state.clear()
 
     # 2. Sizning asl bosh menyu tugmalaringizni olamiz
