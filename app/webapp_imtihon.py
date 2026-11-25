@@ -15,6 +15,7 @@ from sqlalchemy import select
 
 from .db import SessionLocal
 from .numfmt import round_half_up
+from .tg_retry import send_message as _tg_send
 
 log = logging.getLogger(__name__)
 
@@ -242,7 +243,7 @@ async def _announce_job(eid, owner_text, students, text, markup_data):
         async with _Bot() as bot:
             for tg in students:
                 try:
-                    await bot.send_message(tg, text, reply_markup=markup)
+                    await _tg_send(bot, tg, text, reply_markup=markup)
                     st["sent"] += 1
                 except Exception as e:  # noqa: BLE001
                     st["failed"] += 1

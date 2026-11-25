@@ -14,6 +14,7 @@ from aiohttp import web
 from sqlalchemy import func, select
 
 from .db import SessionLocal
+from .tg_retry import send_message as _tg_send
 
 log = logging.getLogger(__name__)
 
@@ -210,7 +211,7 @@ async def _send_job(aid, students, subject, topic, required, deadline, topic_id,
         async with _Bot() as bot:
             for tg in students:
                 try:
-                    await bot.send_message(tg, text, reply_markup=kb)
+                    await _tg_send(bot, tg, text, reply_markup=kb)
                     st["sent"] += 1
                 except Exception as e:  # noqa: BLE001
                     log.warning("veb: topshiriq xabari yuborilmadi (%s): %s", tg, e)

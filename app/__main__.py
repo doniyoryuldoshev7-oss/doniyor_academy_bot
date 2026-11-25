@@ -237,12 +237,34 @@ async def main():
         + webhook_path
     )
 
-    await bot.set_webhook(
-        webhook_url,
-        drop_pending_updates=True,
-        secret_token=wh_secret,
-        allowed_updates=dp.resolve_used_update_types(),
-    )
+    async def _set_wh():
+        await bot.set_webhook(
+            webhook_url,
+            drop_pending_updates=True,
+            secret_token=wh_secret,
+            allowed_updates=dp.resolve_used_update_types(),
+        )
+
+    from .tg_retry import retry as _tg_retry
+
+    try:
+        await _tg_retry(_set_wh, tries=6)
+    except Exception as exc:
+        logging.getLogger(__name__).error(
+            "Webhook o'rnatilmadi (%s). Bot yiqilmaydi, orqada qayta urinadi.", exc
+        )
+
+        async def _wh_forever():
+            while True:
+                await asyncio.sleep(30)
+                try:
+                    await _set_wh()
+                    logging.getLogger(__name__).info("Webhook o'rnatildi.")
+                    return
+                except Exception as exc2:
+                    logging.getLogger(__name__).warning("Webhook hali o'rnatilmadi: %s", exc2)
+
+        globals()["_WH_TASK"] = asyncio.create_task(_wh_forever())
 
     print(
         f">>> WEBHOOK SERVER STARTED: 0.0.0.0:{port}",
