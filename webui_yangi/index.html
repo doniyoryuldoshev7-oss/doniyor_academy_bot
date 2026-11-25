@@ -119,6 +119,24 @@
   .logo-img { height:44px; width:auto; border-radius:12px; flex:none; box-shadow:0 0 18px #3b8cff44; }
   .mascot { width:60px; height:60px; border-radius:50%; object-fit:cover; border:2px solid #3b8cff66; box-shadow:0 0 20px #3b8cff44; flex:none; }
   .motto { font-style:italic; color:var(--gold2); font-size:13.5px; margin-top:2px; }
+  .mt { display:grid; grid-template-columns:1fr 1fr; gap:10px; margin:12px 0; }
+  .mt > div { display:flex; align-items:center; gap:10px; padding:12px 10px; border-radius:16px; cursor:pointer; position:relative; min-width:0;
+    background:linear-gradient(160deg,#ffffff0d,#ffffff04); border:1px solid var(--line); }
+  .mt > div:active { background:var(--s2); }
+  .mt .ic { width:40px; height:40px; border-radius:12px; display:grid; place-items:center; font-size:20px; flex:none; }
+  .mt b { display:block; font-size:14.5px; line-height:1.2; } .mt small { display:block; color:var(--h); font-size:11.5px; line-height:1.25; margin-top:2px; }
+  .mt .go2 { margin-left:auto; color:var(--b2); font-size:15px; flex:none; }
+  .mt .soon { position:absolute; right:8px; top:6px; font-size:9.5px; font-weight:700; color:var(--o); background:#ffb84a1a; padding:1px 6px; border-radius:99px; }
+  .mt .badge { right:8px; top:6px; min-width:18px; height:18px; font-size:10.5px; }
+  .chan { display:flex; align-items:center; justify-content:center; gap:10px; width:100%; border:0; border-radius:16px; padding:14px; margin:4px 0 12px; color:#fff; font-size:16px; font-weight:700;
+    background:linear-gradient(90deg,#1d63e0,#3b8cff); box-shadow:0 8px 22px #2f6fe044; cursor:pointer; font-family:inherit; }
+  .stats3 { display:grid; grid-template-columns:repeat(3,1fr); gap:8px; margin:0 0 12px; }
+  .stats3 > div { background:linear-gradient(160deg,#ffffff0d,#ffffff04); border:1px solid var(--line); border-radius:16px; padding:11px 8px; text-align:center; }
+  .stats3 .ic { width:34px; height:34px; margin:0 auto 6px; border-radius:11px; display:grid; place-items:center; font-size:18px; }
+  .stats3 b { display:block; font-size:18px; } .stats3 small { color:var(--h); font-size:11.5px; line-height:1.2; display:block; margin-top:2px; }
+  .strip { display:flex; align-items:center; justify-content:space-between; gap:12px; background:var(--s1); border:1px solid var(--line); border-radius:18px; padding:13px 14px; margin:14px 0 4px; font-size:13px; font-style:italic; color:var(--h); }
+  .strip i { font-style:normal; }
+  .help li { margin:6px 0; } .help ol, .help ul { padding-left:20px; margin:6px 0; }
   .foot { text-align:center; color:var(--h); font-size:13px; font-style:italic; margin:22px 0 4px; }
 </style>
 </head>
@@ -139,6 +157,11 @@
 <symbol id="i-trophy" viewBox="0 0 24 24"><path d="M8 4h8v6a4 4 0 0 1-8 0zM8 6H4v2a4 4 0 0 0 4 4M16 6h4v2a4 4 0 0 1-4 4M12 14v4M8 21h8"/></symbol>
 <symbol id="i-upload" viewBox="0 0 24 24"><path d="M4 16v4h16v-4M12 3v12M8 7l4-4 4 4"/></symbol>
 <symbol id="i-check" viewBox="0 0 24 24"><path d="M5 12l5 5 9-10"/></symbol>
+<symbol id="i-book" viewBox="0 0 24 24"><path d="M4 5a2 2 0 0 1 2-2h13v16H6a2 2 0 0 0-2 2z"/><path d="M4 21V5"/></symbol>
+<symbol id="i-gear" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3M5 5l2 2M17 17l2 2M19 5l-2 2M7 17l-2 2"/></symbol>
+<symbol id="i-help" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M9.5 9.5a2.5 2.5 0 1 1 3.5 2.3c-.7.4-1 .9-1 1.7M12 17h.01"/></symbol>
+<symbol id="i-send" viewBox="0 0 24 24"><path d="M21 3L3 11l7 3 3 7z"/><path d="M10 14l11-11"/></symbol>
+<symbol id="i-users" viewBox="0 0 24 24"><circle cx="9" cy="8" r="3.5"/><path d="M2 20c.7-3.5 3.5-5 7-5s6.3 1.5 7 5M16 5a3.5 3.5 0 0 1 0 6M18 15c2 .6 3.5 2 4 5"/></symbol>
 <symbol id="i-user" viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 21c1-4 4-6 8-6s7 2 8 6"/></symbol>
 </defs></svg>
 <div id="app"></div>
@@ -256,11 +279,11 @@ function page(...nodes) { show({ focus: false }, ...nodes, tabBar()); }
 function topBar() {
   return el("div", { class: "top" }, el("img", { class: "logo-img", src: IMG.logo, alt: "" }),
     el("div", { class: "grow" }, el("div", { class: "wm" }, "Doniyor Academy", el("small", {}, "BILIM · TAJRIBA · NATIJA"))),
-    S.me ? el("span", { class: "chip" }, icon("check"), `${S.me.tests} test`) : null);
+    null);
 }
 async function load() {
-  const [me, data] = await Promise.all([api("/api/me"), api("/api/exams")]);
-  S.me = me; S.exams = data.exams || [];
+  const [me, data, st] = await Promise.all([api("/api/me"), api("/api/exams"), api("/api/stats").catch(() => null)]);
+  S.me = me; S.exams = data.exams || []; S.stats = st;
 }
 async function openTab(id) {
   S.tab = id; stopTimer(); closing(false); backTo(null);
@@ -279,30 +302,70 @@ function examCard(ex) {
     el("div", { class: "row" }, el("div", { class: "grow" }, el("b", {}, ex.title),
       el("div", { class: "hint" }, `${ex.subject} · ${ex.duration} daqiqa${ex.mode === "milliy" ? " · Milliy sertifikat" : ""}`)), tag));
 }
+function soon(name) { toast(`«${name}» bo'limi tayyorlanmoqda. Tez orada!`); }
+function fmtNum(n) { return String(n).replace(/\B(?=(\d{3})+(?!\d))/g, " "); }
+function menuTile(ic, color, title, sub, onclick, opts) {
+  opts = opts || {};
+  return el("div", { onclick }, opts.soon ? el("span", { class: "soon" }, "Tez orada") : null,
+    opts.badge ? el("span", { class: "badge" }, String(opts.badge)) : null,
+    el("div", { class: "ic " + color }, icon(ic)),
+    el("div", { class: "grow" }, el("b", {}, title), el("small", {}, sub)),
+    el("span", { class: "go2" }, icon("chev")));
+}
 function home() {
   const ex = S.exams, act = ex.find((e) => e.state === "active"), fresh = ex.find((e) => e.state === "new");
-  const lead = act || fresh;
+  const open = ex.filter((e) => e.state !== "done").length;
+  const cta = (lead) => el("div", { class: "cta", onclick: () => info(lead) },
+    el("small", {}, lead.state === "active" ? "Davom eting" : "Yangi imtihon"), el("b", {}, lead.title),
+    el("div", { style: "font-size:13px;color:#d9e9ff" }, `${lead.subject} · ${lead.duration} daqiqa`),
+    el("span", { class: "go" }, icon("play"), lead.state === "active" ? "Davom etish" : "Ochish"));
   const nodes = [hero(),
     el("div", { class: "glass row" }, el("div", { class: "grow" },
-      el("b", { style: "font-size:17px" }, `Xush kelibsiz, ${S.me.name}!`),
-      el("div", { class: "hint" }, S.me.group ? `Guruh: ${S.me.group}` : "Bugun ham bir qadam oldinga!"),
-      el("div", { class: "motto" }, "«Har bir yutuq bilimdan boshlanadi!»")),
-      el("span", { class: "chip" }, icon("check"), `${S.me.tests} test`))];
-  if (lead) nodes.push(el("div", { class: "cta", onclick: () => info(lead) },
-    el("small", {}, act ? "Davom eting" : "Yangi imtihon"), el("b", {}, lead.title),
-    el("div", { style: "font-size:13px;color:#d9e9ff" }, `${lead.subject} · ${lead.duration} daqiqa`),
-    el("span", { class: "go" }, icon("play"), act ? "Davom etish" : "Ochish")));
-  else nodes.push(el("div", { class: "glass" }, el("b", {}, "Hozircha yangi imtihon yo'q"), el("div", { class: "hint" }, "Ustoz yangi imtihon qo'shganda shu yerda ko'rinadi.")));
-  const open = ex.filter((e) => e.state !== "done").length, done = ex.filter((e) => e.state === "done").length;
-  nodes.push(el("div", { class: "tiles" },
-    el("div", { class: "tile", onclick: () => openTab("exams") }, open ? el("span", { class: "badge" }, String(open)) : null,
-      el("div", { class: "ic b" }, icon("clip")), el("b", {}, "Imtihon"), el("small", {}, "boshlash va davom etish")),
-    el("div", { class: "tile", onclick: () => openTab("results") },
-      el("div", { class: "ic g" }, icon("chart")), el("b", {}, "Natijam"), el("small", {}, `${done} ta topshirilgan`))));
-  const rest = ex.filter((e) => e !== lead).slice(0, 3);
-  if (rest.length) { nodes.push(el("div", { class: "sec" }, "Boshqa imtihonlar")); rest.forEach((e) => nodes.push(examCard(e))); }
-  nodes.push(el("div", { class: "foot" }, "Bilim bugunning imkoniyati, ertalabning muvaffaqiyati!"));
+      el("b", { style: "font-size:18px" }, "Xush kelibsiz, " + S.me.name + "!"),
+      el("div", { class: "hint" }, "Doniyor Academy botiga!"),
+      el("div", { class: "hint", style: "margin-top:4px" }, "Bu bot orqali siz ta'lim jarayonini yanada oson va samarali tashkil qilishingiz mumkin."),
+      el("div", { class: "motto" }, "«Har bir yutuq bilimdan boshlanadi!»")))];
+  if (act) nodes.push(cta(act));
+  nodes.push(el("div", { class: "mt" },
+    menuTile("clip", "b", "Test yechish", "O'zingizni sinab ko'ring", () => openTab("exams"), { badge: open }),
+    menuTile("book", "o", "Mavzular", "Mavzular ro'yxati", () => soon("Mavzular"), { soon: true }),
+    menuTile("chart", "b", "Natijalarim", "Natijalarni ko'rish", () => openTab("results")),
+    menuTile("user", "g", "Profilim", "Shaxsiy ma'lumotlar", () => openTab("more")),
+    menuTile("gear", "p", "Sozlamalar", "Til va boshqa", () => soon("Sozlamalar"), { soon: true }),
+    menuTile("help", "b", "Yordam", "Qo'llanma va savollar", helpScreen)));
+  const st = S.stats;
+  if (st && st.channel) nodes.push(el("button", { class: "chan", onclick: () => {
+    try { if (tg && /^https:\/\/t\.me\//.test(st.channel)) return tg.openTelegramLink(st.channel); } catch (e) {}
+    window.open(st.channel, "_blank");
+  } }, icon("send"), "Doniyor Academy kanali"));
+  if (st && typeof st.users === "number") nodes.push(el("div", { class: "stats3" },
+    el("div", {}, el("div", { class: "ic b" }, icon("users")), el("b", {}, fmtNum(st.users)), el("small", {}, "Foydalanuvchilar")),
+    el("div", {}, el("div", { class: "ic o" }, icon("check")), el("b", {}, fmtNum(st.tests)), el("small", {}, "Yechilgan testlar")),
+    el("div", {}, el("div", { class: "ic g" }, icon("trophy")), el("b", {}, fmtNum(st.exams)), el("small", {}, "Topshirilgan imtihonlar"))));
+  if (!act) {
+    if (fresh) nodes.push(cta(fresh));
+    else nodes.push(el("div", { class: "glass row" }, mascot(), el("div", { class: "grow" }, el("b", {}, "Hozircha yangi imtihon yo'q"), el("div", { class: "hint" }, "Ustoz yangi imtihon qo'shganda shu yerda ko'rinadi."))));
+  }
+  const rest = ex.filter((e) => e !== act && e !== (act ? null : fresh)).slice(0, 3);
+  if (rest.length) { nodes.push(el("div", { class: "sec" }, "Imtihonlar")); rest.forEach((e) => nodes.push(examCard(e))); }
+  nodes.push(el("div", { class: "strip" }, el("span", {}, "Bilim bugunning imkoniyati, ertalabning muvaffaqiyati!"), el("i", {}, "❤️ Doniyor Academy — har doim siz bilan!")));
   page(...nodes);
+}
+function helpScreen() {
+  backTo(() => openTab("home"));
+  show({ focus: false }, el("button", { class: "x", style: "margin-bottom:8px", onclick: () => openTab("home") }, icon("left")),
+    el("h1", {}, "Yordam"),
+    el("div", { class: "card help" }, el("h2", {}, "Imtihon qanday topshiriladi"), el("ol", {},
+      el("li", {}, "«Imtihon» bo'limida imtihonni tanlab, «Boshlash» ni bosing."),
+      el("li", {}, "Boshlagandan keyin vaqt to'xtamaydi. Ilovadan chiqsangiz ham ketaveradi, qaytib kirib davom ettirasiz."),
+      el("li", {}, "Javoblaringiz avtomatik saqlanadi. «Savollar» tugmasi bilan istalgan savolga o'tishingiz mumkin."),
+      el("li", {}, "Yozma savolda har bir qismga (a, b) alohida javob yozing."),
+      el("li", {}, "«Yakunlash» ni bossangiz, javoblarni o'zgartirib bo'lmaydi."))),
+    el("div", { class: "card help" }, el("h2", {}, "Natija"), el("ul", {},
+      el("li", {}, "Milliy sertifikat imtihonida ball 75 ballik shkalada hisoblanadi: A+ 70 dan, A 65 dan, B+ 60 dan, B 55 dan, C+ 50 dan, C 46 dan."),
+      el("li", {}, "Bu mashq uchun taxminiy ball, rasmiy natija emas."),
+      el("li", {}, "Xatolar tahlili imtihon muddati tugagach ochiladi."))),
+    tabBar());
 }
 function examsTab() {
   const nodes = [topBar(), el("h1", {}, "Imtihonlar")];
@@ -326,18 +389,13 @@ function moreTab() {
   const me = S.me;
   const nodes = [topBar(),
     el("div", { class: "glass row" }, el("div", { class: "logo", style: "width:52px;height:52px;border-radius:50%" }, (me.name || "?")[0].toUpperCase()),
-      el("div", { class: "grow" }, el("b", {}, me.name), el("div", { class: "hint" }, me.group ? `Guruh: ${me.group}` : "Guruhsiz")),
-      el("span", { class: "chip" }, `${me.tests} test`))];
+      el("div", { class: "grow" }, el("b", {}, me.name), el("div", { class: "hint" }, me.group ? `Guruh: ${me.group}` : "Guruhsiz")))];
   if (me.staff) {
     nodes.push(el("div", { class: "sec" }, "Ustoz uchun"));
     nodes.push(el("div", { class: "card tap", onclick: importScreen }, el("div", { class: "row" },
       el("div", { class: "ic o", style: "margin:0;width:38px;height:38px;border-radius:12px;display:grid;place-items:center;font-size:19px;flex:none" }, icon("upload")),
-      el("div", { class: "grow" }, el("b", {}, "📥 Savol yuklash"), el("div", { class: "hint" }, "Matn, Word, Excel yoki rasm")), icon("chev"))));
+      el("div", { class: "grow" }, el("b", {}, "Savol yuklash"), el("div", { class: "hint" }, "Matn, Word, Excel yoki rasm")), icon("chev"))));
   }
-  nodes.push(el("div", { class: "sec" }, "Ilova haqida"));
-  nodes.push(el("div", { class: "card" }, el("div", { class: "stat" }, el("span", {}, "Imtihon qoidasi"), el("b", {}, "Vaqt to'xtamaydi")),
-    el("div", { class: "stat" }, el("span", {}, "Javoblar"), el("b", {}, "Avtomatik saqlanadi"))));
-  nodes.push(el("div", { class: "hint", style: "text-align:center;margin-top:14px" }, "Doniyor Academy"));
   page(...nodes);
 }
 

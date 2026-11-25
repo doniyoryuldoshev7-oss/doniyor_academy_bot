@@ -439,6 +439,7 @@ def setup_webapp(app: web.Application) -> None:
     app.middlewares.append(auth_middleware)
     app.router.add_get("/app", page)
     app.router.add_get("/api/me", api_me)
+    app.router.add_get("/api/stats", api_stats)
     app.router.add_get("/api/exams", api_exams)
     app.router.add_post("/api/exams/{id:\\d+}/start", api_exam_start)
     app.router.add_get("/api/attempts/{id:\\d+}", api_attempt)
@@ -614,3 +615,23 @@ async def _is_staff(tg_id):
         return bool(await can_import(tg_id))
     except Exception:
         return False
+
+
+async def api_stats(request: web.Request):
+    """Bosh sahifa uchun umumiy raqamlar (bazadan, haqiqiy)."""
+    import os
+
+    from sqlalchemy import func
+
+    async with SessionLocal() as session:
+        users = await session.scalar(
+            select(func.count()).select_from(User).where(User.registration_status == "approved")
+        )
+        solved = await session.scalar(select(func.coalesce(func.sum(User.total_tests), 0)))
+        exams = await session.scalar(
+            select(func.count()).select_from(ExamAttempt).where(ExamAttempt.status == "finished")
+        )
+    return web.json_response({
+        "users": int(users or 0), "tests": int(solved or 0), "exams": int(exams or 0),
+        "channel": (os.environ.get("CHANNEL_URL") or "https://t.me/TARIX_MILLIY_SERTIFIKAT_A111").strip(),
+    })
