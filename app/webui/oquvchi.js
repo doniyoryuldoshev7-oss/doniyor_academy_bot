@@ -52,6 +52,11 @@
     blobUrl(`/api/s/qimg/${id}`).then((u) => (img.src = u)).catch(() => img.remove());
     return img;
   }
+  /* variantlar: matni bo'lmasa (variantlar rasmda), A-D tugmalari chiqadi */
+  const optsOf = (o) => {
+    const e = Object.entries(o || {}).filter(([, t]) => t);
+    return e.length ? e : ["A", "B", "C", "D"].map((l) => [l, ""]);
+  };
   const bad = (text) => el("div", { class: "expl pre", style: "background:#ff6b7812;border-color:#ff6b7833;color:#ffd0d4" }, text);
   const good = (text) => el("div", { class: "expl pre" }, text);
 
@@ -69,8 +74,7 @@
     if (c.src) nodes.push(el("div", { class: "src" }, c.src));
     if (q.t) nodes.push(el("div", { class: "q pre" }, q.t));
     if (q.img) nodes.push(qimage(q.id));
-    for (const [letter, text] of Object.entries(q.o)) {
-      if (!text) continue;
+    for (const [letter, text] of optsOf(q.o)) {
       let cls = "opt";
       if (a) { cls += " static"; if (letter === a.correct) cls += " right"; else if (letter === a.sel) cls += " wrong"; }
       nodes.push(el("button", { class: cls, onclick: () => { if (!a) c.onPick(letter); } },
@@ -91,7 +95,7 @@
       tiles(
         menuTile("book", "b", "Fanlar", "Fan va mavzu bo'yicha test", subjects),
         menuTile("clip", "o", "Milliy sertifikat", "Milliy sertifikat imtihoni", () => openTab("exams")),
-        menuTile("target", "p", "Diagnostika", "Bilim darajasini aniqlash", () => soon("Diagnostika"), { soon: true })));
+        menuTile("target", "p", "Diagnostika", "Bilim darajasini aniqlash", () => (window.OQ.diagnostika ? window.OQ.diagnostika() : soon("Diagnostika")))));
   }
   function profileHub() {
     stopTimer(); closing(false);
@@ -147,11 +151,11 @@
 
   const Q = { topic: null, qs: [], i: 0, ans: {}, busy: false };
 
-  async function startQuiz(topicId, size) {
+  async function startQuiz(topicId, size, from) {
     let d;
     try { d = await api("/api/s/start", { method: "POST", body: JSON.stringify({ topic_id: topicId, size }) }); }
     catch (e) { return toast(e.message); }
-    Object.assign(Q, { topic: d.topic, qs: d.questions, i: 0, ans: {}, busy: false });
+    Object.assign(Q, { topic: d.topic, qs: d.questions, i: 0, ans: {}, busy: false, from: from || null });
     closing(true);
     quizView();
   }
@@ -196,9 +200,11 @@
         answers: Object.entries(Q.ans).map(([qid, v]) => ({ qid: Number(qid), sel: v.sel })) }) });
     } catch (e) { toast(e.message); return quizView(); }
     closing(false);
-    backTo(testHub);
+    const fromAsg = Q.from === "asg" && window.OQ.assignments;
+    const goBack = fromAsg ? () => window.OQ.assignments() : testHub;
+    backTo(goBack);
     showN({ focus: false },
-      el("button", { class: "x", style: "margin-bottom:8px", onclick: testHub, "aria-label": "Orqaga" }, icon("left")),
+      el("button", { class: "x", style: "margin-bottom:8px", onclick: goBack, "aria-label": "Orqaga" }, icon("left")),
       el("div", { class: "row" }, el("div", { class: "grow" }, el("h1", {}, "Test natijasi"), el("div", { class: "hint" }, Q.topic.name)), mascot()),
       el("div", { style: "text-align:center" },
         el("div", { class: "big" }, el("div", { class: "score", style: `--p:${r.pct}` }, el("i", {}, el("div", {}, el("b", {}, `${r.pct}%`), el("small", {}, `${r.correct}/${r.total}`))))),
@@ -207,8 +213,9 @@
         el("div", {}, String(r.correct), el("small", {}, "to'g'ri")),
         el("div", {}, String(r.total - r.correct), el("small", {}, "xato yoki javobsiz")),
         el("div", {}, `+${r.score}`, el("small", {}, "ball"))),
-      el("button", { class: "btn gold", onclick: () => attempt(r.attempt_id, testHub) }, "📖 Test tafsilotlari"),
+      el("button", { class: "btn gold", onclick: () => attempt(r.attempt_id, goBack) }, "📖 Test tafsilotlari"),
       el("button", { class: "btn alt", onclick: errors }, icon("alert"), "Mening xatolarim"),
+      fromAsg ? el("button", { class: "btn alt", onclick: goBack }, "Topshiriqlarim") : null,
       el("button", { class: "btn alt", onclick: testHub }, "Sinov va imtihon"),
       tabBar());
   }
@@ -242,8 +249,7 @@
       const card = el("div", { class: "card" }, el("b", {}, `${it.ok ? "✅" : "❌"} ${i + 1}-savol`));
       if (it.t) card.append(el("div", { class: "pre", style: "margin:6px 0" }, it.t));
       if (it.img) card.append(qimage(it.id));
-      for (const [letter, text] of Object.entries(it.o)) {
-        if (!text) continue;
+      for (const [letter, text] of optsOf(it.o)) {
         card.append(el("div", { class: "opt static " + (letter === it.c ? "right" : letter === it.yours ? "wrong" : "") },
           el("em", {}, letter), el("span", { class: "pre grow" }, text)));
       }
@@ -328,8 +334,7 @@
     const nodes = [el("div", { class: "hint" }, "To'g'ri javobni toping.")];
     if (q.t) nodes.push(el("div", { class: "q pre" }, q.t));
     if (q.img) nodes.push(qimage(q.id));
-    for (const [letter, text] of Object.entries(q.o)) {
-      if (!text) continue;
+    for (const [letter, text] of optsOf(q.o)) {
       const w = wrong.includes(letter);
       nodes.push(el("button", { class: "opt" + (w ? " wrong static" : ""), onclick: () => { if (!w) solve(q, page, letter, wrong); } },
         el("em", {}, letter), el("span", { class: "pre grow" }, text)));
@@ -354,13 +359,21 @@
   }
 
   window.OQ = {
-    testHub, profileHub, resultTiles, subjects, history, profile, stats, leaderboard, errors,
-    knowledge: null, smart: null,
+    testHub, profileHub, resultTiles, subjects, history, profile, stats, leaderboard, errors, startQuiz,
+    openTopic: async (sid, tid) => {
+      try {
+        const d = await api(`/api/s/topics/${sid}`);
+        const t = d.topics.find((x) => x.id === tid);
+        if (t && t.count) return topicInfo(sid, t);
+      } catch (e) { toast(e.message); }
+      topics(sid);
+    },
+    knowledge: null, smart: null, diagnostika: null, assignments: null,
     u: { screen, tiles, stat, empty, qimage, pc, wait, good, bad, questionView, toOrigin },
   };
 
   /* qo'shimcha bo'limlar (har biri alohida fayl; biri yuklanmasa, qolganlari ishlayveradi) */
-  ["takror"].forEach((n) => {
+  ["takror", "diagnostika", "topshiriq"].forEach((n) => {
     const sc = document.createElement("script");
     sc.src = `/app/${n}.js`;
     document.head.append(sc);

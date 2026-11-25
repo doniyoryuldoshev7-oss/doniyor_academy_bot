@@ -332,7 +332,7 @@ function home() {
     menuTile("clip", "b", "Sinov va imtihon", "O'zingizni sinab ko'ring", () => (window.OQ ? window.OQ.testHub() : openTab("exams")), { badge: open }),
     menuTile("alert", "o", "Mening xatolarim", "Xatolarni qayta ishlash", () => (window.OQ ? window.OQ.errors() : soon("Mening xatolarim"))),
     menuTile("brain", "p", "Smart Takrorlash", "Xotirani mustahkamlash", () => (window.OQ && window.OQ.smart ? window.OQ.smart() : soon("Smart Takrorlash"))),
-    menuTile("list", "b", "Topshiriqlar", "Ustoz topshiriqlari", () => soon("Topshiriqlar"), { soon: true }),
+    menuTile("list", "b", "Topshiriqlar", "Ustoz topshiriqlari", () => (window.OQ && window.OQ.assignments ? window.OQ.assignments() : soon("Topshiriqlar"))),
     menuTile("chart", "b", "Natijalarim", "Natijalarni ko'rish", () => openTab("results")),
     menuTile("gear", "p", "Sozlamalar", "Til va boshqa", () => soon("Sozlamalar"), { soon: true }),
     menuTile("help", "b", "Yordam", "Qo'llanma va savollar", helpScreen)));
