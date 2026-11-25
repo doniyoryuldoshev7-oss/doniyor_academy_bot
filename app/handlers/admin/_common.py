@@ -97,7 +97,20 @@ def admin_menu(limited=False):
         [InlineKeyboardButton(text="\u2795 Savol qo'shish", callback_data="adm:g:sav")],
         [InlineKeyboardButton(text="\U0001F4E4 Export / Import", callback_data="adm:g:exim")],
     ]
-    return InlineKeyboardMarkup(inline_keyboard=hub + rows)
+    # Admin belgilagan tartib; qolganlari o'z joyida (asl tartibda) qoladi
+    first = ["exm:t", "adm:reminders", "adm:ust", "adm:assign", "adm:users", "adm:reports"]
+    pick = {}
+    for r in rows:
+        for b in r:
+            if b.callback_data in first and b.callback_data not in pick:
+                pick[b.callback_data] = r
+    head = [pick[k] for k in first if k in pick]
+    used = {id(r) for r in head}
+    tail = [r for r in rows if id(r) not in used]
+    # hub: Fanlar, Savol qo'shish, [Milliy sertifikat], Export/Import
+    return InlineKeyboardMarkup(
+        inline_keyboard=hub[:2] + head[:1] + hub[2:] + head[1:] + tail
+    )
 
 
 def _admin_menu_eski(limited=False):
