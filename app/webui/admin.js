@@ -24,6 +24,7 @@
     if (ME.admin || ME.editor) t.push(menuTile("list", "o", "Savol qo'shish", "Bitta yoki ko'p savol", savolHub));
     if (ME.admin || ME.teacher) t.push(menuTile("trophy", "p", "Milliy sertifikat imtihoni", "Imtihon yaratish va natijalar", () => (OQ.adminExam ? OQ.adminExam(admin) : soon("Milliy sertifikat imtihoni"))));
     if (ME.admin) t.push(menuTile("upload", "g", "Export / Import", "Excel, CSV, Word", eximHub));
+    if (ME.admin) t.push(menuTile("chart", "p", "E'lonlar", "Hammaga xabar yuborish", () => (OQ.adminAds ? OQ.adminAds(admin) : soon("E'lonlar"))));
     if (ME.admin) t.push(menuTile("clock", "o", "Eslatmalar", "Eslatma sozlamalari", () => (OQ.adminReminders ? OQ.adminReminders(admin) : soon("Eslatmalar"))));
     if (ME.admin) t.push(menuTile("users", "g", "Ustozlar", "Ustozlarni boshqarish", () => (OQ.adminTeachers ? OQ.adminTeachers(admin) : soon("Ustozlar"))));
     if (ME.admin || ME.teacher) t.push(menuTile("list", "b", "Ustoz topshirig'i", "Topshiriqlar va natijalari", () => (OQ.adminAssign ? OQ.adminAssign(admin) : soon("Ustoz topshirig'i"))));
