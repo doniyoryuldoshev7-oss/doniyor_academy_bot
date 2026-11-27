@@ -17,7 +17,7 @@
     wait();
     let d;
     try { d = await api("/api/ad/info"); } catch (e) { toast(e.message); return toAdmin(); }
-    const nodes = [el("div", { class: "hint" }, `E'lon botdagi barcha ${d.total} foydalanuvchiga yuboriladi. Veb-ilovadan faqat matn yuboriladi (rasm yoki fayl kerak bo'lsa, botdagi «📢 E'lonlar» dan foydalaning).`)];
+    const nodes = [el("div", { class: "hint" }, `E'lon botdagi barcha ${d.total} foydalanuvchiga yuboriladi. Matn shu yerdan, rasm/video/fayl esa pastdagi «Boshqa formatda» orqali yuboriladi.`)];
     const j = d.job;
     if (j) {
       nodes.push(el("div", { class: "card tap", onclick: () => progress() },
@@ -25,13 +25,24 @@
         el("div", { class: "hint" }, `«${j.preview}» · ${j.ok} yetdi, ${j.fail} yetmadi, jami ${j.total}${j.finished ? " · " + fmt(j.finished) : ""}`)));
     }
     const ta = el("textarea", { class: "imp", maxlength: String(d.max), placeholder: `E'lon matni (eng ko'pi ${d.max} belgi)`, style: "height:160px;font-family:inherit;font-size:15px" });
+    const wrap = (a, b) => {
+      const s0 = ta.selectionStart, e0 = ta.selectionEnd, v = ta.value;
+      ta.value = v.slice(0, s0) + a + v.slice(s0, e0) + b + v.slice(e0);
+      ta.focus(); ta.setSelectionRange(s0 + a.length, e0 + a.length);
+    };
+    const bar = el("div", { class: "row", style: "gap:6px;margin:8px 0 6px" },
+      btn("alt small grow", "B", () => wrap("<b>", "</b>")), btn("alt small grow", "I", () => wrap("<i>", "</i>")),
+      btn("alt small grow", "U", () => wrap("<u>", "</u>")), btn("alt small grow", "S", () => wrap("<s>", "</s>")),
+      btn("alt small grow", "Kod", () => wrap("<code>", "</code>")),
+      btn("alt small grow", "🔗", () => wrap('<a href="https://">', "</a>")));
+    nodes.push(el("div", { class: "hint", style: "margin-top:8px" }, "Matnni belgilab, qalin/kursiv tugmasini bosing. 🔗 havola qoliplaydi: https:// dan keyin manzilni yozing."), bar);
     nodes.push(ta, btn("", "Ko'rib chiqish", async () => {
       const text = ta.value.trim();
       if (!text) return toast("E'lon matnini yozing.");
       let p;
       try { p = await api("/api/ad/preview", { method: "POST", body: JSON.stringify({ text }) }); } catch (e) { return toast(e.message); }
       screen("E'lon ko'rinishi", "Yuborishdan oldin tekshiring.", () => home(),
-        el("div", { class: "expl pre" }, p.text),
+        (() => { const d = el("div", { class: "expl pre" }); d.innerHTML = p.html; return d; })(),
         el("div", { class: "hint", style: "margin:8px 0" }, `Qabul qiluvchilar: ${p.count} ta foydalanuvchi`),
         btn("", `✅ Yuborish (${p.count} kishi)`, async () => {
           try { await api("/api/ad/send", { method: "POST", body: JSON.stringify({ text }) }); } catch (e) { return toast(e.message); }
@@ -39,6 +50,12 @@
         }),
         btn("alt", "❌ Bekor qilish", () => home()));
     }));
+    nodes.push(el("div", { class: "hint", style: "margin:14px 0 6px" }, "Rasm, video, fayl, ovozli xabar yoki so'rovnoma yubormoqchimisiz?"),
+      btn("alt", "📎 Boshqa formatda e'lon (botda)", async () => {
+        try { await api("/api/ad/bot", { method: "POST", body: "{}" }); } catch (e) { return toast(e.message); }
+        screen("Botga o'ting", "E'lon botda tayyorlanadi.", () => home(),
+          good("✅ Botga xabar yuborildi.\n\n1. Botni oching.\n2. «📢 E'lon yuborishni boshlash» tugmasini bosing.\n3. E'loningizni istalgan formatda yuboring — u hammaga aynan shunday boradi."));
+      }));
     screen("E'lonlar", "Barcha foydalanuvchilarga xabar yuborish.", toAdmin, ...nodes);
   }
 
