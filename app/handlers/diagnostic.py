@@ -38,6 +38,25 @@ log = logging.getLogger(__name__)
 
 router = Router()
 
+
+async def _tq(q, tg):
+    """Savolni foydalanuvchi tiliga moslaydi (xato bo'lsa, asl savol)."""
+    try:
+        from ..qlang import tq
+
+        return await tq(q, tg)
+    except Exception:
+        return q
+
+
+async def _tq_map(m, tg):
+    try:
+        from ..qlang import tq_map
+
+        return await tq_map(m, tg)
+    except Exception:
+        return m
+
 CAPTION_LIMIT = 900
 STEP = 5
 GROUP_LIMIT = 10
@@ -480,6 +499,7 @@ def answer_keyboard(question_id: int) -> InlineKeyboardMarkup:
 
 
 async def show_question(c, question, index: int, total: int):
+    question = await _tq(question, c.from_user.id)
     text = question_text(question, index, total)
     keyboard = answer_keyboard(question.id)
 

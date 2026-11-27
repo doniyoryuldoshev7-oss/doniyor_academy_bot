@@ -117,12 +117,20 @@
     run(() => walk(document.body));
     document.documentElement.lang = lang;
   }
-  function setLang(l) {
+  function setLang(l, remote) {
     if (!LANGS[l]) return;
     lang = l;
     try { localStorage.setItem(KEY, l); } catch (e) {}
     document.documentElement.lang = l;
     run(() => walk(document.body));
+    if (remote !== false) {   /* umumiy til: botda ham shu til ishlatiladi */
+      try { api("/api/s/lang", { method: "POST", body: JSON.stringify({ lang: l }) }).catch(() => {}); } catch (e) {}
+    }
+  }
+  /* Serverdagi til (botda tanlangan) bilan kelishish: server tili bo'lsa, o'sha; yo'q bo'lsa, shu qurilmadagi til serverga yoziladi. */
+  function adopt(serverLang) {
+    if (serverLang && LANGS[serverLang]) { if (serverLang !== lang) setLang(serverLang, false); }
+    else if (lang !== "uz") setLang(lang, true);
   }
 
   /* ---------- Sozlamalar ekrani ---------- */
@@ -147,6 +155,6 @@
     else { backTo(back); show({ focus: false }, el("button", { class: "x", onclick: back, "aria-label": "Orqaga" }, icon("left")), el("h1", {}, "Sozlamalar"), ...nodes, tabBar()); }
   }
 
-  window.I18N = { tr, lang: () => lang, set: setLang, settings, locale: () => LANGS[lang][2] };
+  window.I18N = { tr, lang: () => lang, set: setLang, adopt, settings, locale: () => LANGS[lang][2] };
   if (document.body) start(); else document.addEventListener("DOMContentLoaded", start);
 })();

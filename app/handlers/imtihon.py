@@ -48,6 +48,16 @@ log = logging.getLogger(__name__)
 
 router = Router()
 
+
+async def _tl_items(items, tg):
+    """Imtihon savollarini foydalanuvchi tiliga moslaydi (xato bo'lsa, o'zbekcha qoladi)."""
+    try:
+        from ..qlang import localize_items
+
+        return await localize_items(items, tg)
+    except Exception:
+        return items
+
 REVIEW_PAGE = 20
 
 
@@ -130,6 +140,7 @@ async def attempt_ctx(session, telegram_id: int, attempt_id: int):
         return None
 
     items = await load_items(session, exam.id)
+    await _tl_items(items, telegram_id)
     return attempt, exam, items, user
 
 
@@ -364,6 +375,7 @@ async def cb_start(c: CallbackQuery, state: FSMContext):
                 await c.answer("Bu imtihon yopilgan.", show_alert=True)
                 return
             items = await load_items(session, exam_id)
+            await _tl_items(items, c.from_user.id)
             if not items:
                 await c.answer("Imtihonda savol yo'q.", show_alert=True)
                 return

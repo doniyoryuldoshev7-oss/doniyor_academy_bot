@@ -20,6 +20,25 @@ from ..services.smart_review_queue import (
 
 router = Router()
 
+
+async def _tq(q, tg):
+    """Savolni foydalanuvchi tiliga moslaydi (xato bo'lsa, asl savol)."""
+    try:
+        from ..qlang import tq
+
+        return await tq(q, tg)
+    except Exception:
+        return q
+
+
+async def _tq_map(m, tg):
+    try:
+        from ..qlang import tq_map
+
+        return await tq_map(m, tg)
+    except Exception:
+        return m
+
 # Telegram rasm izohi uchun chegara 1024 belgi.
 # Zaxira bilan olamiz: uzunroq bo'lsa, matn alohida xabar bo'ladi.
 CAPTION_LIMIT = 900
@@ -158,6 +177,7 @@ async def show_question(c, question, index, total):
     Rasmli savol — eski xabarni o'chirib, rasmni izohi bilan
     yangi xabar qilib yuboradi (o'quvchi testidagi kabi).
     """
+    question = await _tq(question, c.from_user.id)
     text = review_question_text(question, index, total)
     keyboard = review_question_keyboard(question.id)
 

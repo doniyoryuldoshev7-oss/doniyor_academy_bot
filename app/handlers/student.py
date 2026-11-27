@@ -18,6 +18,25 @@ from ..states import QuizState
 router = Router()
 
 
+async def _tq(q, tg):
+    """Savolni foydalanuvchi tiliga moslaydi (xato bo'lsa, asl savol)."""
+    try:
+        from ..qlang import tq
+
+        return await tq(q, tg)
+    except Exception:
+        return q
+
+
+async def _tq_map(m, tg):
+    try:
+        from ..qlang import tq_map
+
+        return await tq_map(m, tg)
+    except Exception:
+        return m
+
+
 
 def natural_topic_key(topic):
     parts = re.split(r"(\d+)", topic.name.casefold())
@@ -56,6 +75,7 @@ async def render(call, state, message=None):
         q = await s.get(Question, d["qids"][d["index"]])
         topic = await s.get(Topic, d["topic_id"])
 
+    q = await _tq(q, getattr(getattr(call, "from_user", None), "id", None))
     n = d["index"] + 1
     total = len(d["qids"])
     progress = int(n / total * 100)
@@ -344,6 +364,7 @@ async def answer(c, state):
         await c.answer("❌ Savol topilmadi.", show_alert=True)
         return
 
+    q = await _tq(q, c.from_user.id)
     ok = sel == q.correct_option
 
     # ==========================================
@@ -656,6 +677,7 @@ async def errors_page(c, state):
                 )
             ).all()
         }  # tezlik2: savollar bitta so'rovda
+        _qmap = await _tq_map(_qmap, c.from_user.id)
 
         for i, log in enumerate(page_items, start_index + 1):
             q = _qmap.get(log.question_id)
@@ -699,6 +721,7 @@ async def retry_error(c, state):
 
         topic = await s.get(Topic, q.topic_id)
 
+    q = await _tq(q, c.from_user.id)
     await state.set_state(QuizState.active)
 
     await state.update_data(
@@ -774,6 +797,7 @@ async def error_question(c, state):
         await c.answer("Javob tarixi topilmadi.", show_alert=True)
         return
 
+    q = await _tq(q, c.from_user.id)
     selected_text = opt(q, log.selected_option)
     correct_text = opt(q, q.correct_option)
 
@@ -937,6 +961,7 @@ async def attempt_detail(c):
             ):
                 questions[question.id] = question
 
+    questions = await _tq_map(questions, c.from_user.id)
     pct = (attempt.correct / attempt.total * 100) if attempt.total else 0
     answered = len(logs)
     unanswered = attempt.total - answered

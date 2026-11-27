@@ -42,6 +42,7 @@ def main_menu(is_admin=False, is_teacher=False):
         [InlineKeyboardButton(text="\U0001F9E0 Smart Takrorlash", callback_data="smart_review")],
         [InlineKeyboardButton(text="\U0001F4CB Topshiriqlar", callback_data="asg:my")],
     ]
+    rows.append([InlineKeyboardButton(text="\U0001F310 Til / Язык / Language", callback_data="lang:menu")])
     if is_teacher:
         rows.append([InlineKeyboardButton(text="\U0001F9D1\u200D\U0001F3EB Ustoz paneli", callback_data="ust:home")])
     if is_admin:

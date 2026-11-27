@@ -126,6 +126,14 @@ async def init_db():
                     )
                 )
 
+        # users jadvaliga lang ustunini qo'shish (savollar tili: uz/ru/en)
+        if database_url.startswith("postgresql+asyncpg://"):
+            await conn.execute(text("ALTER TABLE users ADD COLUMN IF NOT EXISTS lang VARCHAR(5)"))
+        else:
+            _ucols = await conn.execute(text("PRAGMA table_info(users)"))
+            if "lang" not in {r[1] for r in _ucols.fetchall()}:
+                await conn.execute(text("ALTER TABLE users ADD COLUMN lang VARCHAR(5)"))
+
         # questions jadvaliga yangi ustunlarni qo'shish
         if database_url.startswith("postgresql+asyncpg://"):
             await conn.execute(text("""

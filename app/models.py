@@ -18,6 +18,7 @@ class User(Base):
     phone_number: Mapped[str | None]=mapped_column(String(30))
     group_name: Mapped[str | None]=mapped_column(String(100))
     registration_status: Mapped[str]=mapped_column(String(20),default="pending")
+    lang: Mapped[str | None]=mapped_column(String(5), nullable=True)
 
 class Subject(Base):
     __tablename__="subjects"

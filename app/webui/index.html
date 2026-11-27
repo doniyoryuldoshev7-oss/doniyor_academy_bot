@@ -286,6 +286,7 @@ function topBar() {
 async function load() {
   const [me, data, st] = await Promise.all([api("/api/me"), api("/api/exams"), api("/api/stats").catch(() => null)]);
   S.me = me; S.exams = data.exams || []; S.stats = st;
+  try { if (window.I18N) I18N.adopt(me.lang); } catch (e) {}
 }
 async function openTab(id) {
   S.tab = id; stopTimer(); closing(false); backTo(null);

@@ -215,6 +215,7 @@ async def api_me(request: web.Request):
         "tests": user.total_tests,
         "staff": await _is_staff(request["tg_id"]),
         "panel": await _panel_flag(request["tg_id"]),
+        "lang": user.lang or None,
     })
 
 

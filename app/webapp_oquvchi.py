@@ -95,6 +95,19 @@ def _qview(q, with_answer=False):
     return out
 
 
+async def api_s_lang(request):
+    """Umumiy til (bot bilan bir xil): uz | ru | en."""
+    _err, _json = _helpers()
+    body = await _json(request)
+    lang = str(body.get("lang") or "").strip().lower()
+    if lang not in ("uz", "ru", "en"):
+        return _err("Til noto'g'ri.")
+    from .qlang import set_lang
+
+    await set_lang(request["tg_id"], lang)
+    return web.json_response({"ok": True, "lang": lang})
+
+
 def _fmt(dt):
     return dt.strftime("%d.%m.%Y %H:%M") if dt else ""
 
@@ -412,6 +425,7 @@ def setup_oquvchi(app: web.Application) -> None:
     r.add_get("/api/s/errors", api_s_errors)
     r.add_post("/api/s/error_solve", api_s_error_solve)
     r.add_get("/api/s/qimg/{id:\\d+}", api_s_qimg)
+    r.add_post("/api/s/lang", api_s_lang)
 
     import importlib
 

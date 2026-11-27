@@ -183,6 +183,9 @@ async def main():
     from .handlers import diagnostic
 
     dp.include_router(diagnostic.router)
+    from .handlers import til
+
+    dp.include_router(til.router)
     dp.include_router(admin.router)
 
     app = create_app()
