@@ -1,5 +1,5 @@
 from datetime import datetime
-from sqlalchemy import String, Boolean, ForeignKey, DateTime, Integer, Text, BigInteger, LargeBinary
+from sqlalchemy import String, Boolean, ForeignKey, DateTime, Integer, Text, BigInteger, LargeBinary, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from .db import Base
 
@@ -81,6 +81,22 @@ class Question(Base):
     topic: Mapped["Topic"] = relationship(
         back_populates="questions"
     )
+
+
+class QuestionTranslation(Base):
+    """Savolning boshqa tildagi varianti (ru/en). Variantlar tartibi va to'g'ri javob harfi asl savolniki bilan bir xil."""
+    __tablename__ = "question_translations"
+    __table_args__ = (UniqueConstraint("question_id", "lang", name="uq_question_translation"),)
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    question_id: Mapped[int] = mapped_column(ForeignKey("questions.id", ondelete="CASCADE"), index=True)
+    lang: Mapped[str] = mapped_column(String(5))
+    text: Mapped[str | None] = mapped_column(Text, nullable=True)
+    option_a: Mapped[str | None] = mapped_column(Text, nullable=True)
+    option_b: Mapped[str | None] = mapped_column(Text, nullable=True)
+    option_c: Mapped[str | None] = mapped_column(Text, nullable=True)
+    option_d: Mapped[str | None] = mapped_column(Text, nullable=True)
+    explanation: Mapped[str | None] = mapped_column(Text, nullable=True)
 
 
 class GroupQuiz(Base):

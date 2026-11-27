@@ -286,6 +286,135 @@ def parse_closed(lines, base_line=1):
 
 
 # ---------------------------------------------------------------
+#  Ko'p tilli savollar: «RU:» / «EN:» bloklari
+# ---------------------------------------------------------------
+TR_RE = re.compile(r"^\s*(RU|RUS|EN|ENG)\s*[:：]\s*$", re.I)
+TR_LANG = {"RU": "ru", "RUS": "ru", "EN": "en", "ENG": "en"}
+TR_EXP_RE = re.compile(r"^(?:izoh|tushuntirish|sharh|explanation|объяснение|пояснение|комментарий|примечание|note)\s*[:\-–—]\s*(.*)$", re.I)
+TR_ANS_RE = re.compile(
+    r"^(?:to['’ʻ`]?g['’ʻ`]?ri\s+javob|javob|answer|correct(?:\s+answer)?|правильный\s+ответ|верный\s+ответ|ответ)\s*[:=\-–—]\s*[\(\[]?\s*([A-Da-dАВСас])\s*[\)\]]?\s*\.?\s*$",
+    re.I,
+)
+
+
+def split_tr(lines):
+    """lines: [(ln, matn)] -> (o'zbekcha qatorlar, [(til, bog'langan qator, blok qatori, [(ln, matn)])]).
+
+    «RU:» yoki «EN:» qatoridan keyingi blok savolning tarjimasi. U bo'sh qatorda, «---» da,
+    yangi marker yoki (D variantdan keyin) raqamlangan yangi savolda tugaydi."""
+    uz, trs, cur = [], [], None
+    last_uz = None
+    for ln, raw in lines:
+        m = TR_RE.match(raw)
+        if m:
+            cur = {"lang": TR_LANG[m.group(1).upper()], "anchor": last_uz, "ln": ln, "buf": [], "seen_d": False}
+            trs.append(cur)
+            continue
+        if cur is not None:
+            st = raw.strip()
+            if not st:
+                if cur["seen_d"]:
+                    cur = None
+                    uz.append((ln, raw))
+                continue
+            if cur["seen_d"] and NUM_RE.match(st) and not OPT_RE.match(st):
+                cur = None
+                uz.append((ln, raw))
+                last_uz = ln
+                continue
+            cur["buf"].append((ln, raw))
+            om = OPT_RE.match(st.translate(_HOMO))
+            if om and om.group(1).upper() == "D":
+                cur["seen_d"] = True
+            continue
+        uz.append((ln, raw))
+        if raw.strip():
+            last_uz = ln
+    return uz, [(c["lang"], c["anchor"], c["ln"], c["buf"]) for c in trs]
+
+
+def parse_tr(buf, ln0):
+    """Tarjima bloki -> (dict | None, xato | None). Dict: text, options, explanation, answer."""
+    stem, opts, order, exp, answer = [], {}, [], [], None
+    mode = "stem"
+    for ln, raw in buf:
+        s = raw.strip()
+        if not s:
+            continue
+        if IMG_RE.match(s):
+            continue
+        am = TR_ANS_RE.match(s)
+        if am and order:
+            answer = am.group(1).translate(_HOMO).upper()
+            mode = "after"
+            continue
+        em = TR_EXP_RE.match(s)
+        if em and order:
+            exp = [em.group(1)]
+            mode = "exp"
+            continue
+        om = OPT_RE.match(s.translate(_HOMO))   # faqat variant harfi lotinchaga o'giriladi, matn emas
+        if om and mode in ("stem", "opt"):
+            letter = om.group(1).upper()
+            expected = "ABCD"[len(order)] if len(order) < 4 else None
+            if letter == expected:
+                body, _mk = _marker(s[om.start(2):om.end(2)])
+                opts[letter] = body
+                order.append(letter)
+                mode = "opt"
+                continue
+            return None, f"{ln}-qator: tarjimada variantlar tartibi buzilgan ({expected or 'oxiri'} kutilgan edi, {letter} topildi)"
+        if mode == "stem":
+            if not stem:
+                nm = NUM_RE.match(s)
+                s = nm.group(2).strip() if nm else s
+            stem.append(s)
+        elif mode == "opt":
+            last = order[-1]
+            opts[last] = _marker((opts[last] + " " + s).strip())[0]
+        elif mode == "exp":
+            exp.append(s)
+        else:
+            return None, f"{ln}-qator: tarjimada tushunarsiz qator «{s[:40]}»"
+    text = " ".join(" ".join(stem).split())
+    if not text:
+        return None, f"{ln0}-qator: tarjimada savol matni yo'q"
+    missing = [l for l in "ABCD" if l not in opts]
+    if missing:
+        return None, f"{ln0}-qator: tarjimada variant yetishmaydi: " + ", ".join(missing)
+    empty = [l for l in "ABCD" if not opts[l].strip()]
+    if empty:
+        return None, f"{ln0}-qator: tarjimada bo'sh variant: " + ", ".join(empty)
+    return {"text": text, "options": {l: " ".join(opts[l].split()) for l in "ABCD"},
+            "explanation": " ".join(" ".join(exp).split()) or None, "answer": answer}, None
+
+
+def attach_tr(qs, trs, errors):
+    """O'zbekcha savollarga tarjimalarni bog'laydi (q['tr'] = {'ru': {...}, 'en': {...}})."""
+    for lang, anchor, ln0, buf in trs:
+        owner = None
+        if anchor is not None:
+            for q in qs:
+                if q["line"] <= anchor and (owner is None or q["line"] >= owner["line"]):
+                    owner = q
+        if owner is None:
+            errors.append(f"{ln0}-qator: {lang.upper()} tarjimasi qaysi savolga tegishli ekani aniqlanmadi (tarjima o'zbekcha savol tagida bo'lsin)")
+            continue
+        d, err = parse_tr(buf, ln0)
+        if err:
+            errors.append(err)
+            continue
+        if d["answer"] and d["answer"] != owner["correct"]:
+            errors.append(f"{ln0}-qator: {lang.upper()} tarjimadagi javob ({d['answer']}) asl savolnikidan ({owner['correct']}) farq qiladi")
+            continue
+        tr = owner.setdefault("tr", {})
+        if lang in tr:
+            errors.append(f"{ln0}-qator: {lang.upper()} tarjimasi bu savolga ikki marta yozilgan")
+            continue
+        tr[lang] = d
+
+
+# ---------------------------------------------------------------
 #  Umumiy
 # ---------------------------------------------------------------
 def parse_text(text: str) -> Parsed:
@@ -327,6 +456,11 @@ def parse_text(text: str) -> Parsed:
     for start, lines, bctx in blocks:
         if not any(t.strip() for _, t in lines):
             continue
+        lines, trs = split_tr(lines)
+        if trs and any("=>" in t for _, t in lines):
+            for lang, _a, ln0, _b in trs:
+                res.errors.append(f"{ln0}-qator: ochiq savolga tarjima qo'shib bo'lmaydi ({lang.upper()})")
+            trs = []
         if any("=>" in t for _, t in lines):
             img = None
             keep = []
@@ -348,6 +482,8 @@ def parse_text(text: str) -> Parsed:
             qs, errs = parse_closed(lines, start)
             for q in qs:
                 q["subject"], q["topic"] = bctx["subject"], bctx["topic"]
+            if trs:
+                attach_tr(qs, trs, errs)
             res.closed.extend(qs)
             res.errors.extend(errs)
 
@@ -392,6 +528,10 @@ def parse_text(text: str) -> Parsed:
 def preview(res: Parsed, limit: int = 6) -> str:
     """Oddiy matnli ko'rinish (HTML belgilarisiz)."""
     out = [f"Yopiq: {len(res.closed)} ta, ochiq: {len(res.open)} ta, xato: {len(res.errors)} ta."]
+    n_ru = sum(1 for q in res.closed if "ru" in (q.get("tr") or {}))
+    n_en = sum(1 for q in res.closed if "en" in (q.get("tr") or {}))
+    if n_ru or n_en:
+        out.append(f"🌐 Tarjima: RU {n_ru} ta, EN {n_en} ta.")
     for q in res.closed[:limit]:
         out.append(f"\n• {'🖼 ' if q.get('image') else ''}{q['text'][:90]}\n   ✅ {q['correct']}) {q['options'][q['correct']][:60]}")
     for q in res.open[:limit]:
@@ -759,12 +899,15 @@ async def save_parsed(session, default_topic_id, res: Parsed, uid: int, may_crea
             have_open[tid] = {compact(x or "") for x in (await session.scalars(select(OpenQuestion.stem).where(OpenQuestion.topic_id == tid))).all()}
 
     added_c, added_o, dup = [], [], 0
+    dup_tr, new_tr = [], []
     for q in res.closed:
         tid = mapping[id(q)]
         await _have(tid)
         k = compact(q["text"])
         if k in have[tid]:
             dup += 1
+            if q.get("tr"):
+                dup_tr.append((tid, k, q["tr"]))
             continue
         have[tid].add(k)
         o = q["options"]
@@ -777,6 +920,8 @@ async def save_parsed(session, default_topic_id, res: Parsed, uid: int, may_crea
         )
         session.add(row)
         added_c.append(row)
+        if q.get("tr"):
+            new_tr.append((row, q["tr"]))
     for q in res.open:
         tid = mapping[id(q)]
         await _have(tid)
@@ -793,6 +938,26 @@ async def save_parsed(session, default_topic_id, res: Parsed, uid: int, may_crea
         session.add(row)
         added_o.append(row)
     await session.flush()
+    tr_count = 0
+    new_ids = {r.id for r in added_c}
+    if new_tr or dup_tr:
+        from .. import qtrans
+
+        for row, trs in new_tr:
+            for lang, d in trs.items():
+                await qtrans.upsert(session, row.id, lang, d["text"], d["options"], d.get("explanation"))
+                tr_count += 1
+        for tid_, k_, trs in dup_tr:
+            qid_ = None
+            for ex in (await session.scalars(select(Question).where(Question.topic_id == tid_))).all():
+                if ex.id not in new_ids and compact(ex.text or "") == k_:
+                    qid_ = ex.id
+                    break
+            if qid_ is None:
+                continue
+            for lang, d in trs.items():
+                await qtrans.upsert(session, qid_, lang, d["text"], d["options"], d.get("explanation"))
+                tr_count += 1
     batch = ImportBatch(
         user_tg_id=uid,
         closed_ids=json.dumps([r.id for r in added_c]),
@@ -806,7 +971,7 @@ async def save_parsed(session, default_topic_id, res: Parsed, uid: int, may_crea
     await session.flush()
     batch_id = batch.id
     await session.commit()
-    return {"closed": len(added_c), "open": len(added_o), "dup": dup,
+    return {"closed": len(added_c), "open": len(added_o), "dup": dup, "tr": tr_count,
             "batch": batch_id, "new_topics": new_notes, "errors": []}
 
 
@@ -960,5 +1125,9 @@ HELP_HTML = (
     "Format Moodle'ning Aiken formatini ham qamrab oladi (<code>ANSWER: B</code>).\n"
     "Rasmli savol: Wordda rasmni savol matnidan keyin (variantlardan oldin) qo'ying, yoki botga rasmni "
     "savol matni bilan birga (izoh/caption qilib) yuboring.\n"
-    "Eski usul ham ishlaydi: to'g'ri variant oxiriga <code>++</code> qo'ying."
+    "Eski usul ham ishlaydi: to'g'ri variant oxiriga <code>++</code> qo'ying.\n\n"
+    "<b>Boshqa tilda variant</b> (yopiq savollar uchun): o'zbekcha savol tagiga <code>RU:</code> yoki <code>EN:</code> "
+    "yozib, shu savolni tarjima qiling (variantlar tartibi bir xil):\n"
+    "<code>RU:\nТекст вопроса\nA) вариант\nB) вариант\nC) вариант\nD) вариант\nОбъяснение: ixtiyoriy</code>\n"
+    "Tarjima bo'sh qator bilan tugaydi. Savol bazada bor bo'lsa, unga faqat tarjima qo'shiladi."
 )

@@ -164,6 +164,12 @@
     else nodes.push(el("div", { class: "hint" }, `To'g'ri javob: ${q.correct}`));
     if (q.explanation) nodes.push(good("💡 " + q.explanation));
     nodes.push(btn("", "Tahrirlash", () => questionForm({ edit: q, topic_id: q.topic_id, back: () => questionView(qid, back) }), "gear"));
+    if (q.mode === "closed") {
+      nodes.push(el("div", { class: "hint", style: "margin-top:10px" }, "🌐 Tarjimalar (o'quvchi tilini tanlasa, shu tilda ko'radi):"));
+      for (const [lang, label] of [["ru", "🇷🇺 Русский"], ["en", "🇬🇧 English"]]) {
+        nodes.push(btn("alt", label + (q.tr && q.tr[lang] ? "  ✓" : "  — yo'q"), () => trForm(q, lang, () => questionView(qid, back)), "gear"));
+      }
+    }
     nodes.push(btn("alt", "O'chirish", () => confirmSheet("Savolni o'chirasizmi?", "Savol ro'yxatdan olib tashlanadi.", "Ha, o'chirish", async () => {
       try { await api("/api/g/question_delete", { method: "POST", body: JSON.stringify({ id: qid }) }); toast("Savol o'chirildi"); back(); }
       catch (e) { toast(e.message); }
@@ -203,6 +209,34 @@
     nodes.push(expl);
     nodes.push(btn("", e ? "Saqlash" : "Savolni saqlash", save, "check"));
     screen(e ? "Savolni tahrirlash" : "Yangi savol", c.topicName ? `Mavzu: ${c.topicName}` : null, c.back, ...nodes);
+  }
+
+  /* ---------- savol tarjimasi (ru / en) ---------- */
+  function trForm(q, lang, back) {
+    const cur = (q.tr && q.tr[lang]) || {};
+    const name = lang === "ru" ? "Русский" : "English";
+    const text = taField(cur.text, "Savol matni (" + name + ")", 100);
+    const opt = {};
+    for (const l of "abcd") opt[l] = inField(cur[l], `${l.toUpperCase()} variant`);
+    const expl = taField(cur.explanation, "Izoh (ixtiyoriy)", 70);
+    let busy = false;
+    const send = async (clear) => {
+      if (busy) return; busy = true;
+      const body = { id: q.id, lang, text: clear ? "" : text.value, explanation: clear ? "" : expl.value };
+      for (const l of "abcd") body[l] = clear ? "" : opt[l].value;
+      try {
+        await api("/api/g/question_tr", { method: "POST", body: JSON.stringify(body) });
+        toast(clear ? "Tarjima o'chirildi" : "Tarjima saqlandi");
+        q.tr = q.tr || {};
+        if (clear) delete q.tr[lang]; else q.tr[lang] = { text: body.text, a: body.a, b: body.b, c: body.c, d: body.d, explanation: body.explanation };
+        back();
+      } catch (err) { toast(err.message); } finally { busy = false; }
+    };
+    const nodes = [el("div", { class: "hint" }, "Asl savolning ma'nosi va variantlar tartibi bir xil bo'lsin: to'g'ri javob harfi o'zgarmaydi (" + q.correct + ")."),
+      el("div", { class: "card pre" }, q.text || ""), text, ...["a", "b", "c", "d"].map((l) => opt[l]), expl,
+      btn("", "Saqlash", () => send(false), "check")];
+    if (cur.text) nodes.push(btn("alt", "Tarjimani o'chirish", () => send(true), "alert"));
+    screen("Tarjima: " + name, null, back, ...nodes);
   }
 
   function doneAdd(c) {

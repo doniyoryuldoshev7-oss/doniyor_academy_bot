@@ -219,7 +219,7 @@ function toast(msg) {
 function haptic(kind) { try { tg.HapticFeedback.impactOccurred(kind || "light"); } catch (e) {} }
 function notify(kind) { try { tg.HapticFeedback.notificationOccurred(kind); } catch (e) {} }
 async function api(path, opts) {
-  const res = await fetch(path, Object.assign({ headers: { "X-Init-Data": (tg && tg.initData) || "", "Content-Type": "application/json" } }, opts || {}));
+  const res = await fetch(path, Object.assign({ headers: { "X-Init-Data": (tg && tg.initData) || "", "Content-Type": "application/json", "X-Lang": (window.I18N ? I18N.lang() : "uz") } }, opts || {}));
   let data = null;
   try { data = await res.json(); } catch (e) {}
   if (!res.ok) { const err = new Error((data && data.error) || "Xatolik yuz berdi"); err.status = res.status; throw err; }

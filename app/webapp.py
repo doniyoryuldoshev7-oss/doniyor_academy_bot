@@ -289,7 +289,11 @@ async def api_exam_start(request: web.Request):
                 )
 
         await _settle(session, attempt)
-        return web.json_response(_state(exam, attempt, items))
+        st = _state(exam, attempt, items)
+    from . import qtrans as _qt
+
+    await _qt.localize_exam_items(st["items"], items, _qt.lang_of(request))
+    return web.json_response(st)
 
 
 async def api_attempt(request: web.Request):
@@ -299,7 +303,11 @@ async def api_attempt(request: web.Request):
             return _err("Imtihon topilmadi.", 404)
         await _settle(session, attempt)
         items = await load_items(session, exam.id)
-        return web.json_response(_state(exam, attempt, items))
+        st = _state(exam, attempt, items)
+    from . import qtrans as _qt
+
+    await _qt.localize_exam_items(st["items"], items, _qt.lang_of(request))
+    return web.json_response(st)
 
 
 async def api_answer(request: web.Request):
@@ -421,6 +429,9 @@ async def api_review(request: web.Request):
                 })
             out.append({"pos": it.pos, "k": "o", "s": it.data.get("s", ""), "p": parts,
                         "ok": all(x["ok"] for x in parts), "img": bool(it.data.get("img"))})
+    from . import qtrans as _qt
+
+    await _qt.localize_exam_items(out, items, _qt.lang_of(request))
     return web.json_response({"items": out})
 
 

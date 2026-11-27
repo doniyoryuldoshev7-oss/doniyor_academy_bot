@@ -370,6 +370,8 @@ async def cb_save(c: CallbackQuery, state: FSMContext):
     msg = f"✅ <b>Saqlandi:</b> {out['closed']} yopiq, {out['open']} ochiq savol."
     if out["dup"]:
         msg += f"\n♻️ Takror bo'lgani uchun o'tkazib yuborildi: {out['dup']} ta."
+    if out.get("tr"):
+        msg += f"\n🌐 Tarjimalar saqlandi: {out['tr']} ta."
     if out["new_topics"]:
         msg += "\n🆕 Yangi mavzu: " + esc("; ".join(sorted(set(out["new_topics"]))))
     rows = []

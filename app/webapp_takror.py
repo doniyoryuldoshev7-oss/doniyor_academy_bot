@@ -117,7 +117,10 @@ async def api_r_due(request):
 
     async with SessionLocal() as s:
         rows = await get_due_reviews(s, user_id=request["user_id"], limit=20)
-    return web.json_response({"questions": [_qview(q) for _, q in rows]})
+    from . import qtrans as _qt
+
+    views = await _qt.localize([_qview(q) for _, q in rows], _qt.lang_of(request))
+    return web.json_response({"questions": views})
 
 
 async def api_r_answer(request):
@@ -154,7 +157,9 @@ async def api_r_answer(request):
             return _err("Natijani saqlab bo'lmadi.")
         await s.commit()
         mastered = res.status == "mastered"
-    return web.json_response({"ok": ok, "correct": right, "mastered": mastered, "e": q.explanation})
+    from . import qtrans as _qt
+
+    return web.json_response({"ok": ok, "correct": right, "mastered": mastered, "e": await _qt.explanation(q.id, _qt.lang_of(request), q.explanation)})
 
 
 def setup(app: web.Application) -> None:

@@ -19,6 +19,7 @@ from sqlalchemy import func, select
 from .db import SessionLocal
 from .numfmt import pct_1
 from .models import AnswerLog, Question, Subject, TestAttempt, Topic, User
+from . import qtrans as _qt
 
 log = logging.getLogger(__name__)
 
@@ -168,7 +169,8 @@ async def api_s_start(request):
         size = len(qs)
     size = max(1, min(size, len(qs), MAX_TEST))
     picked = random.sample(list(qs), size)
-    return web.json_response({"topic": {"id": topic.id, "name": topic.name}, "questions": [_qview(q) for q in picked]})
+    views = await _qt.localize([_qview(q) for q in picked], _qt.lang_of(request))
+    return web.json_response({"topic": {"id": topic.id, "name": topic.name}, "questions": views})
 
 
 async def api_s_check(request):
@@ -186,7 +188,7 @@ async def api_s_check(request):
     if not sel:
         return _err("Variant noto'g'ri.")
     right = clean_letter(q.correct_option)
-    return web.json_response({"ok": sel == right, "correct": right, "e": q.explanation})
+    return web.json_response({"ok": sel == right, "correct": right, "e": await _qt.explanation(q.id, _qt.lang_of(request), q.explanation)})
 
 
 async def api_s_finish(request):
@@ -282,6 +284,7 @@ async def api_s_attempt(request):
         v = _qview(q, with_answer=True)
         v.update({"yours": (x.selected_option or "").strip().upper(), "ok": bool(x.is_correct)})
         items.append(v)
+    await _qt.localize(items, _qt.lang_of(request))
     return web.json_response({
         "topic": topic.name if topic else "Mavzu o'chirilgan",
         "total": a.total, "correct": a.correct, "pct": pct_1(a.correct, a.total), "score": a.score,
@@ -333,7 +336,8 @@ async def api_s_errors(request):
         qmap = {}
         if ids:
             qmap = {q.id: q for q in (await s.scalars(select(Question).where(Question.id.in_(ids)))).all()}
-    return web.json_response({"errors": [_qview(qmap[i]) for i in ids if i in qmap]})
+    views = await _qt.localize([_qview(qmap[i]) for i in ids if i in qmap], _qt.lang_of(request))
+    return web.json_response({"errors": views})
 
 
 async def api_s_error_solve(request):
@@ -361,7 +365,7 @@ async def api_s_error_solve(request):
         for x in logs:
             x.resolved = True
         await s.commit()
-    return web.json_response({"ok": True, "correct": right, "e": q.explanation})
+    return web.json_response({"ok": True, "correct": right, "e": await _qt.explanation(q.id, _qt.lang_of(request), q.explanation)})
 
 
 # ---------------------------------------------------------------

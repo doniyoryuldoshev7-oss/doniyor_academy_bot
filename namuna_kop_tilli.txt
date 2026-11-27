@@ -1,0 +1,37 @@
+Fan: Tarix
+Mavzu: Amir Temur
+
+1. Amir Temur qachon tug'ilgan?
+A) 1336-yil
+B) 1245-yil
+C) 1405-yil
+D) 1500-yil
+Javob: A
+Izoh: Amir Temur 1336-yil Kesh shahri yaqinida tug'ilgan.
+RU:
+Когда родился Амир Темур?
+A) 1336 год
+B) 1245 год
+C) 1405 год
+D) 1500 год
+Объяснение: Амир Темур родился в 1336 году близ города Кеш.
+EN:
+When was Amir Temur born?
+A) 1336
+B) 1245
+C) 1405
+D) 1500
+Explanation: Amir Temur was born in 1336 near the city of Kesh.
+
+2. Temuriylar davlatining poytaxti qaysi shahar?
+A) Samarqand
+B) Buxoro
+C) Xiva
+D) Toshkent
+Javob: A
+RU:
+Какой город был столицей государства Темуридов?
+A) Самарканд
+B) Бухара
+C) Хива
+D) Ташкент

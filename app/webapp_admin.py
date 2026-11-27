@@ -258,10 +258,13 @@ async def api_g_question(request):
         q = await s.get(Question, qid)
         if q is None or not q.is_active:
             return _err("Savol topilmadi.", 404)
+        from . import qtrans
+
+        tr = await qtrans.get_all(s, qid)
     return web.json_response({
         "id": q.id, "topic_id": q.topic_id, "mode": q.question_mode or "closed", "img": bool(q.image_path),
         "text": q.text or "", "a": q.option_a or "", "b": q.option_b or "", "c": q.option_c or "", "d": q.option_d or "",
-        "correct": (q.correct_option or "").strip().upper(), "explanation": q.explanation or ""})
+        "correct": (q.correct_option or "").strip().upper(), "explanation": q.explanation or "", "tr": tr})
 
 
 async def api_g_question_add(request):
@@ -283,6 +286,46 @@ async def api_g_question_add(request):
                        correct_option=f["correct"], explanation=f["explanation"], question_mode="closed"))
         await s.commit()
     return web.json_response({"ok": True})
+
+
+async def api_g_question_tr(request):
+    """Savol tarjimasini saqlash (ru/en). Hamma maydon bo'sh bo'lsa, tarjima o'chiriladi."""
+    _err, _json = _helpers()
+    await _editor(request)
+    body = await _json(request)
+    from . import qtrans
+
+    lang = str(body.get("lang") or "").strip().lower()
+    if lang not in qtrans.LANGS:
+        return _err("Til noto'g'ri.")
+    try:
+        qid = int(body.get("id"))
+    except (TypeError, ValueError):
+        return _err("Noto'g'ri so'rov.")
+    text = str(body.get("text") or "").strip()
+    opts = {k.upper(): str(body.get(k) or "").strip() for k in "abcd"}
+    expl = str(body.get("explanation") or "").strip()
+    if expl == "-":
+        expl = ""
+    empty = not text and not any(opts.values()) and not expl
+    if not empty:
+        if not text:
+            return _err("Tarjimada savol matnini kiriting.")
+        for k in "ABCD":
+            if not opts[k]:
+                return _err(f"Tarjimada {k} variant bo'sh bo'lishi mumkin emas.")
+        if len(text) > TEXT_MAX or any(len(v) > OPT_MAX for v in opts.values()) or len(expl) > EXPL_MAX:
+            return _err("Matn juda uzun.")
+    async with SessionLocal() as s:
+        q = await s.get(Question, qid)
+        if q is None or not q.is_active:
+            return _err("Savol topilmadi.", 404)
+        if empty:
+            await qtrans.remove(s, qid, lang)
+        else:
+            await qtrans.upsert(s, qid, lang, text, opts, expl or None)
+        await s.commit()
+    return web.json_response({"ok": True, "removed": empty})
 
 
 async def api_g_question_edit(request):
@@ -342,4 +385,5 @@ def setup(app: web.Application) -> None:
     r.add_get("/api/g/question/{id:\\d+}", api_g_question)
     r.add_post("/api/g/question_add", api_g_question_add)
     r.add_post("/api/g/question_edit", api_g_question_edit)
+    r.add_post("/api/g/question_tr", api_g_question_tr)
     r.add_post("/api/g/question_delete", api_g_question_delete)

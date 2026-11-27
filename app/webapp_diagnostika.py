@@ -128,7 +128,10 @@ async def api_d_start(request):
     token = secrets.token_urlsafe(16)
     _SESSIONS[token] = {"uid": request["user_id"], "ts": time.time(),
                         "qids": [q.id for q in plan.questions], "info": info, "skipped": skipped}
-    return web.json_response({"token": token, "questions": [_qview(q) for q in plan.questions]})
+    from . import qtrans as _qt
+
+    views = await _qt.localize([_qview(q) for q in plan.questions], _qt.lang_of(request))
+    return web.json_response({"token": token, "questions": views})
 
 
 async def api_d_finish(request):
