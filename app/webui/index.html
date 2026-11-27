@@ -92,6 +92,12 @@
   .cell.cur { border-color:var(--b); box-shadow:0 0 0 3px #3b8cff33; }
   .legend { display:flex; gap:14px; margin:6px 0 12px; } .legend span { display:inline-flex; align-items:center; gap:6px; font-size:12.5px; color:var(--h); }
   .legend i { width:12px; height:12px; border-radius:4px; display:inline-block; background:var(--s1); border:1.5px solid var(--line2); } .legend i.d { background:#2fd38c33; border-color:var(--g); }
+  .legend { flex-wrap:wrap; row-gap:6px; } .legend i.h { background:#ffb84a33; border-color:var(--o); }
+  .cell { position:relative; } .cell.half { background:#ffb84a1a; border-color:#ffb84a66; color:var(--o); }
+  .cell .star { position:absolute; top:-7px; right:-5px; font-size:13px; }
+  .savest { font-size:12px; font-weight:700; color:var(--o); } .savest.ok { color:var(--h); } .savest.bad { color:var(--r); }
+  .flagb { border:1px solid var(--line2); background:#ffffff0a; color:var(--t); border-radius:99px; padding:6px 12px; font:inherit; font-size:13px; font-weight:700; cursor:pointer; }
+  .flagb.on { background:#f5c04e22; border-color:#f5c04e88; color:var(--gold); }
   /* natija */
   .big { display:flex; justify-content:center; margin:10px 0 16px; }
   .score { --p:50; width:176px; height:176px; border-radius:50%; background:conic-gradient(var(--gold) calc(var(--p)*1%),#ffffff14 0); display:grid; place-items:center; box-shadow:0 0 40px #f5c04e33; }
@@ -366,6 +372,8 @@ function helpScreen() {
       el("li", {}, "Boshlagandan keyin vaqt to'xtamaydi. Ilovadan chiqsangiz ham ketaveradi, qaytib kirib davom ettirasiz."),
       el("li", {}, "Javoblaringiz avtomatik saqlanadi. «Savollar» tugmasi bilan istalgan savolga o'tishingiz mumkin."),
       el("li", {}, "Yozma savolda har bir qismga (a, b) alohida javob yozing."),
+      el("li", {}, "«☆ Belgilash» tugmasi bilan keyin qaytmoqchi bo'lgan savolni belgilang — «Savollar» panelida ⭐ bilan ko'rinadi."),
+      el("li", {}, "Internet uzilsa ham javoblaringiz telefonda saqlanib turadi va internet qaytganda o'zi yuboriladi. Yuqoridagi «✓ saqlangan» yozuvi hammasi serverga yetganini bildiradi."),
       el("li", {}, "«Yakunlash» ni bossangiz, javoblarni o'zgartirib bo'lmaydi."))),
     el("div", { class: "card help" }, el("h2", {}, "Natija"), el("ul", {},
       el("li", {}, "Milliy sertifikat imtihonida ball 75 ballik shkalada hisoblanadi: A+ 70 dan, A 65 dan, B+ 60 dan, B 55 dan, C+ 50 dan, C 46 dan."),
@@ -425,66 +433,129 @@ function info(ex) {
 }
 
 /* ---------- imtihon ---------- */
+/* Javoblar ishonchliligi: har bir javob avval shu qurilmada (localStorage) "saqlanmagan" deb
+   yoziladi, serverga yetgach o'chiriladi. Internet uzilsa, javob yo'qolmaydi: ilova o'zi qayta
+   yuboradi, qayta ochilganda ham davom ettiradi. "Belgilash" (⭐) ham shu qurilmada saqlanadi. */
+const PKEY = (aid) => "exam_pend_" + aid, FKEY = (aid) => "exam_flag_" + aid;
+function lsGet(k) { try { return JSON.parse(localStorage.getItem(k) || "null"); } catch (e) { return null; } }
+function lsSet(k, v) { try { if (v && Object.keys(v).length) localStorage.setItem(k, JSON.stringify(v)); else localStorage.removeItem(k); } catch (e) {} }
 async function start(ex) {
   try { S.att = await api(`/api/exams/${ex.id}/start`, { method: "POST" }); }
   catch (e) { return toast(e.message); }
   begin();
 }
 function begin() {
-  if (S.att.status === "finished") return result(S.att.attempt_id);
+  const aid = S.att.attempt_id;
+  if (S.att.status === "finished") { lsSet(PKEY(aid), null); lsSet(FKEY(aid), null); return result(aid); }
   S.offset = S.att.server_ms - Date.now();
   S.pos = 1;
+  S.pend = lsGet(PKEY(aid)) || {};
+  S.flags = lsGet(FKEY(aid)) || {};
+  S.warned = {};
+  for (const min of [10, 1]) if (remaining() <= min * 60000) S.warned[min] = true;   // o'tib ketgan ogohlantirish qayta chiqmasin
+  S.saveErr = false;
+  // saqlanmay qolgan javoblar serverdagidan ustun: ularni qayta yuboramiz
+  for (const [k, v] of Object.entries(S.pend)) { if (v) S.att.answers[k] = v; else delete S.att.answers[k]; }
   stopTimer();
   S.timer = setInterval(tick, 500);
   closing(true);
   backTo(null);
   renderQuestion();
+  if (Object.keys(S.pend).length) sendPending();
 }
 function remaining() { return S.att.deadline_ms - (Date.now() + S.offset); }
 async function tick() {
   const left = remaining();
   const t = document.getElementById("timer");
   if (t) { t.textContent = clock(left); t.classList.toggle("low", left < 5 * 60000); }
-  if (left <= 0) { stopTimer(); toast("⏰ Vaqt tugadi"); await finishNow(); }
+  for (const [min, msg] of [[10, "⏳ 10 daqiqa qoldi"], [1, "⏳ 1 daqiqa qoldi"]]) {
+    if (left <= min * 60000 && left > 0 && !S.warned[min]) { S.warned[min] = true; toast(msg); notify("warning"); }
+  }
+  if (left <= 0) { stopTimer(); toast("⏰ Vaqt tugadi"); await finishNow(true); return; }
+  if (Object.keys(S.pend).length && !S.sending && Date.now() - (S.lastTry || 0) > 5000) sendPending();
 }
 function answered(item) {
   const a = S.att.answers;
   return item.k === "c" ? !!a[String(item.pos)] : item.p.some((_, i) => (a[`${item.pos}.${i}`] || "").trim());
 }
+function partly(item) {
+  const a = S.att.answers;
+  return item.k === "o" && item.p.length > 1 && answered(item) && item.p.some((_, i) => !(a[`${item.pos}.${i}`] || "").trim());
+}
+function saveBadge() {
+  const n = Object.keys(S.pend || {}).length;
+  const b = document.getElementById("savest");
+  if (!b) return;
+  if (!n) { b.textContent = "✓ saqlangan"; b.className = "savest ok"; return; }
+  b.textContent = S.saveErr ? `⚠️ saqlanmadi: ${n}` : "⏳ saqlanmoqda";
+  b.className = "savest" + (S.saveErr ? " bad" : "");
+}
 function setAnswer(key, value) {
   if (value) S.att.answers[key] = value; else delete S.att.answers[key];
-  S.chain = S.chain.then(() => save(key, value));
+  S.pend[key] = value || "";
+  lsSet(PKEY(S.att.attempt_id), S.pend);
+  saveBadge();
+  S.chain = S.chain.then(() => save(key));
 }
-async function save(key, value, tries = 0) {
+async function save(key, tries = 0) {
+  if (!S.att || !(key in S.pend)) return;
+  const aid = S.att.attempt_id, value = S.pend[key];
+  S.lastTry = Date.now();
   try {
-    const r = await api(`/api/attempts/${S.att.attempt_id}/answer`, { method: "POST", body: JSON.stringify({ key, value }) });
-    if (r.status === "finished") { stopTimer(); toast("⏰ Vaqt tugadi"); result(S.att.attempt_id); }
+    const r = await api(`/api/attempts/${aid}/answer`, { method: "POST", body: JSON.stringify({ key, value }) });
+    if (!S.att || S.att.attempt_id !== aid) return;
+    if (S.pend[key] === value) delete S.pend[key];   // shu orada yangi javob yozilmagan bo'lsa
+    lsSet(PKEY(aid), S.pend);
+    if (r.status === "finished") { S.pend = {}; lsSet(PKEY(aid), null); stopTimer(); toast("⏰ Vaqt tugadi"); return result(aid); }
+    S.saveErr = false;
   } catch (e) {
-    if (e.status && e.status < 500 && e.status !== 429) return toast(e.message);
-    if (tries < 3) { await new Promise((r) => setTimeout(r, 800 * (tries + 1))); return save(key, value, tries + 1); }
-    toast("Javob saqlanmadi. Internetni tekshiring.");
+    if (e.status && e.status < 500 && e.status !== 429 && e.status !== 408) {
+      // server bu javobni qabul qilmaydi (masalan, noto'g'ri kalit) — qayta yuborish foydasiz
+      delete S.pend[key]; lsSet(PKEY(aid), S.pend); saveBadge(); return toast(e.message);
+    }
+    if (tries < 2) { await new Promise((r) => setTimeout(r, 700 * (tries + 1))); return save(key, tries + 1); }
+    S.saveErr = true;
   }
+  saveBadge();
+}
+async function sendPending() {
+  if (S.sending) return S.sending;
+  S.sending = (async () => {
+    for (const k of Object.keys(S.pend)) { await S.chain; await save(k); if (!S.att) break; }
+  })().finally(() => { S.sending = null; });
+  return S.sending;
 }
 async function flush() {
-  for (const k of Object.keys(S.timers)) { clearTimeout(S.timers[k]); delete S.timers[k]; }
+  // yozilayotgan (hali yuborilmagan) javoblar darhol yuboriladi — tashlab yuborilmaydi
+  for (const k of Object.keys(S.timers)) { clearTimeout(S.timers[k]); delete S.timers[k]; S.chain = S.chain.then(() => save(k)); }
   await S.chain;
 }
 function go(pos) { flush().then(() => { S.pos = pos; renderQuestion(); }); }
 function leaveExam() {
   flush().then(() => { stopTimer(); closing(false); toast("Imtihon davom etmoqda: vaqt ketadi"); openTab("exams"); });
 }
+function toggleFlag(pos) {
+  if (S.flags[pos]) delete S.flags[pos]; else S.flags[pos] = 1;
+  lsSet(FKEY(S.att.attempt_id), S.flags);
+  haptic();
+}
 
 function renderQuestion() {
   const items = S.att.items, total = items.length;
   const item = items[S.pos - 1];
   const doneN = items.filter(answered).length;
+  const flagged = !!S.flags[item.pos];
   const nodes = [
     el("div", { class: "qbar" },
       el("div", { class: "row" },
         el("button", { class: "x", onclick: () => confirmSheet("Imtihondan chiqasizmi?", "Taymer to'xtamaydi. Qaytib kirib davom ettirishingiz mumkin.", "Chiqish", leaveExam) }, icon("x")),
         el("div", { class: "grow" }, el("b", {}, `${S.pos}-savol `), el("span", { class: "hint" }, `(${S.pos}/${total})`)),
         el("span", { class: "timer", id: "timer" }, clock(remaining()))),
-      el("div", { class: "pbar", style: "margin-top:10px" }, el("i", { style: `width:${doneN / total * 100}%` }))),
+      el("div", { class: "pbar", style: "margin-top:10px" }, el("i", { style: `width:${doneN / total * 100}%` })),
+      el("div", { class: "row", style: "margin-top:8px" },
+        el("span", { class: "savest", id: "savest" }),
+        el("div", { class: "grow" }),
+        el("button", { class: "flagb" + (flagged ? " on" : ""), onclick: () => { toggleFlag(item.pos); renderQuestion(); } }, flagged ? "⭐ Belgilangan" : "☆ Belgilash"))),
   ];
   if (item.src) nodes.push(el("div", { class: "src" }, item.src));
   if (item.k === "c") {
@@ -500,15 +571,21 @@ function renderQuestion() {
     nodes.push(el("div", { class: "q pre" }, item.s));
     if (item.img) nodes.push(image(S.att.attempt_id, item.pos));
     if (item.p.length > 1) nodes.push(el("div", { class: "hint" }, "Har bir qismga javob yozing"));
+    const inputs = [];
     item.p.forEach((part, i) => {
       const key = `${item.pos}.${i}`;
-      const input = el("input", { class: "ans", type: "text", maxlength: "200", placeholder: "Javobingizni yozing", autocomplete: "off", value: S.att.answers[key] || "" });
+      const input = el("input", { class: "ans", type: "text", maxlength: "200", placeholder: "Javobingizni yozing", autocomplete: "off", enterkeyhint: i < item.p.length - 1 ? "next" : "done", value: S.att.answers[key] || "" });
+      const commit = () => { if (!S.timers[key]) return; clearTimeout(S.timers[key]); delete S.timers[key]; S.chain = S.chain.then(() => save(key)); };
       input.addEventListener("input", () => {
         const v = input.value.trim();
         if (v) S.att.answers[key] = v; else delete S.att.answers[key];
+        S.pend[key] = v; lsSet(PKEY(S.att.attempt_id), S.pend); saveBadge();
         clearTimeout(S.timers[key]);
-        S.timers[key] = setTimeout(() => { delete S.timers[key]; S.chain = S.chain.then(() => save(key, v)); }, 600);
+        S.timers[key] = setTimeout(() => { delete S.timers[key]; S.chain = S.chain.then(() => save(key)); }, 600);
       });
+      input.addEventListener("blur", commit);
+      input.addEventListener("keydown", (e) => { if (e.key === "Enter") { e.preventDefault(); commit(); if (inputs[i + 1]) inputs[i + 1].focus(); else input.blur(); } });
+      inputs.push(input);
       nodes.push(el("div", { class: "part" }, el("div", { class: "pre", style: "margin-bottom:9px" }, el("span", { class: "lab" }, LET[i] + ")"), part.q), input));
     });
   }
@@ -517,35 +594,63 @@ function renderQuestion() {
     el("button", { class: "btn alt", onclick: () => grid() }, icon("grid"), "Savollar"),
     el("button", { class: "btn sq", onclick: () => (S.pos < total ? go(S.pos + 1) : grid()), "aria-label": "Keyingi" }, icon(S.pos < total ? "right" : "flag"))));
   show({ focus: true }, ...nodes);
+  saveBadge();
 }
 
 function grid() {
   flush().then(() => {
-    const items = S.att.items, done = items.filter(answered).length;
+    const items = S.att.items, done = items.filter(answered).length, flags = items.filter((it) => S.flags[it.pos]).length;
     show({ focus: true },
       el("div", { class: "qbar" }, el("div", { class: "row" }, el("h2", { class: "grow", style: "margin:0" }, "Savollar"),
-        el("span", { class: "timer", id: "timer" }, clock(remaining())))),
+        el("span", { class: "timer", id: "timer" }, clock(remaining()))),
+        el("div", { class: "row", style: "margin-top:8px" }, el("span", { class: "savest", id: "savest" }))),
       el("div", { class: "hint" }, `Javob berilgan: ${done} / ${items.length}`),
-      el("div", { class: "legend" }, el("span", {}, el("i", { class: "d" }), "javob berilgan"), el("span", {}, el("i", {}), "javobsiz")),
+      flags ? el("div", { class: "hint" }, `⭐ Belgilangan: ${flags} ta`) : null,
+      el("div", { class: "legend" }, el("span", {}, el("i", { class: "d" }), "javob berilgan"), el("span", {}, el("i", { class: "h" }), "qisman"), el("span", {}, el("i", {}), "javobsiz"), el("span", {}, "⭐ belgilangan")),
       el("div", { class: "grid" }, items.map((it) =>
-        el("div", { class: "cell" + (answered(it) ? " done" : "") + (it.pos === S.pos ? " cur" : ""), onclick: () => go(it.pos) }, String(it.pos)))),
+        el("div", { class: "cell" + (partly(it) ? " half" : answered(it) ? " done" : "") + (it.pos === S.pos ? " cur" : ""), onclick: () => go(it.pos) },
+          String(it.pos), S.flags[it.pos] ? el("span", { class: "star" }, "⭐") : null))),
       el("div", { class: "nav" },
         el("button", { class: "btn alt", onclick: () => go(S.pos) }, icon("left"), "Qaytish"),
         el("button", { class: "btn gold", onclick: askFinish }, icon("flag"), "Yakunlash")));
+    saveBadge();
   });
 }
 function askFinish() {
-  const empty = S.att.items.filter((it) => !answered(it)).map((it) => it.pos);
-  let text = "Yakunlagandan keyin javoblarni o'zgartirib bo'lmaydi.";
-  if (empty.length) text = `⚠️ Javobsiz savollar: ${empty.length} ta (${empty.slice(0, 20).join(", ")}${empty.length > 20 ? " …" : ""})\n\n` + text;
-  confirmSheet("Imtihonni yakunlaysizmi?", text, "✅ Ha, yakunlash", finishNow);
+  const items = S.att.items;
+  const empty = items.filter((it) => !answered(it)).map((it) => it.pos);
+  const half = items.filter(partly).map((it) => it.pos);
+  const flagged = items.filter((it) => S.flags[it.pos]).map((it) => it.pos);
+  const list = (a) => a.slice(0, 20).join(", ") + (a.length > 20 ? " …" : "");
+  const lines = [];
+  if (empty.length) lines.push(`⚠️ Javobsiz savollar: ${empty.length} ta (${list(empty)})`);
+  if (half.length) lines.push(`✏️ Qisman javob berilgan: ${half.length} ta (${list(half)})`);
+  if (flagged.length) lines.push(`⭐ Belgilangan: ${flagged.length} ta (${list(flagged)})`);
+  lines.push("Yakunlagandan keyin javoblarni o'zgartirib bo'lmaydi.");
+  confirmSheet("Imtihonni yakunlaysizmi?", lines.join("\n\n"), "✅ Ha, yakunlash", () => finishNow(false));
 }
-async function finishNow() {
+async function finishNow(timeUp) {
+  const aid = S.att.attempt_id;
   stopTimer();
-  try { await flush(); await api(`/api/attempts/${S.att.attempt_id}/finish`, { method: "POST" }); }
-  catch (e) { toast(e.message); }
+  await flush();
+  if (Object.keys(S.pend).length) await sendPending();
+  if (Object.keys(S.pend).length && !timeUp && remaining() > 0) {
+    // internet yo'q: yakunlashdan oldin ogohlantiramiz, javoblar yo'qolmasin
+    S.timer = setInterval(tick, 500);
+    saveBadge();
+    return confirmSheet("Javoblar hali saqlanmadi",
+      `${Object.keys(S.pend).length} ta javob serverga yetib bormadi (internetni tekshiring).\n\nHozir yakunlasangiz, ular hisobga olinmaydi. Internet tiklangach qayta urinib ko'ring.`,
+      "🔄 Qayta urinish", () => finishNow(false));
+  }
+  try { await api(`/api/attempts/${aid}/finish`, { method: "POST" }); }
+  catch (e) {
+    if (!timeUp && remaining() > 0) { S.timer = setInterval(tick, 500); return toast("Yakunlanmadi: " + e.message); }
+    toast(e.message);
+  }
+  lsSet(PKEY(aid), null); lsSet(FKEY(aid), null);
+  S.pend = {};
   closing(false);
-  result(S.att.attempt_id);
+  result(aid);
 }
 
 /* ---------- natija va tahlil ---------- */

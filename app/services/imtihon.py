@@ -54,6 +54,10 @@ MILLIY_CLOSED = 35
 MILLIY_OPEN = 10
 MAX_OPEN_PARTS = 4
 MAX_ANSWER_LEN = 200
+# Vaqt tugashidan oldin yuborilgan, lekin tarmoq sababli kech yetib kelgan
+# javoblar uchun qisqa imtiyoz (soniya). Imtihon baribir o'z vaqtida yakunlanadi.
+SAVE_GRACE_SEC = 10
+MAX_EXTRA_ACCEPT = 30
 
 PUNCT = ".,;:!?\"«»()[]{}—–-"
 APOS = str.maketrans({
@@ -240,7 +244,85 @@ def unit_correct(item: Item, unit: Unit, answers: dict) -> bool:
         return True
 
     part = item.data["p"][unit.part]
-    return is_match(answers.get(unit.key), part["a"])
+    return is_match(answers.get(unit.key), accepted_variants(part))
+
+
+def accepted_variants(part: dict) -> list[str]:
+    """Asl to'g'ri javoblar + ustoz shu imtihon uchun keyin qabul qilganlari."""
+    return list(part.get("a") or []) + list(part.get("ax") or [])
+
+
+def can_save_late(attempt, now: datetime | None = None) -> bool:
+    """Faol urinish uchun javobni saqlash mumkinmi (vaqt + qisqa imtiyoz ichida)."""
+    now = now or datetime.utcnow()
+    return attempt.status == "active" and now < attempt.deadline_at + timedelta(seconds=SAVE_GRACE_SEC)
+
+
+def open_answer_groups(items: list[Item], answers_list: list[dict]) -> list[dict]:
+    """Yozma qismlar bo'yicha avtomatik qabul qilinmagan (lekin yozilgan) javoblar.
+
+    Bir xil yozilgan javoblar bitta guruhga yig'iladi (katta-kichik harf,
+    bo'shliq, apostrof farqi hisobga olinmaydi), shunda ustoz har bir yozilishni
+    bir marta ko'rib chiqadi. Qaytaradi: qismlar ro'yxati.
+    """
+    out = []
+    for it in items:
+        if it.kind != "o":
+            continue
+        for i, part in enumerate(it.data.get("p", [])):
+            key = f"{it.pos}.{i}"
+            groups: dict[str, dict] = {}
+            ok_n = 0
+            for answers in answers_list:
+                typed = (answers.get(key) or "").strip()
+                if not typed:
+                    continue
+                if answers.get("!" + key) or is_match(typed, accepted_variants(part)):
+                    ok_n += 1
+                    continue
+                g = groups.setdefault(compact(typed), {"text": typed, "count": 0})
+                g["count"] += 1
+            out.append({
+                "key": key, "pos": it.pos, "part": i, "q": part.get("q", ""),
+                "a": list(part.get("a") or []), "ax": list(part.get("ax") or []),
+                "ok": ok_n,
+                "wrong": sorted(groups.values(), key=lambda g: (-g["count"], g["text"].casefold())),
+            })
+    return out
+
+
+def toggle_extra_variant(payload: dict, part_index: int, text: str, accept: bool) -> tuple[bool, str]:
+    """Imtihon elementining (surat) qismiga qo'shimcha to'g'ri javob qo'shadi yoki olib tashlaydi.
+
+    Faqat shu imtihonga ta'sir qiladi, savollar bazasi o'zgarmaydi.
+    Qaytaradi: (o'zgardimi, izoh).
+    """
+    parts = payload.get("p") or []
+    if payload.get("k") != "o" or not (0 <= part_index < len(parts)):
+        return False, "Qism topilmadi."
+    text = " ".join((text or "").split())[:MAX_ANSWER_LEN]
+    if not compact(text):
+        return False, "Javob bo'sh."
+    part = parts[part_index]
+    extra = list(part.get("ax") or [])
+    same = [x for x in extra if compact(x) == compact(text)]
+    if accept:
+        if is_match(text, accepted_variants(part)):
+            return False, "Bu javob allaqachon qabul qilingan."
+        if len(extra) >= MAX_EXTRA_ACCEPT:
+            return False, f"Bitta qismga {MAX_EXTRA_ACCEPT} tadan ortiq qo'shimcha javob qo'shib bo'lmaydi."
+        extra.append(text)
+        note = "Javob qabul qilindi. Natijalar qayta hisoblandi."
+    else:
+        if not same:
+            return False, "Bu javob qo'shimcha qabul qilinganlar orasida yo'q."
+        extra = [x for x in extra if compact(x) != compact(text)]
+        note = "Qabul bekor qilindi. Natijalar qayta hisoblandi."
+    if extra:
+        part["ax"] = extra
+    else:
+        part.pop("ax", None)
+    return True, note
 
 
 def unit_answered(unit: Unit, answers: dict) -> bool:
@@ -648,7 +730,10 @@ async def finish_expired(session, bot=None) -> int:
             select(ExamAttempt, User, Exam)
             .join(User, User.id == ExamAttempt.user_id)
             .join(Exam, Exam.id == ExamAttempt.exam_id)
-            .where(ExamAttempt.status == "active", ExamAttempt.deadline_at <= now)
+            .where(
+                ExamAttempt.status == "active",
+                ExamAttempt.deadline_at <= now - timedelta(seconds=SAVE_GRACE_SEC),
+            )
             .limit(200)
         )
     ).all()

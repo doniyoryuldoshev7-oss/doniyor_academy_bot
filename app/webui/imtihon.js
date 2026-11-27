@@ -182,7 +182,8 @@
       d.avg !== null ? stat("📊 O'rtacha", d.mode === "milliy" ? `${d.avg} / ${d.scale}` : `${d.avg}%`) : null)];
     if (d.missing_count) nodes.push(el("div", { class: "card" }, el("b", {}, "Boshlamaganlar"),
       ...d.missing.map((n) => el("div", { class: "hint" }, "• " + n)), d.missing_count > d.missing.length ? el("div", { class: "hint" }, `… yana ${d.missing_count - d.missing.length} ta`) : null));
-    nodes.push(btn("", "📊 Natijalar", () => results(id, 0)), btn("alt", "📉 Qiyin savollar", () => hard(id)));
+    nodes.push(btn("", "📊 Natijalar", () => results(id, 0)), btn("alt", "📉 Qiyin savollar", () => hard(id)),
+      btn("alt", "✍️ Yozma javoblarni tekshirish", () => openReview(id)));
     nodes.push(btn("alt", d.open ? "🔒 Yopish (tahlil ochiladi)" : "🔓 Qayta ochish", async () => {
       try { const r = await post(`/api/ex/toggle/${id}`); manage(id, r.note); } catch (e) { toast(e.message); }
     }));
@@ -208,6 +209,42 @@
     if (p < last) nav.push(btn("alt", "Keyingi ➡️", () => results(id, p + 1)));
     nodes.push(...nav);
     screen("Natijalar", d.title, () => manage(id), ...nodes);
+  }
+  /* ---------- yozma javoblarni ustoz tekshiradi ---------- */
+  async function openReview(id, note, keep) {
+    if (!keep) wait();
+    let d;
+    try { d = await api(`/api/ex/openreview/${id}`); } catch (e) { return fail(e, () => manage(id)); }
+    if (note) toast(note);
+    if (!d.parts.length) { toast("Bu imtihonda yozma savol yo'q."); return manage(id); }
+    if (!d.count) { toast("Hali hech kim topshirmagan."); return manage(id); }
+    const y = window.scrollY;
+    const act = async (key, text, accept) => {
+      if (busy) return;
+      busy = true;
+      try { const r = await post(`/api/ex/accept/${id}`, { key, text, accept }); await openReview(id, r.note, true); window.scrollTo(0, y); }
+      catch (e) { toast(e.message); }
+      finally { busy = false; }
+    };
+    const pending = d.parts.reduce((n, p) => n + p.wrong.length, 0);
+    const nodes = [el("div", { class: "card" },
+      el("div", { class: "pre hint" }, "Bu yerda avtomatik tekshiruvda to'g'ri deb topilmagan yozma javoblar. Bir xil yozilgan javoblar birga ko'rsatiladi.\n\n«✅ Qabul qilish» — shu yozilish SHU imtihonda to'g'ri hisoblanadi: shunday yozgan hamma o'quvchining bali darhol qayta hisoblanadi. Savollar bazasi o'zgarmaydi."),
+      stat("👥 Topshirganlar", d.count), stat("🔎 Ko'rib chiqiladigan yozilishlar", pending))];
+    for (const p of d.parts) {
+      const card = el("div", { class: "card" },
+        el("b", {}, `${p.pos}-savol, ${"abcd"[p.part]})`), el("div", { class: "pre", style: "margin:4px 0" }, p.q),
+        el("div", { class: "hint" }, `✅ To'g'ri javob: ${p.a.join(" / ")}`),
+        el("div", { class: "hint" }, `To'g'ri yechganlar: ${p.ok} ta`));
+      for (const x of p.ax) card.append(el("div", { class: "row", style: "margin-top:8px" },
+        el("div", { class: "grow pre" }, `➕ Qo'shimcha qabul qilingan: «${x}»`),
+        el("button", { class: "btn alt small", onclick: () => confirmSheet("Qabul bekor qilinsinmi?", `«${x}»\n\nShunday yozganlarning bali kamayadi.`, "Ha, bekor qilish", () => act(p.key, x, false)) }, "↩️ Bekor")));
+      if (!p.wrong.length) card.append(el("div", { class: "hint", style: "margin-top:8px" }, "Ko'rib chiqiladigan javob yo'q."));
+      for (const w of p.wrong) card.append(el("div", { class: "row", style: "margin-top:8px" },
+        el("div", { class: "grow pre" }, `«${w.text}» — ${w.count} kishi`),
+        el("button", { class: "btn small", onclick: () => confirmSheet("Javob qabul qilinsinmi?", `${p.pos}-savol, ${"abcd"[p.part]})\n«${w.text}»\n\nShunday yozgan ${w.count} kishining bali qayta hisoblanadi.`, "✅ Ha, qabul qilish", () => act(p.key, w.text, true)) }, "✅ Qabul qilish")));
+      nodes.push(card);
+    }
+    screen("Yozma javoblar", d.title, () => manage(id), ...nodes);
   }
   async function hard(id) {
     wait();

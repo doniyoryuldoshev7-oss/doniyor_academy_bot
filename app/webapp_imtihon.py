@@ -516,6 +516,61 @@ async def api_ex_hard(request):
     return web.json_response({"title": title, "count": len(results), "items": out})
 
 
+# ---------------- yozma javoblarni ustoz tekshiradi ----------------
+async def api_ex_openreview(request):
+    """Yozma qismlar bo'yicha avtomatik qabul qilinmagan javoblar (bir xil yozilganlari birga)."""
+    from .services.imtihon import attempt_answers, exam_results, open_answer_groups
+
+    eid = int(request.match_info["id"])
+    async with SessionLocal() as s:
+        exam, err = await _load(request, s, eid)
+        if err:
+            return err
+        items, results = await exam_results(s, exam)
+        title = exam.title
+    parts = open_answer_groups(items, [attempt_answers(r.attempt) for r in results])
+    for p in parts:
+        p["q"] = (p["q"] or "")[:300]
+        p["wrong"] = p["wrong"][:60]
+    return web.json_response({"title": title, "count": len(results), "parts": parts})
+
+
+async def api_ex_accept(request):
+    """Yozma qism uchun javobni shu imtihonda to'g'ri deb qabul qilish yoki bekor qilish.
+    Savollar bazasi o'zgarmaydi; faqat shu imtihonning nusxasi. Ball darhol qayta hisoblanadi."""
+    from .models import ExamItem
+    from .services.imtihon import toggle_extra_variant
+
+    _err, rj = _helpers()
+    eid = int(request.match_info["id"])
+    body = await rj(request)
+    key = str(body.get("key") or "")
+    text = body.get("text")
+    accept = body.get("accept") is not False
+    m = re.fullmatch(r"(\d{1,3})\.(\d)", key)
+    if not m or not isinstance(text, str):
+        return _err("Noto'g'ri so'rov.")
+    pos, part = int(m.group(1)), int(m.group(2))
+    async with SessionLocal() as s:
+        exam, err = await _load(request, s, eid)
+        if err:
+            return err
+        row = await s.scalar(select(ExamItem).where(ExamItem.exam_id == eid, ExamItem.position == pos).with_for_update())
+        if row is None:
+            return _err("Savol topilmadi.", 404)
+        try:
+            payload = json.loads(row.payload)
+        except ValueError:
+            return _err("Savol ma'lumoti buzilgan.")
+        changed, note = toggle_extra_variant(payload, part, text, accept)
+        if not changed:
+            return _err(note)
+        row.payload = json.dumps(payload, ensure_ascii=False)
+        await s.commit()
+    log.info("veb: imtihon %s, %s-qism: %s «%s» (%s)", eid, key, "qabul" if accept else "bekor", text[:60], request["tg_id"])
+    return web.json_response({"ok": True, "note": note})
+
+
 async def api_ex_toggle(request):
     from .services.imtihon import exam_is_open
 
@@ -600,6 +655,8 @@ def setup(app: web.Application) -> None:
     r.add_get("/api/ex/results/{id:\\d+}", api_ex_results)
     r.add_get("/api/ex/hard/{id:\\d+}", api_ex_hard)
     r.add_post("/api/ex/toggle/{id:\\d+}", api_ex_toggle)
+    r.add_get("/api/ex/openreview/{id:\\d+}", api_ex_openreview)
+    r.add_post("/api/ex/accept/{id:\\d+}", api_ex_accept)
     r.add_post("/api/ex/delete/{id:\\d+}", api_ex_delete)
     r.add_get("/api/ex/open_help", api_ex_open_help)
     r.add_post("/api/ex/open_add", api_ex_open_add)

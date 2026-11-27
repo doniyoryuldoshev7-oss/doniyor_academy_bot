@@ -127,9 +127,10 @@ async def get_user(session, telegram_id: int):
     return await session.scalar(select(User).where(User.telegram_id == telegram_id))
 
 
-async def attempt_ctx(session, telegram_id: int, attempt_id: int):
-    """(attempt, exam, items, user) yoki None."""
-    attempt = await session.get(ExamAttempt, attempt_id)
+async def attempt_ctx(session, telegram_id: int, attempt_id: int, lock: bool = False):
+    """(attempt, exam, items, user) yoki None. lock=True — javob yozishda qator qulflanadi
+    (bot va veb-ilovadan bir vaqtda kelgan javoblar bir-birini o'chirmasin)."""
+    attempt = await session.get(ExamAttempt, attempt_id, with_for_update=lock)
     user = await get_user(session, telegram_id)
 
     if attempt is None or user is None or attempt.user_id != user.id:
@@ -442,7 +443,7 @@ async def cb_answer(c: CallbackQuery):
     pos = int(pos_s)
 
     async with SessionLocal() as session:
-        ctx = await attempt_ctx(session, c.from_user.id, int(aid))
+        ctx = await attempt_ctx(session, c.from_user.id, int(aid), lock=True)
         if ctx is None:
             await c.answer("Imtihon topilmadi.", show_alert=True)
             return
@@ -527,7 +528,7 @@ async def msg_typed(m: Message, state: FSMContext):
         return
 
     async with SessionLocal() as session:
-        ctx = await attempt_ctx(session, m.from_user.id, aid or 0)
+        ctx = await attempt_ctx(session, m.from_user.id, aid or 0, lock=True)
         if ctx is None:
             await state.clear()
             await m.answer("Imtihon topilmadi.")

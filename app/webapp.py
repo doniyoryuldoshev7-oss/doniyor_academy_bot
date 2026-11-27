@@ -34,6 +34,7 @@ from .services.imtihon import (
     SCALE_MAX,
     attempt_answers,
     build_units,
+    can_save_late,
     exam_is_open,
     exam_results,
     exam_targets_user,
@@ -136,8 +137,10 @@ async def _json(request: web.Request) -> dict:
 # ---------------------------------------------------------------
 #  Yordamchilar
 # ---------------------------------------------------------------
-async def _my_attempt(session, request, attempt_id: int):
-    attempt = await session.get(ExamAttempt, attempt_id)
+async def _my_attempt(session, request, attempt_id: int, lock: bool = False):
+    # lock=True: javob yozilayotganda qator qulflanadi, shunda bir vaqtda kelgan
+    # ikki so'rov (masalan, bot va veb-ilova) bir-birining javobini o'chirib yubormaydi.
+    attempt = await session.get(ExamAttempt, attempt_id, with_for_update=lock)
     if attempt is None or attempt.user_id != request["user_id"]:
         return None, None
     exam = await session.get(Exam, attempt.exam_id)
@@ -318,11 +321,14 @@ async def api_answer(request: web.Request):
     value = value if isinstance(value, str) else ""
 
     async with SessionLocal() as session:
-        attempt, exam = await _my_attempt(session, request, int(request.match_info["id"]))
+        attempt, exam = await _my_attempt(session, request, int(request.match_info["id"]), lock=True)
         if attempt is None:
             return _err("Imtihon topilmadi.", 404)
 
-        if await _settle(session, attempt) == "finished":
+        # Vaqt tugashidan sal oldin yuborilib, kechikib kelgan javob ham saqlanadi
+        # (SAVE_GRACE_SEC); undan keyin urinish yakunlanadi.
+        if not can_save_late(attempt):
+            await _settle(session, attempt)
             return web.json_response({"status": "finished"})
 
         items = await load_items(session, exam.id)
@@ -359,7 +365,7 @@ async def api_answer(request: web.Request):
 
 async def api_finish(request: web.Request):
     async with SessionLocal() as session:
-        attempt, exam = await _my_attempt(session, request, int(request.match_info["id"]))
+        attempt, exam = await _my_attempt(session, request, int(request.match_info["id"]), lock=True)
         if attempt is None:
             return _err("Imtihon topilmadi.", 404)
         if attempt.status == "active":
