@@ -8,6 +8,7 @@ bo'roni bo'lmasligi uchun). O'chirish: ADMIN_ALERTS=0.
 
 from __future__ import annotations
 
+from ..tg_retry import retry as _tg_retry
 import asyncio
 import html
 import logging
@@ -63,12 +64,12 @@ async def notify_admins(bot, text: str, key: str, cooldown: int = COOLDOWN_SECON
 
     for target in _recipients():
         try:
-            await bot.send_message(
+            await _tg_retry(lambda: bot.send_message(
                 target,
                 text[:3900],
                 parse_mode="HTML",
                 disable_web_page_preview=True,
-            )
+            ), tries=3)
             delivered = True
         except Exception as exc:
             log.warning("Ogohlantirish yuborilmadi (%s): %s", target, exc)

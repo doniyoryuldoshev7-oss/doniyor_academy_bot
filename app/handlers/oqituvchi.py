@@ -8,6 +8,7 @@ huquq qayta tekshiriladi (ustozlik olib tashlansa, panel darhol yopiladi).
 
 from __future__ import annotations
 
+from ..tg_retry import retry as _tg_retry
 import asyncio
 import html
 import logging
@@ -503,7 +504,7 @@ async def _broadcast(bot, teacher_tg, teacher_name, group_name, recipients, text
     for chat_id in recipients:
         for attempt in range(2):
             try:
-                await bot.send_message(chat_id, body)
+                await _tg_retry(lambda: bot.send_message(chat_id, body), tries=3)
                 sent += 1
                 break
             except TelegramRetryAfter as exc:
@@ -530,7 +531,7 @@ async def _broadcast(bot, teacher_tg, teacher_name, group_name, recipients, text
         summary += f"\n⚠️ Yuborilmadi: {failed}"
 
     try:
-        await bot.send_message(teacher_tg, summary)
+        await _tg_retry(lambda: bot.send_message(teacher_tg, summary), tries=3)
     except Exception:
         log.exception("Ustozga hisobot yuborilmadi")
 

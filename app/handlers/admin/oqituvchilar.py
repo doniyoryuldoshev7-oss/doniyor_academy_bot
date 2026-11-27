@@ -5,6 +5,7 @@ Joylashuvi: app/handlers/admin/oqituvchilar.py
 
 from __future__ import annotations
 
+from ...tg_retry import retry as _tg_retry
 import html
 import logging
 
@@ -279,13 +280,13 @@ async def adm_new(c: CallbackQuery):
 
     if created:
         try:
-            await c.bot.send_message(
+            await _tg_retry(lambda: c.bot.send_message(
                 tg_id,
                 "🧑‍🏫 <b>Siz ustoz etib tayinlandingiz!</b>\n\n"
                 "Admin sizga guruh biriktirgach, bosh menyudagi "
                 "«Ustoz paneli» tugmasidan o'quvchilaringizni ko'rishingiz mumkin.\n"
                 "Bosh menyuga qaytish uchun /start ni yuboring.",
-            )
+            ), tries=3)
         except Exception:
             pass
 

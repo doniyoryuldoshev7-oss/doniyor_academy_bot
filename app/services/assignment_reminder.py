@@ -15,6 +15,7 @@ shunda har bir topshiriq aynan bir marta eslatiladi.
 
 from __future__ import annotations
 
+from ..tg_retry import retry as _tg_retry
 import asyncio
 import html
 import logging
@@ -113,14 +114,14 @@ async def send_deadline_reminders(bot, now: datetime | None = None) -> dict:
                 )
 
                 try:
-                    await bot.send_message(
+                    await _tg_retry(lambda: bot.send_message(
                         student.telegram_id,
                         student_text(topic_name, assignment, answered),
                         reply_markup=student_keyboard(
                             assignment.topic_id,
                             assignment.required_questions,
                         ),
-                    )
+                    ), tries=3)
                     sent += 1
                 except Exception as exc:
                     failed += 1
@@ -188,11 +189,11 @@ async def send_teacher_summaries(bot, now: datetime | None = None) -> dict:
             )
 
             try:
-                await bot.send_message(
+                await _tg_retry(lambda: bot.send_message(
                     assignment.created_by,
                     "\n".join(lines),
                     reply_markup=keyboard,
-                )
+                ), tries=3)
                 sent += 1
             except Exception as exc:
                 log.warning(

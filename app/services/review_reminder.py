@@ -17,6 +17,7 @@ Env o'zgaruvchilari:
 
 from __future__ import annotations
 
+from ..tg_retry import retry as _tg_retry
 import asyncio
 import logging
 import os
@@ -187,11 +188,11 @@ async def send_reminders(bot, now: datetime | None = None) -> dict:
 
     for telegram_id, _full_name, due_count in rows:
         try:
-            await bot.send_message(
+            await _tg_retry(lambda: bot.send_message(
                 telegram_id,
                 reminder_text(int(due_count)),
                 reply_markup=reminder_keyboard(),
-            )
+            ), tries=3)
             sent += 1
         except Exception as exc:
             failed += 1

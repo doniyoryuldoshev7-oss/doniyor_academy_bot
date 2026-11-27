@@ -16,6 +16,7 @@ Bu rasmiy Rasch modeli emas, mashq uchun taxminiy hisob.
 """
 
 from __future__ import annotations
+from ..tg_retry import retry as _tg_retry
 from ..numfmt import pct_int, round_half_up
 
 import asyncio
@@ -663,7 +664,7 @@ async def finish_expired(session, bot=None) -> int:
 
         for attempt, user, exam in rows:
             try:
-                await bot.send_message(
+                await _tg_retry(lambda: bot.send_message(
                     user.telegram_id,
                     "⏰ <b>Imtihon vaqti tugadi</b>\n\n"
                     f"«{_esc(exam.title)}» imtihoningiz avtomatik yakunlandi.",
@@ -675,7 +676,7 @@ async def finish_expired(session, bot=None) -> int:
                             )
                         ]]
                     ),
-                )
+                ), tries=3)
             except Exception:
                 pass
             await asyncio.sleep(0.05)

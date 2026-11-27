@@ -11,6 +11,7 @@ yo'q, shuning uchun FSM holatlari ham kerak emas.
 
 from __future__ import annotations
 
+from ..tg_retry import retry as _tg_retry
 import asyncio
 import html
 import logging
@@ -562,11 +563,11 @@ async def assign_create(c: CallbackQuery):
 
     for student in students:
         try:
-            await c.bot.send_message(
+            await _tg_retry(lambda: c.bot.send_message(
                 student.telegram_id,
                 text,
                 reply_markup=keyboard,
-            )
+            ), tries=3)
             sent += 1
         except Exception as exc:
             log.warning(
@@ -1078,7 +1079,7 @@ async def assign_personal_create(c: CallbackQuery):
     delivered = True
 
     try:
-        await c.bot.send_message(telegram_id, text, reply_markup=keyboard)
+        await _tg_retry(lambda: c.bot.send_message(telegram_id, text, reply_markup=keyboard), tries=3)
     except Exception as exc:
         delivered = False
         log.warning(

@@ -1,5 +1,6 @@
 """Admin paneli: statistika bo'limi (admin.py dan ajratilgan)."""
 
+from ...tg_retry import retry as _tg_retry
 from ...numfmt import pct_1
 import sys
 import asyncio
@@ -182,7 +183,7 @@ async def broadcast(m: Message):
     sent = 0
     for u in us:
         try:
-            await m.bot.send_message(u.telegram_id, text)
+            await _tg_retry(lambda: m.bot.send_message(u.telegram_id, text), tries=3)
             sent += 1
         except Exception:
             pass
@@ -225,7 +226,7 @@ async def send_ad_to_all_users(m: Message, state: FSMContext):
 
     for user_id in users:
         try:
-            await m.copy_to(chat_id=user_id)
+            await _tg_retry(lambda: m.copy_to(chat_id=user_id), tries=3)
             success_count += 1
             if success_count % 10 == 0:
                 await asyncio.sleep(0.3)

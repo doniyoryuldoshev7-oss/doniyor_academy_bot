@@ -3,6 +3,7 @@ faqat adminlar; tasdiqlash uchun ism-familiya, telefon va guruh to'liq bo'lishi 
 foydalanuvchiga botdan xabar boradi. Qo'shimcha himoya: adminni bloklash yoki rad etish mumkin emas."""
 from __future__ import annotations
 
+from .tg_retry import retry as _tg_retry
 import html
 import json
 import logging
@@ -167,7 +168,7 @@ async def _notify(tg, text, with_menu=False):
                 from .keyboards import main_menu
 
                 kw["reply_markup"] = main_menu(False)
-            await bot.send_message(tg, text, **kw)
+            await _tg_retry(lambda: bot.send_message(tg, text, **kw), tries=3)
             return True
         finally:
             try:

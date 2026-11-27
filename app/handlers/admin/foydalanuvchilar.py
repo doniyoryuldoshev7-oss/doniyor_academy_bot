@@ -1,5 +1,6 @@
 """Admin paneli: foydalanuvchilar bo'limi (admin.py dan ajratilgan)."""
 
+from ...tg_retry import retry as _tg_retry
 import sys
 import asyncio
 import logging
@@ -95,13 +96,13 @@ async def approve_user(c: CallbackQuery):
         full_name = user.full_name or "Foydalanuvchi"
 
     try:
-        await c.bot.send_message(
+        await _tg_retry(lambda: c.bot.send_message(
             telegram_id,
             "<b>Ro'yxatdan o'tishingiz tasdiqlandi!</b>\n\n"
             f"Ism-familiya: <b>{full_name}</b>\n\n"
             "Endi Doniyor Academy dan toliq foydalanishingiz mumkin.",
             reply_markup=main_menu(False),
-        )
+        ), tries=3)
     except Exception:
         pass
 
@@ -143,11 +144,11 @@ async def reject_user(c: CallbackQuery):
         full_name = user.full_name or "Foydalanuvchi"
 
     try:
-        await c.bot.send_message(
+        await _tg_retry(lambda: c.bot.send_message(
             telegram_id,
             "<b>Royxatdan otish arizangiz rad etildi.</b>\n\n"
             "Qaytadan royxatdan otish uchun /start buyrugini yuboring.",
-        )
+        ), tries=3)
     except Exception:
         pass
 

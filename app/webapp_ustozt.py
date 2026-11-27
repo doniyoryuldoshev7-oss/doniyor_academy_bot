@@ -4,6 +4,7 @@ ustoz faqat o'z guruhlariga topshiriq beradi va faqat o'zi bergan topshiriqlarni
 xabar boradi. Hisob-kitob services/assignments.py dan olinadi (botdagi bilan bir xil)."""
 from __future__ import annotations
 
+from .tg_retry import retry as _tg_retry
 import asyncio
 import html
 import json
@@ -376,7 +377,7 @@ async def api_at_personal(request):
     delivered = True
     try:
         async with _Bot() as bot:
-            await bot.send_message(tg, assignment_text(sname, tname, count, deadline, personal=True), reply_markup=keyboard(topic_id, count))
+            await _tg_retry(lambda: bot.send_message(tg, assignment_text(sname, tname, count, deadline, personal=True), reply_markup=keyboard(topic_id, count)), tries=3)
     except Exception as e:  # noqa: BLE001
         delivered = False
         log.warning("veb: shaxsiy topshiriq yuborilmadi (%s): %s", tg, e)

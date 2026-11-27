@@ -4,6 +4,7 @@ Ustozlar bo'limi faqat adminlar uchun. Ustoz paneli har so'rovda ustozlik huquqi
 ustozning o'z guruhlarini ko'rsatadi."""
 from __future__ import annotations
 
+from .tg_retry import retry as _tg_retry
 import asyncio
 import json
 import logging
@@ -169,9 +170,9 @@ async def api_t_new(request):
         notified = False
         try:
             async with _Bot() as bot:
-                await bot.send_message(tg, "🧑‍🏫 <b>Siz ustoz etib tayinlandingiz!</b>\n\n"
+                await _tg_retry(lambda: bot.send_message(tg, "🧑‍🏫 <b>Siz ustoz etib tayinlandingiz!</b>\n\n"
                                        "Admin sizga guruh biriktirgach, bosh menyudagi «Ustoz paneli» tugmasidan "
-                                       "o'quvchilaringizni ko'rishingiz mumkin.\nBosh menyuga qaytish uchun /start ni yuboring.")
+                                       "o'quvchilaringizni ko'rishingiz mumkin.\nBosh menyuga qaytish uchun /start ni yuboring."), tries=3)
             notified = True
         except Exception:
             log.warning("veb: yangi ustozga xabar yuborilmadi (%s)", tg)

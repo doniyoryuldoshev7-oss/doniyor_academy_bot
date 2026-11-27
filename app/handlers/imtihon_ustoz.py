@@ -4,6 +4,7 @@ Joylashuvi: app/handlers/imtihon_ustoz.py
 """
 
 from __future__ import annotations
+from ..tg_retry import retry as _tg_retry
 from ..numfmt import round_half_up
 
 import asyncio
@@ -706,17 +707,17 @@ async def _announce(bot, owner_id, exam_id, title, real_c, real_o, duration, dea
     sent = failed = 0
     for chat_id in chat_ids:
         try:
-            await bot.send_message(chat_id, text, reply_markup=markup)
+            await _tg_retry(lambda: bot.send_message(chat_id, text, reply_markup=markup), tries=3)
             sent += 1
         except Exception:
             failed += 1
         await asyncio.sleep(0.05)
     try:
-        await bot.send_message(
+        await _tg_retry(lambda: bot.send_message(
             owner_id,
             f"📨 Imtihon xabari yuborildi: <b>{sent}</b> ta"
             + (f" (yetmadi: {failed})" if failed else ""),
-        )
+        ), tries=3)
     except Exception:
         pass
 

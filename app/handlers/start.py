@@ -1,3 +1,4 @@
+from ..tg_retry import retry as _tg_retry
 from aiogram import Router, F
 from aiogram.filters import CommandStart
 from aiogram.types import (
@@ -501,11 +502,11 @@ async def registration_group_name(
 
     for admin_id in settings.admins:
         try:
-            await message.bot.send_message(
+            await _tg_retry(lambda: message.bot.send_message(
                 admin_id,
                 admin_text,
                 reply_markup=admin_kb,
-            )
+            ), tries=3)
         except Exception:
             pass
 
