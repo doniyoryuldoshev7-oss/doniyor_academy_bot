@@ -20,6 +20,7 @@ from ..tg_retry import retry as _tg_retry
 from ..numfmt import pct_int, round_half_up
 
 import asyncio
+import copy
 import itertools
 import json
 import logging
@@ -31,11 +32,13 @@ from datetime import datetime, timedelta
 from sqlalchemy import func, select
 
 from ..models import (
+    AnswerLog,
     Exam,
     ExamAttempt,
     ExamItem,
     OpenQuestion,
     Question,
+    TestAttempt,
     Topic,
     User,
 )
@@ -336,6 +339,114 @@ def item_answered(item: Item, answers: dict) -> bool:
         (answers.get(f"{item.pos}.{i}") or "").strip()
         for i, _ in enumerate(item.data.get("p", []))
     )
+
+
+# ---------------------------------------------------------------
+#  O'quvchi ko'radigan tartib (aralashtirish)
+# ---------------------------------------------------------------
+# Javoblar va ball har doim imtihonning ASL tartibida (ustoz ko'radigan
+# raqamlar va harflar) saqlanadi. O'quvchiga esa "ko'rinish" beriladi:
+# savollar (yopiqlar o'z ichida, ochiqlar o'z ichida) va A–D variantlar
+# har urinish uchun o'z tartibida. Tartib urinish raqamidan hosil
+# qilinadi, shuning uchun bot va veb-ilovada har doim bir xil chiqadi.
+LETTERS = "ABCD"
+_SELF_REF = re.compile(
+    r"\b[A-D]\b|\b(?:barcha|hamma|hammasi|yuqoridagi|ikkalasi|hech biri|hech qaysi)",
+    re.IGNORECASE,
+)
+
+
+def _can_shuffle_options(data: dict) -> bool:
+    """Rasmli savol (variantlar rasmda bo'lishi mumkin) va «barchasi to'g'ri», «A va B»
+    kabi bir-biriga bog'liq variantlar aralashtirilmaydi."""
+    if data.get("img"):
+        return False
+    return not any(_SELF_REF.search(str(v or "")) for v in (data.get("o") or {}).values())
+
+
+def attempt_view(items: list[Item], exam, attempt_id: int) -> list[Item]:
+    """O'quvchiga ko'rsatiladigan elementlar: pos = ko'rinishdagi raqam (1, 2, ...).
+    data["_cp"] — asl raqam, data["_om"] — {ko'rinish harfi: asl harf}."""
+    mix = bool(getattr(exam, "shuffle", False))
+    order = list(items)
+    rng = None
+    if mix:
+        rng = random.Random(f"exm:{getattr(exam, 'id', 0)}:{attempt_id}")
+        closed = [it for it in items if it.kind == "c"]
+        opened = [it for it in items if it.kind != "c"]
+        rng.shuffle(closed)
+        rng.shuffle(opened)
+        order = closed + opened
+    view = []
+    for number, it in enumerate(order, start=1):
+        data = copy.deepcopy(it.data)
+        data["_cp"] = it.pos
+        if it.kind == "c" and rng is not None:
+            canon = list((it.data.get("o") or {}).keys())
+            perm = canon[:]
+            rng.shuffle(perm)       # tartib barqaror bo'lishi uchun har doim chaqiriladi
+            if _can_shuffle_options(it.data) and len(perm) <= len(LETTERS) and perm != canon:
+                shown = list(LETTERS[: len(perm)])
+                data["o"] = {d: it.data["o"][c] for d, c in zip(shown, perm)}
+                data["_om"] = dict(zip(shown, perm))
+                back = {c: d for d, c in data["_om"].items()}
+                data["c"] = back.get(it.data.get("c"), it.data.get("c"))
+        view.append(Item(pos=number, kind=it.kind, data=data))
+    return view
+
+
+def _view_maps(view: list[Item]):
+    to_view = {it.data.get("_cp", it.pos): it for it in view}
+    return to_view, {it.pos: it for it in view}
+
+
+def answers_to_view(answers: dict, view: list[Item]) -> dict:
+    """Asl tartibdagi javoblar -> o'quvchi ko'rinishi (raqam va harf)."""
+    to_view, _ = _view_maps(view)
+    out = {}
+    for key, value in (answers or {}).items():
+        bang = key.startswith("!")
+        core = key[1:] if bang else key
+        head, dot, tail = core.partition(".")
+        if not head.isdigit() or int(head) not in to_view:
+            continue
+        it = to_view[int(head)]
+        if it.kind == "c" and not dot and not bang and it.data.get("_om"):
+            back = {c: d for d, c in it.data["_om"].items()}
+            value = back.get(value, value)
+        out[("!" if bang else "") + str(it.pos) + (dot + tail if dot else "")] = value
+    return out
+
+
+def answers_from_view(view_answers: dict, view: list[Item], original: dict | None = None) -> dict:
+    """O'quvchi ko'rinishidagi javoblar -> asl tartib. original dagi xizmat kalitlari ("_...") saqlanadi."""
+    _, by_view = _view_maps(view)
+    out = {k: v for k, v in (original or {}).items() if k.startswith("_")}
+    for key, value in (view_answers or {}).items():
+        bang = key.startswith("!")
+        core = key[1:] if bang else key
+        head, dot, tail = core.partition(".")
+        if not head.isdigit() or int(head) not in by_view:
+            continue
+        it = by_view[int(head)]
+        if it.kind == "c" and not dot and not bang and it.data.get("_om"):
+            value = it.data["_om"].get(value, value)
+        out[("!" if bang else "") + str(it.data.get("_cp", it.pos)) + (dot + tail if dot else "")] = value
+    return out
+
+
+def view_key_to_canon(key: str, value: str, view: list[Item]):
+    """Bitta javob kaliti/qiymatini asl tartibga o'giradi. Topilmasa (None, None)."""
+    _, by_view = _view_maps(view)
+    head, dot, tail = key.partition(".")
+    if not head.isdigit() or int(head) not in by_view:
+        return None, None
+    it = by_view[int(head)]
+    if it.kind == "c" and not dot and value and it.data.get("_om"):
+        if value not in it.data["_om"]:
+            return None, None
+        value = it.data["_om"][value]
+    return str(it.data.get("_cp", it.pos)) + (dot + tail if dot else ""), value
 
 
 # ---------------------------------------------------------------
@@ -654,6 +765,7 @@ async def create_exam(
     duration_min: int,
     days_open: int,
     payloads: list[dict],
+    shuffle: bool = True,
 ) -> Exam:
     exam = Exam(
         title=title[:200],
@@ -665,6 +777,7 @@ async def create_exam(
         closes_at=datetime.utcnow() + timedelta(days=days_open),
         is_open=True,
         is_removed=False,
+        shuffle=bool(shuffle),
     )
     session.add(exam)
     await session.flush()
@@ -769,6 +882,137 @@ async def finish_expired(session, bot=None) -> int:
     return len(rows)
 
 
+# ---------------------------------------------------------------
+#  Yopilgan imtihon natijalarini umumiy test tarixiga yozish
+# ---------------------------------------------------------------
+# Imtihon yopilgach (tahlil ochilgach) har bir topshirgan o'quvchi uchun
+# guruh testi kabi bitta test yozuvi (source="exam") va har bir yopiq
+# savol bo'yicha javob yozuvi yaratiladi. Shunda xatolar «Mening
+# xatolarim», Smart Takrorlash, statistika va Bilimlar xaritasida ko'rinadi.
+# Yozma (ochiq) savollar savollar bazasida test savoli emas, ular kirmaydi.
+# Imtihon ochiq turganda yozilmaydi: aks holda to'g'ri javoblar boshqa
+# o'quvchilarga oshkor bo'lishi mumkin edi.
+SYNC_KEY = "_s"
+SYNC_BATCH = 50
+SMART_FRESH_DAYS = 14
+UNKNOWN_OPTION = "?"
+
+
+def closed_log_rows(items: list[Item], answers: dict, existing_qids: set) -> list[tuple]:
+    """[(question_id, tanlangan harf, to'g'rimi)] — faqat bazada mavjud yopiq savollar.
+    Javob berilmagan savol xato hisoblanadi ("?")."""
+    rows = []
+    seen = set()
+    for it in items:
+        if it.kind != "c":
+            continue
+        qid = it.data.get("qid")
+        if not qid or qid not in existing_qids or qid in seen:
+            continue
+        seen.add(qid)
+        mine = (answers.get(str(it.pos)) or "").strip().upper()[:1]
+        ok = bool(mine) and mine == (it.data.get("c") or "")
+        rows.append((qid, mine or UNKNOWN_OPTION, ok))
+    return rows
+
+
+async def _sync_one(session, attempt, items, answers, register, now) -> int:
+    """Bitta urinishni test tarixiga yozadi. Qaytaradi: TestAttempt id (yozadigan narsa bo'lmasa 0)."""
+    qids = {it.data.get("qid") for it in items if it.kind == "c" and it.data.get("qid")}
+    existing = set()
+    if qids:
+        existing = set(await session.scalars(select(Question.id).where(Question.id.in_(list(qids)))))
+    logs = closed_log_rows(items, answers, existing)
+    marker = 0
+    if logs:
+        topic_id = await session.scalar(
+            select(Question.topic_id).where(Question.id == logs[0][0])
+        )
+        total = len(logs)
+        correct = sum(1 for _q, _s, ok in logs if ok)
+        row = TestAttempt(
+            user_id=attempt.user_id,
+            topic_id=topic_id,
+            total=total,
+            correct=correct,
+            score=correct,
+            created_at=attempt.finished_at or attempt.deadline_at,
+        )
+        row.source = "exam"
+        session.add(row)
+        await session.flush()
+        for qid, selected, ok in logs:
+            session.add(AnswerLog(attempt_id=row.id, question_id=qid, selected_option=selected, is_correct=ok))
+        user = await session.get(User, attempt.user_id)
+        if user is not None:
+            user.total_tests = (user.total_tests or 0) + 1
+            user.total_questions = (user.total_questions or 0) + total
+            user.correct_answers = (user.correct_answers or 0) + correct
+            user.total_score = (user.total_score or 0) + correct
+        fresh = (now - (attempt.finished_at or now)) <= timedelta(days=SMART_FRESH_DAYS)
+        if register is not None and fresh:
+            for qid, _sel, ok in logs:
+                if ok:
+                    continue
+                try:
+                    async with session.begin_nested():
+                        await register(session, user_id=attempt.user_id, question_id=qid)
+                except Exception:
+                    log.exception("Imtihon: Smart Takrorlashga qo'shilmadi (#%s)", qid)
+        marker = row.id
+    return marker
+
+
+async def sync_closed_exams(session, now: datetime | None = None) -> int:
+    """Yopilgan imtihonlarning hali yozilmagan urinishlarini test tarixiga yozadi. Qaytaradi: nechta."""
+    import os
+
+    now = now or datetime.utcnow()
+    rows = (
+        await session.execute(
+            select(ExamAttempt, Exam)
+            .join(Exam, Exam.id == ExamAttempt.exam_id)
+            .where(
+                ExamAttempt.status == "finished",
+                Exam.is_removed.is_(False),
+                (Exam.is_open.is_(False)) | (Exam.closes_at <= now),
+                ExamAttempt.answers.not_like('%"' + SYNC_KEY + '":%'),
+            )
+            .order_by(ExamAttempt.id)
+            .limit(SYNC_BATCH)
+        )
+    ).all()
+    if not rows:
+        return 0
+
+    smart_on = os.getenv("SMART_REVIEW_ENABLED", "0") == "1"
+    register = None
+    if smart_on:
+        from .smart_review_service import register_wrong_answer as register
+
+    cache: dict[int, list[Item]] = {}
+    done = 0
+    for attempt, exam in rows:
+        if exam_is_open(exam, now):
+            continue
+        items = cache.get(exam.id)
+        if items is None:
+            items = cache[exam.id] = await load_items(session, exam.id)
+        answers = attempt_answers(attempt)
+        try:
+            # har bir urinish alohida "saqlash nuqtasi"da: bittasidagi xato qolganlarini to'xtatmaydi
+            async with session.begin_nested():
+                marker = await _sync_one(session, attempt, items, answers, register, now)
+        except Exception:
+            log.exception("Imtihon: urinish #%s test tarixiga yozilmadi", attempt.id)
+            marker = -1                     # qayta-qayta urinmaslik uchun belgilanadi
+        answers[SYNC_KEY] = marker
+        attempt.answers = json.dumps(answers, ensure_ascii=False)
+        done += 1
+    await session.commit()
+    return done
+
+
 def _esc(value) -> str:
     import html
 
@@ -786,6 +1030,15 @@ async def expiry_loop(bot, interval: int = 30) -> None:
                 done = await finish_expired(session, bot)
             if done:
                 log.info("Vaqti tugagan imtihonlar yopildi: %s", done)
+            try:
+                async with SessionLocal() as session:
+                    synced = await sync_closed_exams(session)
+                if synced:
+                    log.info("Imtihon natijalari test tarixiga yozildi: %s", synced)
+            except asyncio.CancelledError:
+                raise
+            except Exception:
+                log.exception("Imtihon natijalarini test tarixiga yozishda xato")
         except asyncio.CancelledError:
             raise
         except Exception:

@@ -923,8 +923,9 @@ async def history(c):
             pct = (a.correct / a.total * 100) if a.total else 0
             date = a.created_at.strftime("%d.%m.%Y %H:%M")
 
+            _name = "📝 Imtihon" if getattr(a, "source", None) == "exam" else (topic.name if topic else 'Mavzu o‘chirilgan')
             lines.append(
-                f"<b>{i}. {topic.name if topic else 'Mavzu o‘chirilgan'}</b>\n"
+                f"<b>{i}. {_name}</b>\n"
                 f"   🎯 {a.correct}/{a.total} — {pct_1(a.correct, a.total):.1f}%\n"
                 f"   ⭐ +{a.score} ball · {date}\n"
             )

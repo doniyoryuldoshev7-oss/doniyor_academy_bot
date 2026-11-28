@@ -422,7 +422,7 @@ function info(ex) {
     el("div", { class: "stat" }, el("span", {}, "⏱ Vaqt"), el("b", {}, `${ex.duration} daqiqa`)),
     ex.closes_ms ? el("div", { class: "stat" }, el("span", {}, "📅 Muddat"), el("b", {}, fmtDate(ex.closes_ms))) : null));
   if (ex.state === "new") {
-    nodes.push(el("div", { class: "card pre" }, "⚠️ Qoidalar\n• Boshlagach taymer to'xtamaydi.\n• Imtihon faqat bir marta topshiriladi.\n• Savollar orasida erkin yurasiz, javobni o'zgartirish mumkin.\n• Imtihon davomida to'g'ri javob ko'rsatilmaydi."));
+    nodes.push(el("div", { class: "card pre" }, "⚠️ Qoidalar\n• Boshlagach taymer to'xtamaydi.\n• Imtihon faqat bir marta topshiriladi.\n• Savollar orasida erkin yurasiz, javobni o'zgartirish mumkin.\n• Imtihon davomida to'g'ri javob ko'rsatilmaydi." + (ex.shuffle ? "\n• Savollar va A–D variantlar tartibi har bir o'quvchida har xil." : "") + "\n• Imtihon yopilgach xatolaringiz «Mening xatolarim» bo'limiga qo'shiladi."));
     nodes.push(el("button", { class: "btn", onclick: () => start(ex) }, icon("play"), "Boshlash"));
   } else if (ex.state === "active") {
     nodes.push(el("button", { class: "btn", onclick: () => start(ex) }, icon("play"), "Davom etish"));

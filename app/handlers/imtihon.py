@@ -31,7 +31,10 @@ from ..services.imtihon import (
     MAX_ANSWER_LEN,
     SCALE_MAX,
     MIN_STATS,
+    answers_from_view,
+    answers_to_view,
     attempt_answers,
+    attempt_view,
     exam_is_open,
     exam_results,
     exam_targets_user,
@@ -141,8 +144,19 @@ async def attempt_ctx(session, telegram_id: int, attempt_id: int, lock: bool = F
         return None
 
     items = await load_items(session, exam.id)
-    await _tl_items(items, telegram_id)
-    return attempt, exam, items, user
+    await _tl_items(items, telegram_id)          # tarjima asl harflar bo'yicha, aralashtirishdan oldin
+    # o'quvchi ko'radigan tartib: savollar va variantlar shu urinish uchun aralashtirilgan bo'lishi mumkin
+    return attempt, exam, attempt_view(items, exam, attempt.id), user
+
+
+def _answers(attempt, items) -> dict:
+    """Javoblar o'quvchi ko'rinishida (raqam va harflar items bilan bir xil)."""
+    return answers_to_view(attempt_answers(attempt), items)
+
+
+def _store(attempt, items, answers: dict) -> str:
+    """Ko'rinishdagi javoblarni asl tartibda saqlash uchun JSON."""
+    return json.dumps(answers_from_view(answers, items, attempt_answers(attempt)), ensure_ascii=False)
 
 
 async def settle(session, attempt) -> str:
@@ -341,6 +355,9 @@ async def cb_info(c: CallbackQuery):
                 "• Savollar orasida erkin yurasiz, javobni o'zgartirish mumkin.",
                 "• Imtihon davomida to'g'ri javob ko'rsatilmaydi.",
             ]
+            if getattr(exam, "shuffle", False):
+                lines.append("• Savollar va A–D variantlar tartibi har bir o'quvchida har xil.")
+            lines.append("• Imtihon yopilgach xatolaringiz «Mening xatolarim» bo'limiga qo'shiladi.")
             rows.append([InlineKeyboardButton(text="▶️ Boshlash", callback_data=f"exm:go:{exam_id}")])
         else:
             lines += ["", "🔒 Bu imtihon yopilgan."]
@@ -421,7 +438,7 @@ async def _show_question(c: CallbackQuery, attempt_id: int, pos: int):
             await c.answer()
             await show_result(c, attempt_id)
             return
-        text, markup, photo = question_view(exam, attempt, items, pos, attempt_answers(attempt))
+        text, markup, photo = question_view(exam, attempt, items, pos, _answers(attempt, items))
 
     await present(c, text, markup, photo)
     await c.answer()
@@ -459,14 +476,14 @@ async def cb_answer(c: CallbackQuery):
             await c.answer("Noto'g'ri so'rov.", show_alert=True)
             return
 
-        answers = attempt_answers(attempt)
+        answers = _answers(attempt, items)
         if answers.get(str(pos)) == letter:
             answers.pop(str(pos), None)      # qayta bosilsa, javob bekor
             note = "Javob bekor qilindi"
         else:
             answers[str(pos)] = letter
             note = f"Javob: {letter}"
-        attempt.answers = json.dumps(answers, ensure_ascii=False)
+        attempt.answers = _store(attempt, items, answers)
         await session.commit()
         text, markup, photo = question_view(exam, attempt, items, pos, answers)
 
@@ -546,13 +563,13 @@ async def msg_typed(m: Message, state: FSMContext):
             await state.clear()
             return
 
-        answers = attempt_answers(attempt)
+        answers = _answers(attempt, items)
         key = f"{pos}.{part}"
         if text == "-":
             answers.pop(key, None)
         else:
             answers[key] = text
-        attempt.answers = json.dumps(answers, ensure_ascii=False)
+        attempt.answers = _store(attempt, items, answers)
         await session.commit()
         view_text, markup, photo = question_view(exam, attempt, items, pos, answers)
 
@@ -615,7 +632,7 @@ async def cb_grid(c: CallbackQuery):
             await c.answer()
             await show_result(c, attempt.id)
             return
-        answers = attempt_answers(attempt)
+        answers = _answers(attempt, items)
 
     done = sum(1 for it in items if item_answered(it, answers))
     left = (attempt.deadline_at - datetime.utcnow()).total_seconds()
@@ -658,7 +675,7 @@ async def cb_finish_ask(c: CallbackQuery):
             await c.answer()
             await show_result(c, aid)
             return
-        answers = attempt_answers(attempt)
+        answers = _answers(attempt, items)
 
     empty = [it.pos for it in items if not item_answered(it, answers)]
     text = "🏁 <b>Imtihonni yakunlaysizmi?</b>\n\n"
@@ -839,7 +856,7 @@ async def cb_review_list(c: CallbackQuery):
         return
     attempt, exam, items = got
 
-    answers = attempt_answers(attempt)
+    answers = _answers(attempt, items)
     sc = score_attempt(items, answers, None, exam.mode)
     wrong_positions = sorted({u.pos for u in sc.wrong})
 
@@ -892,7 +909,7 @@ async def cb_review_item(c: CallbackQuery):
         return
 
     item = items[pos - 1]
-    answers = attempt_answers(attempt)
+    answers = _answers(attempt, items)
     lines = [f"🔍 <b>{pos}-savol</b>", ""]
     photo = None
 

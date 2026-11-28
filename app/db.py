@@ -126,6 +126,14 @@ async def init_db():
                     )
                 )
 
+        # exams jadvaliga shuffle ustunini qo'shish (savol/variant aralashtirish)
+        if database_url.startswith("postgresql+asyncpg://"):
+            await conn.execute(text("ALTER TABLE exams ADD COLUMN IF NOT EXISTS shuffle BOOLEAN NOT NULL DEFAULT FALSE"))
+        else:
+            _ecols = await conn.execute(text("PRAGMA table_info(exams)"))
+            if "shuffle" not in {r[1] for r in _ecols.fetchall()}:
+                await conn.execute(text("ALTER TABLE exams ADD COLUMN shuffle BOOLEAN NOT NULL DEFAULT 0"))
+
         # users jadvaliga lang ustunini qo'shish (savollar tili: uz/ru/en)
         if database_url.startswith("postgresql+asyncpg://"):
             await conn.execute(text("ALTER TABLE users ADD COLUMN IF NOT EXISTS lang VARCHAR(5)"))

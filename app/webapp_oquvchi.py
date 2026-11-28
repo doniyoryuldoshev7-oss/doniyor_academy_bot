@@ -268,7 +268,7 @@ async def api_s_history(request):
     for a in atts:
         t = tmap.get(a.topic_id)
         out.append({
-            "id": a.id, "topic": t.name if t else "Mavzu o'chirilgan",
+            "id": a.id, "topic": "📝 Imtihon" if getattr(a, "source", None) == "exam" else (t.name if t else "Mavzu o'chirilgan"),
             "total": a.total, "correct": a.correct,
             "pct": pct_1(a.correct, a.total),
             "score": a.score, "date": _fmt(a.created_at),

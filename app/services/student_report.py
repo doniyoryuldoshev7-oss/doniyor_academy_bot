@@ -213,9 +213,17 @@ class AttemptRow:
         return self.source == "diagnostic"
 
     @property
+    def is_multi(self) -> bool:
+        """Bir nechta mavzu/fanni qamragan yozuv (diagnostika yoki imtihon)."""
+        return self.source in ("diagnostic", "exam")
+
+    @property
     def label(self) -> str:
         if self.is_diagnostic:
             return "\U0001F3AF Diagnostika"
+
+        if self.source == "exam":
+            return "\U0001F4DD Imtihon"
 
         if self.source == "group":
             return "\U0001F465 Guruh: " + self.topic_name
@@ -292,7 +300,8 @@ def compute_trend(attempts: list[AttemptRow]) -> Trend | None:
     ko'proq savol beradi, shuning uchun natijasi tabiiy ravishda
     past chiqadi va o'sish ko'rsatkichini buzgan bo'lardi.
     """
-    attempts = [a for a in attempts if not a.is_diagnostic]
+    # Imtihon ham bir necha mavzu/fanni aralash qamraydi: o'sish ko'rsatkichiga kirmaydi
+    attempts = [a for a in attempts if not a.is_multi]
 
     count = len(attempts)
 
@@ -368,7 +377,7 @@ async def student_report(session, telegram_id: int) -> StudentReport | None:
 
     # Diagnostika bir necha fandan iborat bo'lishi mumkin: uni birinchi
     # mavzusining fani hisobiga yozmasdan, javoblar bo'yicha fanlarga bo'lamiz
-    diagnostic_ids = [a.attempt_id for a in attempts if a.is_diagnostic]
+    diagnostic_ids = [a.attempt_id for a in attempts if a.is_multi]   # diagnostika va imtihon
 
     if diagnostic_ids:
         split_rows = await session.execute(
@@ -397,7 +406,7 @@ async def student_report(session, telegram_id: int) -> StudentReport | None:
             row.correct += int(right or 0)
 
     for attempt in attempts:
-        if attempt.is_diagnostic:
+        if attempt.is_multi:
             continue
 
         row = subject_map.get(attempt.subject_name)
@@ -539,7 +548,7 @@ async def attempt_detail(session, attempt_id: int) -> AttemptDetail | None:
     if head[9] == "group":
         topic_name = "\U0001F465 Guruh: " + topic_name
 
-    if head[9] == "diagnostic":
+    if head[9] in ("diagnostic", "exam"):
         # Diagnostika bitta mavzuga tegishli emas: fanlar javoblardan olinadi
         names = await session.scalars(
             select(Subject.name)
@@ -550,7 +559,7 @@ async def attempt_detail(session, attempt_id: int) -> AttemptDetail | None:
             .join(Subject, Subject.id == Topic.subject_id)
             .where(AnswerLog.attempt_id == attempt_id)
         )
-        topic_name = "\U0001F3AF Diagnostika"
+        topic_name = "\U0001F3AF Diagnostika" if head[9] == "diagnostic" else "\U0001F4DD Imtihon"
         subject_name = ", ".join(sorted(names)) or "—"
 
     return AttemptDetail(

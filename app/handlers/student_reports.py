@@ -380,7 +380,7 @@ def card_text(report) -> str:
                 + html.escape(
                     short(
                         attempt.label,
-                        60 if attempt.source in ("group", "diagnostic") else 22,
+                        60 if attempt.source in ("group", "diagnostic", "exam") else 22,
                     )
                 )  # tezlik2: guruh nomi kesilmaydi
                 + f" — {attempt.correct}/{attempt.total} "
@@ -522,7 +522,7 @@ async def reports_history(c: CallbackQuery):
             + "\n     "
             + (
                 html.escape(short(attempt.label, 60))
-                if (attempt.is_diagnostic or attempt.source == "group")
+                if (attempt.is_multi or attempt.source == "group")
                 else html.escape(short(attempt.subject_name, 18))
                 + " · "
                 + html.escape(short(attempt.label, 22))

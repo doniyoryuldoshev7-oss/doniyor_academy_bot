@@ -406,6 +406,8 @@ class Exam(Base):
     is_open: Mapped[bool] = mapped_column(Boolean, default=True)
     is_removed: Mapped[bool] = mapped_column(Boolean, default=False)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    # har o'quvchiga savollar va A–D variantlar tartibi aralashtirib beriladi
+    shuffle: Mapped[bool] = mapped_column(Boolean, default=False)
 
 
 class ExamItem(Base):

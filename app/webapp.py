@@ -32,7 +32,9 @@ from .services.imtihon import (
     MAX_ANSWER_LEN,
     MIN_STATS,
     SCALE_MAX,
+    answers_to_view,
     attempt_answers,
+    attempt_view,
     build_units,
     can_save_late,
     exam_is_open,
@@ -42,6 +44,7 @@ from .services.imtihon import (
     load_items,
     score_attempt,
     unit_correct,
+    view_key_to_canon,
 )
 
 log = logging.getLogger(__name__)
@@ -176,13 +179,39 @@ def _client_items(items):
     return out
 
 
+async def _localize(items, request):
+    """Savollarni o'quvchi tiliga moslaydi (aralashtirishdan OLDIN: tarjimada harflar asl tartibda)."""
+    from . import qtrans as _qt
+
+    lang = _qt.lang_of(request)
+    if lang not in _qt.LANGS:
+        return items
+    try:
+        async with SessionLocal() as s:
+            trs = await _qt.load(s, {(it.data or {}).get("qid") for it in items if it.kind == "c"}, lang)
+        for it in items:
+            tr = trs.get((it.data or {}).get("qid")) if it.kind == "c" else None
+            if tr is not None:
+                _qt._apply(it.data, tr)
+    except Exception:  # noqa: BLE001 — tarjima o'qilmasa o'zbekcha qoladi
+        pass
+    return items
+
+
+async def _view(request, exam, attempt, items):
+    """O'quvchi ko'radigan tartib (aralashtirilgan bo'lishi mumkin): raqamlar va harflar shu urinishniki."""
+    await _localize(items, request)
+    return attempt_view(items, exam, attempt.id)
+
+
 def _state(exam, attempt, items):
+    """items — o'quvchi ko'rinishi (attempt_view)."""
     return {
         "attempt_id": attempt.id,
         "status": attempt.status,
         "exam": {"id": exam.id, "title": exam.title, "mode": exam.mode, "duration": exam.duration_min},
         "items": _client_items(items),
-        "answers": {k: v for k, v in attempt_answers(attempt).items() if not k.startswith("!")},
+        "answers": {k: v for k, v in answers_to_view(attempt_answers(attempt), items).items() if not k.startswith("!")},
         "deadline_ms": _ms(attempt.deadline_at),
         "server_ms": int(time.time() * 1000),
     }
@@ -249,7 +278,7 @@ async def api_exams(request: web.Request):
             out.append({
                 "id": exam.id, "title": exam.title, "subject": exam.subject_name,
                 "mode": exam.mode, "duration": exam.duration_min,
-                "closes_ms": _ms(exam.closes_at),
+                "closes_ms": _ms(exam.closes_at), "shuffle": bool(getattr(exam, "shuffle", False)),
                 "state": "new" if attempt is None else ("active" if attempt.status == "active" else "done"),
                 "attempt_id": attempt.id if attempt else None,
             })
@@ -293,10 +322,7 @@ async def api_exam_start(request: web.Request):
                 )
 
         await _settle(session, attempt)
-        st = _state(exam, attempt, items)
-    from . import qtrans as _qt
-
-    await _qt.localize_exam_items(st["items"], items, _qt.lang_of(request))
+        st = _state(exam, attempt, await _view(request, exam, attempt, items))
     return web.json_response(st)
 
 
@@ -307,10 +333,7 @@ async def api_attempt(request: web.Request):
             return _err("Imtihon topilmadi.", 404)
         await _settle(session, attempt)
         items = await load_items(session, exam.id)
-        st = _state(exam, attempt, items)
-    from . import qtrans as _qt
-
-    await _qt.localize_exam_items(st["items"], items, _qt.lang_of(request))
+        st = _state(exam, attempt, await _view(request, exam, attempt, items))
     return web.json_response(st)
 
 
@@ -333,6 +356,10 @@ async def api_answer(request: web.Request):
 
         items = await load_items(session, exam.id)
         by_pos = {it.pos: it for it in items}
+        # o'quvchi ko'rinishidagi raqam/harf -> imtihonning asl tartibi
+        key, value = view_key_to_canon(key, value, attempt_view(items, exam, attempt.id))
+        if key is None:
+            return _err("Noto'g'ri savol yoki variant.")
         head, _, tail = key.partition(".")
 
         if not head.isdigit() or int(head) not in by_pos:
@@ -416,7 +443,9 @@ async def api_review(request: web.Request):
             return _err("Tahlil imtihon yopilgach ochiladi.", 403)
         items = await load_items(session, exam.id)
 
-    answers = attempt_answers(attempt)
+    # o'quvchi imtihonda qanday ko'rgan bo'lsa, tahlil ham shu tartibda
+    items = await _view(request, exam, attempt, items)
+    answers = answers_to_view(attempt_answers(attempt), items)
     out = []
     for it in items:
         if it.kind == "c":
@@ -436,9 +465,6 @@ async def api_review(request: web.Request):
                 })
             out.append({"pos": it.pos, "k": "o", "s": it.data.get("s", ""), "p": parts,
                         "ok": all(x["ok"] for x in parts), "img": bool(it.data.get("img"))})
-    from . import qtrans as _qt
-
-    await _qt.localize_exam_items(out, items, _qt.lang_of(request))
     return web.json_response({"items": out})
 
 
@@ -449,9 +475,9 @@ async def api_image(request: web.Request):
         attempt, exam = await _my_attempt(session, request, int(request.match_info["id"]))
         if attempt is None:
             return _err("Topilmadi.", 404)
-        items = await load_items(session, exam.id)
+        items = attempt_view(await load_items(session, exam.id), exam, attempt.id)
 
-    item = next((i for i in items if i.pos == pos), None)
+    item = next((i for i in items if i.pos == pos), None)   # pos — o'quvchi ko'rgan raqam
     path = item.data.get("img") if item else None
 
     if not path or not Path(path).is_file():

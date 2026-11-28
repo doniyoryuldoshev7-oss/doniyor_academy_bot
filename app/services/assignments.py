@@ -443,8 +443,8 @@ async def attempts_in_window(
         .join(AnswerLog, AnswerLog.attempt_id == TestAttempt.id)
         .where(
             TestAttempt.topic_id == assignment.topic_id,
-            # Diagnostika bitta mavzuga bog'lanmagan, topshiriq hisobiga kirmaydi
-            TestAttempt.source != "diagnostic",
+            # Diagnostika va imtihon bitta mavzuga bog'lanmagan, topshiriq hisobiga kirmaydi
+            TestAttempt.source.notin_(("diagnostic", "exam")),
             TestAttempt.created_at >= started,
             TestAttempt.created_at <= assignment.deadline,
         )

@@ -263,7 +263,7 @@ async def api_u_unblock(request):
 # ---------------------------------------------------------------
 #  Statistika (har bir raqam aniq ta'rifga ega)
 # ---------------------------------------------------------------
-SOURCE_TITLES = {"quiz": "Oddiy test", "group": "Guruh testi", "diagnostic": "Diagnostika"}
+SOURCE_TITLES = {"quiz": "Oddiy test", "group": "Guruh testi", "diagnostic": "Diagnostika", "exam": "Imtihon"}
 
 
 def source_key(value) -> str:
@@ -281,7 +281,7 @@ def merge_sources(rows) -> list:
         a[1] += int(tot or 0)
         a[2] += int(cor or 0)
     out = []
-    for k in ("quiz", "group", "diagnostic"):
+    for k in ("quiz", "group", "diagnostic", "exam"):
         if k in acc:
             n, tot, cor = acc[k]
             out.append({"key": k, "title": SOURCE_TITLES[k], "attempts": n, "questions": tot, "correct": cor, "pct": pct(cor, tot)})
