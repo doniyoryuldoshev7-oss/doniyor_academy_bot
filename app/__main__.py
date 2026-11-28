@@ -170,6 +170,9 @@ async def main():
     dp.include_router(imtihon_ustoz.router)
     from .handlers import milliy_yigish
     dp.include_router(milliy_yigish.router)
+    from .handlers import milliy_variant
+
+    dp.include_router(milliy_variant.router)
     from .handlers import savol_yuklash
 
     dp.include_router(savol_yuklash.router)

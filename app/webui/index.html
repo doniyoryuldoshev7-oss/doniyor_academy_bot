@@ -701,13 +701,15 @@ async function review(aid) {
       for (const [letter, text] of Object.entries(it.o))
         card.append(el("div", { class: "opt static " + (letter === it.correct ? "right" : letter === it.yours ? "wrong" : "") }, el("em", {}, letter), el("span", { class: "pre grow" }, text)));
       card.append(el("div", { class: "hint" }, `Sizniki: ${it.yours || "yo'q"} · To'g'ri: ${it.correct}`));
-      if (it.e) card.append(el("div", { class: "expl pre" }, "💡 " + it.e));
     } else {
       card.append(el("div", { class: "pre", style: "margin:6px 0" }, it.s));
       if (it.img) card.append(image(aid, it.pos));
       for (const [i, p] of it.p.entries())
         card.append(el("div", { class: "pre", style: "margin:6px 0" }, `${p.ok ? "✅" : "❌"} ${it.p.length === 1 ? "Javob" : LET[i] + ") " + p.q}\nSizniki: ${p.yours || "yo'q"}` + (p.ok ? "" : `\nTo'g'ri: ${p.a.join(" / ")}`)));
     }
+    /* izoh (nega bu javob to'g'ri) va uning manbasi — imtihon yopilgach ko'rsatiladi */
+    if (it.e) card.append(el("div", { class: "expl pre" }, "💡 " + it.e));
+    if (it.m) card.append(el("div", { class: "hint pre", style: "margin-top:4px" }, "📚 Manba: " + it.m));
     nodes.push(card);
   }
   nodes.push(el("button", { class: "btn alt", onclick: () => result(aid) }, "⬅️ Natijam"));

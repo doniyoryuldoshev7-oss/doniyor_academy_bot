@@ -444,6 +444,21 @@ class ExamAttempt(Base):
     answers: Mapped[str] = mapped_column(Text, default="{}")
 
 
+class MilliyVariant(Base):
+    """Milliy sertifikat: tayyor variant (55 talik fayldan yig'ilgan savollar). Imtihon shundan ochiladi."""
+    __tablename__ = "milliy_variants"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    title: Mapped[str] = mapped_column(String(200))
+    created_by: Mapped[int] = mapped_column(BigInteger, index=True)
+    payload: Mapped[str] = mapped_column(Text)          # JSON: imtihon elementlari ro'yxati
+    n_closed: Mapped[int] = mapped_column(Integer, default=0)
+    n_open: Mapped[int] = mapped_column(Integer, default=0)
+    used: Mapped[int] = mapped_column(Integer, default=0)   # shu variantdan nechta imtihon ochilgan
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+
+
 class OpenQuestion(Base):
     __tablename__ = "open_questions"
 

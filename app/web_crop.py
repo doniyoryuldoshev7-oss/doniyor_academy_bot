@@ -513,7 +513,7 @@ async def save_crop(request):
 
 
 def create_app():
-    app = web.Application(client_max_size=20 * 1024 * 1024)
+    app = web.Application(client_max_size=64 * 1024 * 1024)   # Milliy sertifikat variantlari zipi (60 MB gacha)
 
     app.router.add_get("/health", health)
     app.router.add_get("/crop/{session_id}", crop_page)

@@ -453,7 +453,7 @@ async def api_review(request: web.Request):
             out.append({
                 "pos": it.pos, "k": "c", "t": it.data.get("t", ""), "o": it.data["o"],
                 "correct": it.data["c"], "yours": mine, "ok": mine == it.data["c"],
-                "e": it.data.get("e"), "img": bool(it.data.get("img")),
+                "e": it.data.get("e"), "m": it.data.get("m"), "img": bool(it.data.get("img")),
             })
         else:
             units = {u.part: u for u in build_units([it])}
@@ -464,7 +464,8 @@ async def api_review(request: web.Request):
                     "ok": unit_correct(it, units[i], answers), "a": p["a"][:3],
                 })
             out.append({"pos": it.pos, "k": "o", "s": it.data.get("s", ""), "p": parts,
-                        "ok": all(x["ok"] for x in parts), "img": bool(it.data.get("img"))})
+                        "ok": all(x["ok"] for x in parts), "img": bool(it.data.get("img")),
+                        "e": it.data.get("e"), "m": it.data.get("m")})
     return web.json_response({"items": out})
 
 

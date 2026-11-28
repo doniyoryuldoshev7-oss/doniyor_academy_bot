@@ -931,8 +931,6 @@ async def cb_review_item(c: CallbackQuery):
             lines.append(f"{mark} <b>{letter})</b>" + (f" {esc(short(option, 300))}" if option else ""))
         lines.append("")
         lines.append(f"Sizning javobingiz: <b>{mine or 'yo‘q'}</b> · To'g'ri javob: <b>{data['c']}</b>")
-        if data.get("e"):
-            lines += ["", "💡 " + esc(short(data["e"], 800))]
         photo = data.get("img")
     else:
         lines += [esc(short(item.data.get("s", ""), 2000)), ""]
@@ -946,6 +944,11 @@ async def cb_review_item(c: CallbackQuery):
             lines.append(f"    Sizniki: <i>{esc(typed)}</i>")
             if not ok:
                 lines.append("    To'g'ri: <b>" + esc(" / ".join(part["a"][:3])) + "</b>")
+    # izoh (nega bu javob to'g'ri) va uning manbasi — imtihon yopilgach ko'rsatiladi
+    if item.data.get("e"):
+        lines += ["", "💡 " + esc(short(item.data["e"], 900))]
+    if item.data.get("m"):
+        lines += ["📚 <i>Manba: " + esc(short(item.data["m"], 300)) + "</i>"]
 
     await present(
         c, "\n".join(lines),

@@ -185,11 +185,11 @@ def check_stage(stage, chunks, fns):
 
 
 def _stage_fns():
-    from .handlers.milliy_yigish import _check_closed, _join, build_open, split_all_ex
-    from .handlers.milliy_yigish import parse_text
+    # build_open_text — ochiq savollarni izoh/manba bilan birga yig'adi (botdagi bilan bir xil); u matnni o'zi tahlil qiladi
+    from .handlers.milliy_yigish import _check_closed, _join, build_open_text, open_text_as_is, split_all_ex
     from .services.savol_import import MAX_TEXT
 
-    return _join, _check_closed, build_open, split_all_ex, parse_text, MAX_TEXT
+    return _join, _check_closed, build_open_text, split_all_ex, open_text_as_is, MAX_TEXT
 
 
 def fixed_payloads(fixed, fns=None):
@@ -354,7 +354,15 @@ async def api_ex_create(request):
             d, bad = validate_make(body, is_admin, groups)
             if bad:
                 return _err(bad)
-            if d["fixed"]:
+            vid, vtitle = None, None
+            fx = body.get("fixed")
+            if d["fixed"] and isinstance(fx, dict) and fx.get("v") is not None:
+                payloads, vtitle, bad = await variant_payloads_for(s, fx.get("v"))
+                if bad:
+                    return _err(bad)
+                vid = int(fx["v"])
+                sname = "Milliy sertifikat"
+            elif d["fixed"]:
                 try:
                     payloads, bad = fixed_payloads(body.get("fixed"))
                 except Exception:
@@ -368,7 +376,12 @@ async def api_ex_create(request):
                 if any(x is None for x in subs):
                     return _err("Fan topilmadi.", 404)
                 sname = " + ".join(x.name for x in subs)[:200]
-            title = d["title"] or f"{sname} — {to_local(datetime.utcnow()).strftime('%d.%m.%Y')}"[:200]
+            if not d["title"] and vtitle:
+                from .services.milliy_variant import default_exam_title
+
+                title = default_exam_title(vtitle)
+            else:
+                title = d["title"] or f"{sname} — {to_local(datetime.utcnow()).strftime('%d.%m.%Y')}"[:200]
             if d["fixed"]:
                 real_c = sum(1 for p in payloads if p.get("k") == "c")
                 real_o = len(payloads) - real_c
@@ -385,6 +398,10 @@ async def api_ex_create(request):
             chat_ids = [u.telegram_id for u in students if u.telegram_id != uid]
     finally:
         _BUSY.discard(key)
+    if vid:
+        from .services.milliy_variant import mark_used
+
+        await mark_used(vid)
     deadline = fmt_datetime(closes)
     _ANN[eid] = {"sent": 0, "failed": 0, "total": len(chat_ids), "done": not chat_ids}
     if chat_ids:
@@ -420,6 +437,131 @@ async def api_mly_check(request):
         return _err("Savollarni tekshirib bo'lmadi. Matnni tekshirib qaytadan yuboring.")
     return web.json_response({"ok": not errors, "closed": len(c), "open": len(o), "errors": [str(e) for e in errors],
                               "warnings": [str(w) for w in warnings], "need_c": MILLIY_C, "need_o": MILLIY_O})
+
+
+# ---------------- Milliy sertifikat: tayyor variantlar (zip) ----------------
+async def variant_payloads_for(s, vid):
+    """Variantdan imtihon savollari. Qaytaradi: (payloadlar, nomi, xato)."""
+    from .models import MilliyVariant
+    from .services.imtihon import milliy_open_ok
+    from .services.milliy_variant import variant_payloads
+
+    try:
+        v = await s.get(MilliyVariant, int(vid))
+    except (TypeError, ValueError):
+        v = None
+    if v is None:
+        return None, None, "Variant topilmadi (o'chirilgan bo'lishi mumkin)."
+    items = variant_payloads(v)
+    closed = [p for p in items if p.get("k") == "c"]
+    opened = [p for p in items if p.get("k") != "c"]
+    if len(closed) != MILLIY_C or not milliy_open_ok(opened):
+        return None, None, "Variant savollari to'liq emas. Faylni qayta yuklang."
+    return closed + opened, v.title, None
+
+
+def variant_row(v, uid, is_admin, fmt):
+    from .services.milliy_variant import can_delete, variant_payloads
+
+    items = variant_payloads(v)
+    return {"id": v.id, "title": v.title, "closed": v.n_closed, "open": v.n_open, "used": v.used,
+            "img": sum(1 for p in items if p.get("img")), "updated": fmt(v.updated_at or v.created_at),
+            "can_del": can_delete(uid, v, is_admin)}
+
+
+async def api_mlv_list(request):
+    is_admin = await _manager(request)
+    from .services.milliy_variant import list_variants
+    from .services.student_report import fmt_datetime
+
+    async with SessionLocal() as s:
+        rows = await list_variants(s)
+    uid = request["tg_id"]
+    return web.json_response({"items": [variant_row(v, uid, is_admin, fmt_datetime) for v in rows], "admin": is_admin})
+
+
+async def api_mlv_one(request):
+    is_admin = await _manager(request)
+    from .models import MilliyVariant
+    from .services.milliy_variant import variant_payloads
+    from .services.student_report import fmt_datetime
+
+    _err, _ = _helpers()
+    async with SessionLocal() as s:
+        v = await s.get(MilliyVariant, int(request.match_info["id"]))
+    if v is None:
+        return _err("Variant topilmadi.", 404)
+    row = variant_row(v, request["tg_id"], is_admin, fmt_datetime)
+    first = next((p for p in variant_payloads(v) if p.get("k") == "c"), None)
+    row["first"] = (first or {}).get("t") or ""
+    return web.json_response(row)
+
+
+async def api_mlv_upload(request):
+    """Zip yoki bitta fayl (botdagi «📦 Zip yoki fayl yuklash» bilan bir xil servis)."""
+    await _manager(request)
+    from urllib.parse import unquote
+
+    from .services import milliy_variant as MV
+
+    _err, _ = _helpers()
+    uid = request["tg_id"]
+    key = (uid, "mlv")
+    if key in _BUSY:
+        return _err("Oldingi fayl hali tekshirilmoqda, kuting.", 409)
+    _BUSY.add(key)
+    try:
+        data = await request.read()
+        if len(data) > MV.MAX_ZIP:
+            return _err("Fayl juda katta (60 MB dan oshmasin). 2 qismga bo'lib yuklang.")
+        try:
+            res = await asyncio.to_thread(MV.parse_upload, unquote(request.headers.get("X-Filename", "")), data)
+        except ValueError as exc:
+            return _err(str(exc))
+        async with SessionLocal() as s:
+            added, updated = await MV.save_variants(s, uid, res["items"])
+    except Exception:
+        log.exception("veb: milliy variant yuklash")
+        return _err("Faylni o'qib bo'lmadi. Qaytadan urinib ko'ring.")
+    finally:
+        _BUSY.discard(key)
+    items = [{"title": i["title"], "ok": i["ok"], "closed": i["closed"], "open": i["open"],
+              "errors": i["errors"][:5], "warnings": i["warnings"][:3]} for i in res["items"]]
+    return web.json_response({"ok": all(i["ok"] for i in items), "added": added, "updated": updated, "items": items,
+                              "skipped": [{"file": a, "why": b} for a, b in res["skipped"]],
+                              "lines": MV.report_lines(res, added, updated)})
+
+
+async def api_mlv_delete(request):
+    is_admin = await _manager(request)
+    from .models import MilliyVariant
+    from .services.milliy_variant import can_delete
+
+    _err, _ = _helpers()
+    async with SessionLocal() as s:
+        v = await s.get(MilliyVariant, int(request.match_info["id"]))
+        if v is None:
+            return _err("Variant topilmadi.", 404)
+        if not can_delete(request["tg_id"], v, is_admin):
+            return _err("O'chirishga ruxsat yo'q.", 403)
+        await s.delete(v)
+        await s.commit()
+    return web.json_response({"ok": True})
+
+
+async def api_mlv_delete_all(request):
+    is_admin = await _manager(request)
+    from sqlalchemy import delete
+
+    from .models import MilliyVariant
+
+    _err, _ = _helpers()
+    if not is_admin:
+        return _err("Faqat admin.", 403)
+    async with SessionLocal() as s:
+        await s.execute(delete(MilliyVariant))
+        await s.commit()
+    return web.json_response({"ok": True})
 
 
 # ---------------- imtihonlarim va boshqarish ----------------
@@ -651,6 +793,11 @@ def setup(app: web.Application) -> None:
     r.add_get("/api/ex/options", api_ex_options)
     r.add_get("/api/ex/groups", api_ex_groups)
     r.add_post("/api/mly/check", api_mly_check)
+    r.add_get("/api/mlv/list", api_mlv_list)
+    r.add_get("/api/mlv/{id:\\d+}", api_mlv_one)
+    r.add_post("/api/mlv/upload", api_mlv_upload)
+    r.add_post("/api/mlv/delete/{id:\\d+}", api_mlv_delete)
+    r.add_post("/api/mlv/delete_all", api_mlv_delete_all)
     r.add_post("/api/ex/create", api_ex_create)
     r.add_get("/api/ex/send/{id:\\d+}", api_ex_sendstatus)
     r.add_get("/api/ex/list", api_ex_list)

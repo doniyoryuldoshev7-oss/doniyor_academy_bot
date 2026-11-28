@@ -31,6 +31,7 @@ from ..services.savol_import import (
     IMG_RE,
     MAX_FILE,
     MAX_TEXT,
+    SRC_RE,
     extract_text,
     image_ref,
     parse_text,
@@ -108,15 +109,20 @@ HELP_CLOSED = (
     "• Rasmli savol (xarita, jadval, Venn diagrammasi): avval rasmni yuboring, keyin savol matnini.\n"
     "• Hammasi rasmda bo'lsa: rasmni yuboring, keyin faqat <code>17. Javob: C</code> deb yozing.\n"
     "• 33–35 kabi A–F li umumiy variantlar eng oxirida:\n"
-    "<code>Umumiy variantlar: javobni tanlang\nA) …\nF) …\n33. Savol\nJavob: B</code>\n\n"
-    "Hammasini yuborgach «✅ Tayyor» ni bosing."
+    "<code>Umumiy variantlar: javobni tanlang\nA) …\nF) …\n33. Savol\nJavob: B</code>\n"
+    "• <b>Izoh va manba</b> (ixtiyoriy): to'g'ri javobdan keyin <code>Izoh: nega bu javob to'g'ri</code> va "
+    "<code>Manba: 8-sinf O'zbekiston tarixi, 52-bet</code> qatorlari. O'quvchi ularni imtihon yopilgach tahlilda ko'radi. "
+    "Izohda harf (A, B…) emas, javobning o'zini yozing — variantlar har o'quvchiga aralashtiriladi.\n"
+    "\nHammasini yuborgach «✅ Tayyor» ni bosing."
 )
 
 HELP_OPEN = (
     f"Ochiq savollarni yuboring (<b>{OPEN_N} ta</b>, {CLOSED_N + 1}–{CLOSED_N + OPEN_N}). "
     "Har birida a) va b) qismi bor. Savollar <code>---</code> qatori bilan ajratiladi.\n\n"
     "<code>Savol matni\na) birinchi qism =&gt; javob1 | javob2\nb) ikkinchi qism =&gt; javob</code>\n"
-    "<code>|</code> — muqobil to'g'ri javoblar.\n\n"
+    "<code>|</code> — muqobil to'g'ri javoblar.\n"
+    "• <b>Izoh va manba</b> (ixtiyoriy): savol blokining oxirida <code>Izoh: …</code> va <code>Manba: …</code> qatorlari "
+    "(o'quvchi imtihon yopilgach tahlilda ko'radi).\n\n"
     "Hammasini yuborgach «✅ Tayyor» ni bosing."
 )
 
@@ -134,7 +140,11 @@ HELP_ALL = (
     "• Ochiq savollar <code>---</code> qatori bilan ajratiladi, <code>|</code> — muqobil to'g'ri javoblar.\n"
     "• Rasmli savol va 33–35 kabi A–F li umumiy variantlar qoidasi yopiq savollarniki kabi "
     "(rasm savol matnidan keyin; umumiy variantlar yopiq qismning oxirida).\n"
-    "• Fayl 15 MB dan oshmasin; katta bo'lsa 2 qismga bo'lib yuboring (ketma-ket qo'shiladi).\n\n"
+    "• Fayl 15 MB dan oshmasin; katta bo'lsa 2 qismga bo'lib yuboring (ketma-ket qo'shiladi).\n"
+    "• <b>Izoh va manba</b> (ixtiyoriy): to'g'ri javobdan keyin <code>Izoh: nega bu javob to'g'ri</code> va "
+    "<code>Manba: 8-sinf O'zbekiston tarixi, 52-bet</code> qatorlari. O'quvchi ularni imtihon yopilgach tahlilda ko'radi. "
+    "Izohda harf (A, B…) emas, javobning o'zini yozing — variantlar har o'quvchiga aralashtiriladi.\n"
+    "\n"
     "🆕 <b>55 talik tayyor test fayli</b> ham bo'ladi: 1–55 hammasi oddiy test (A–D, to'g'ri javob "
     "<code>++</code> yoki <code>Javob: B</code>). Bot 1–35 ni yopiq savol qiladi, 36–55 ni esa ochiq "
     "savolga aylantiradi: o'quvchi javobni o'zi yozadi, to'g'ri variant matni — to'g'ri javob.\n\n"
@@ -169,6 +179,7 @@ def _home_kb(m: dict):
     ready = nc == CLOSED_N and o_ok
     rows = [
         [B("📄 Hammasini bitta fayldan yuklash (1–45 yoki 1–55)", "mly:a")],
+        [B("🗂 Tayyor variantlar (zip: 26 ta variant va h.k.)", "mlv:l:0")],
         [B(("♻️ " if nc == CLOSED_N else "1️⃣ ") + "Yopiq savollarni yuklash", "mly:c")],
         [B(("♻️ " if o_ok else "2️⃣ ") + "Ochiq savollarni yuklash", "mly:o")],
         [B(("✅ " if ready else "3️⃣ ") + "Birlashtirish va taqdim etish", "exm:fx")],
@@ -329,6 +340,9 @@ def plus_to_javob(text: str) -> str:
             continue
         if ANS_RE.match(raw.strip()):
             pending = None          # «Javob: B» o'zi yozilgan
+        elif pending and (EXP_RE.match(raw.strip()) or SRC_RE.match(raw.strip())):
+            out.append(f"Javob: {pending}")   # izoh/manba variantning davomi bo'lib qolmasin
+            pending, last_letter = None, None
         out.append(raw)
     if pending:
         out.append(f"Javob: {pending}")
@@ -395,6 +409,10 @@ def split55(buf: str):
             block.append(f"[rasm:{q['image']}]")
         block.append(stem or "Rasmdagi savolga javob yozing.")
         block.append(f"a) {OPEN_SINGLE_PROMPT} => " + " | ".join(answer_variants(right)))
+        if q.get("explanation"):
+            block.append("Izoh: " + q["explanation"])
+        if q.get("source"):
+            block.append("Manba: " + q["source"])
         blocks.append("\n".join(block))
     return closed, "\n---\n".join(blocks), errors, warnings
 
@@ -564,19 +582,30 @@ def parse_shared(block: str, n: int):
     lines = block.splitlines()
     intro = [_SHARED.match(lines[0]).group(1).strip()]
     options, order = {}, []
-    questions = []          # [raqam, matn qatorlari, javob]
+    questions = []          # [raqam, matn qatorlari, javob, izoh, manba]
     errors = []
     tag = f"{n}-umumiy blok"
+    meta = None             # izoh/manba davom etayotgan bo'lsa: 3 yoki 4
     for line in lines[1:]:
         if not line.strip():
             continue
         ans = _ANS.match(line)
         if ans and questions:
             questions[-1][2] = ans.group(1).upper()
+            meta = None
+            continue
+        ex, sr = EXP_RE.match(line.strip()), SRC_RE.match(line.strip())
+        if (ex or sr) and questions:
+            meta = 3 if ex else 4
+            questions[-1][meta].append((ex or sr).group(1).strip())
             continue
         num = _NUM.match(line)
         if num and not _OPT.match(line):
-            questions.append([num.group(1), [num.group(2).strip()], None])
+            questions.append([num.group(1), [num.group(2).strip()], None, [], []])
+            meta = None
+            continue
+        if meta is not None and questions:
+            questions[-1][meta].append(line.strip())
             continue
         opt = _OPT.match(line)
         if opt and not questions:
@@ -607,7 +636,7 @@ def parse_shared(block: str, n: int):
         errors.append(f"{tag}: birorta ham raqamlangan savol yo'q (33. Savol matni).")
     items = []
     head = " ".join(x for x in intro if x)
-    for num, qlines, answer in questions:
+    for num, qlines, answer, q_exp, q_src in questions:
         text = " ".join(qlines).strip()
         if not text:
             errors.append(f"{tag}: {num}-savol matni bo'sh.")
@@ -617,7 +646,8 @@ def parse_shared(block: str, n: int):
             errors.append(f"{tag}: {num}-savolda javob {answer} variantlar orasida yo'q.")
         items.append({
             "k": "c", "t": (head + "\n\n" + text) if head else text,
-            "o": dict(options), "c": answer, "img": None, "e": None, "qid": None,
+            "o": dict(options), "c": answer, "img": None, "qid": None,
+            "e": " ".join(" ".join(q_exp).split()) or None, "m": " ".join(" ".join(q_src).split()) or None,
         })
     return ([] if errors else items), errors
 
@@ -642,7 +672,8 @@ def parse_closed_strict(text: str):
     pending_img = None
 
     def new_q(number, first):
-        q = {"n": number, "body": [first] if first else [], "opts": {}, "ans": None, "exp": [], "img": pending_img}
+        q = {"n": number, "body": [first] if first else [], "opts": {}, "ans": None, "exp": [], "src": [], "meta": None,
+             "img": pending_img}
         questions.append(q)
         return q
 
@@ -670,15 +701,21 @@ def parse_closed_strict(text: str):
                 errors.append(f"«{line[:40]}» — bu «Javob» qatoriga mos savol topilmadi.")
             else:
                 cur["ans"] = ans.group(1).upper()
+                cur["meta"] = None
             continue
 
-        if cur is not None and cur["ans"] is not None:
-            exp = EXP_RE.match(line)
-            if exp:
-                cur["exp"].append(exp.group(1).strip())
+        # «Izoh: …» va «Manba: …» (javobdan keyin; bir necha qator bo'lishi mumkin)
+        if cur is not None and (cur["ans"] is not None or len(cur["opts"]) == 4):
+            exp, src = EXP_RE.match(line), SRC_RE.match(line)
+            if exp or src:
+                cur["meta"] = "exp" if exp else "src"
+                cur[cur["meta"]].append((exp or src).group(1).strip())
                 continue
 
         start = _Q_START.match(line)
+        if (start and cur is not None and cur["meta"] and int(start.group(1)) != cur["n"] + 1
+                and not re.match(r"^\s*(?:#|№\s*)?\d{1,3}\s*[.)]", line)):
+            start = None        # izoh ichidagi «395-yilda …» kabi qator yangi savol emas
         if start:
             number = int(start.group(1))
             finished = cur is None or cur["ans"] is not None
@@ -696,6 +733,9 @@ def parse_closed_strict(text: str):
 
         if cur is None and not questions:
             continue        # birinchi savoldan oldingi sarlavha/izoh qatorlari (fayl nomi, mavzu) tashlanadi
+        if cur is not None and cur["meta"]:
+            cur[cur["meta"]].append(line)      # izoh/manbaning davomi
+            continue
         if cur is None or cur["ans"] is not None:
             errors.append(f"Raqamsiz matn: «{line[:40]}» (savol «1.» kabi raqamdan boshlanishi kerak).")
             continue
@@ -742,6 +782,7 @@ def parse_closed_strict(text: str):
             "o": dict(q["opts"]) if q["opts"] else {l: "" for l in _LETTERS},
             "c": q["ans"], "img": image_ref(q["img"]) if q["img"] else None,
             "e": " ".join(" ".join(q["exp"]).split()) or None, "qid": None,
+            "m": " ".join(" ".join(q["src"]).split()) or None,
         })
     return items, errors
 
@@ -763,6 +804,61 @@ def build_open(res) -> tuple[list, list, list]:
             "img": image_ref(q["image"]) if q.get("image") else None,
         })
     return items, errors, warnings
+
+
+def split_open_meta(text: str):
+    """Ochiq savollar matnidan «Izoh: …» va «Manba: …» qatorlarini ajratib oladi.
+    Qaytaradi: (izohsiz matn, [(izoh, manba)] — har bir savol bloki uchun, matndagi tartibda)."""
+    out, metas = [], []
+    cur, meta, mode = [], {"exp": [], "src": []}, None
+
+    def flush():
+        if any(x.strip() for x in cur):
+            metas.append((" ".join(" ".join(meta["exp"]).split()), " ".join(" ".join(meta["src"]).split())))
+        elif (meta["exp"] or meta["src"]) and metas:      # izoh savoldan keyin --- bilan ajratilgan bo'lsa
+            e, m = metas[-1]
+            metas[-1] = ((e + " " + " ".join(meta["exp"])).strip(), (m + " " + " ".join(meta["src"])).strip())
+
+    for line in (text or "").split("\n"):
+        st = line.strip()
+        if _SEP.match(line):
+            flush()
+            cur, meta, mode = [], {"exp": [], "src": []}, None
+            out.append(line)
+            continue
+        ex, sr = EXP_RE.match(st), SRC_RE.match(st)
+        if ex or sr:
+            mode = "exp" if ex else "src"
+            meta[mode].append((ex or sr).group(1).strip())
+            continue
+        if mode and st and not _PART.match(line) and not IMG_RE.match(st) and "=>" not in st:
+            meta[mode].append(st)            # izoh/manbaning davomi
+            continue
+        if st:
+            mode = None
+        cur.append(line)
+        out.append(line)
+    flush()
+    return "\n".join(out), metas
+
+
+def build_open_text(text: str):
+    """Ochiq savollar (matn) → (elementlar, xatolar, ogohlantirishlar); izoh va manba ham biriktiriladi."""
+    clean, metas = split_open_meta(text)
+    items, errors, warnings = build_open(parse_text(clean))
+    if any(e or m for e, m in metas):
+        if len(metas) == len(items):
+            for it, (e, m) in zip(items, metas):
+                it["e"], it["m"] = e or None, m or None
+        elif not errors:
+            warnings.append("Ochiq savollarning «Izoh/Manba» qatorlarini savollarga bog'lab bo'lmadi "
+                            "(savollar --- bilan ajratilganini tekshiring). Savollar saqlandi, izohlar qo'shilmadi.")
+    return items, errors, warnings
+
+
+def open_text_as_is(text: str) -> str:
+    """check_stage uchun: build_open_text matnni o'zi tahlil qiladi."""
+    return text
 
 
 def _check_closed(buf: str):
@@ -797,7 +893,7 @@ async def cb_done(c: CallbackQuery, state: FSMContext):
                 "«OCHIQ SAVOLLAR» deb yozing."], []
         else:
             citems, cerr = _check_closed(sp[0])
-            oitems, oerr, warnings = build_open(parse_text(sp[1])) if sp[1].strip() else ([], ["Ochiq savollar topilmadi."], [])
+            oitems, oerr, warnings = build_open_text(sp[1]) if sp[1].strip() else ([], ["Ochiq savollar topilmadi."], [])
             errors = ["Yopiq qism: " + e for e in cerr] + ["Ochiq qism: " + e for e in list(sp[2]) + list(oerr)]
             warnings = list(sp[3]) + list(warnings)
             if not errors:
@@ -817,7 +913,7 @@ async def cb_done(c: CallbackQuery, state: FSMContext):
         items, errors = _check_closed(buf)
         warnings = []
     else:
-        items, errors, warnings = build_open(parse_text(buf))
+        items, errors, warnings = build_open_text(buf)
 
     if stage != "a" and not errors:
         m["c" if stage == "c" else "o"] = items

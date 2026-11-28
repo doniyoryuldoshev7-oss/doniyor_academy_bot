@@ -43,7 +43,19 @@ ANS_RE = re.compile(
     re.I,
 )
 EXP_RE = re.compile(r"^(?:izoh|tushuntirish|sharh|explanation)\s*[:\-–—]\s*(.*)$", re.I)
+# «Manba: 8-sinf O'zbekiston tarixi, 52-bet» — izohning manbasi (o'quvchiga izoh bilan birga ko'rsatiladi)
+SRC_RE = re.compile(r"^(?:manba|manbaa|manbalar|source|источник)\s*[:\-–—]\s*(.*)$", re.I)
+
+
+def with_source(explanation, source):
+    """Savollar bankida manba alohida ustun emas: izoh oxiriga «📚 Manba: …» qilib qo'shiladi."""
+    exp = (explanation or "").strip()
+    src = (source or "").strip()
+    if not src:
+        return exp or None
+    return (exp + "\n" if exp else "") + "📚 Manba: " + src
 OPT_RE = re.compile(r"^[\(\[]?\s*([A-Da-d])\s*[\)\]\.:]\s*(.*)$")
+STRONG_NUM_RE = re.compile(r"^\s*(?:#|№\s*)?\d{1,4}\s*[.)]")
 NUM_RE = re.compile(r"^(?:#|№\s*)?(\d{1,4})\s*(?:\.+|\)|:|;|-|–|—)\s*(.+)$")
 ROW_RE = re.compile(r"^#@(\d{1,6})$")
 SEP_RE = re.compile(r"^\s*(?:---+|\*\*\*+|===+)\s*$")
@@ -120,7 +132,7 @@ def _clean(text: str) -> str:
 # ---------------------------------------------------------------
 def _new(number, line):
     return {"number": number, "line": line, "stem": [], "opts": {}, "opt_order": [],
-            "marked": [], "answer": None, "exp": [], "mode": "stem", "blank": False}
+            "marked": [], "answer": None, "exp": [], "src": [], "mode": "stem", "blank": False}
 
 
 def _finish(q, idx, out, errors):
@@ -157,6 +169,7 @@ def _finish(q, idx, out, errors):
         "options": {l: " ".join(q["opts"][l].split()) for l in "ABCD"},
         "correct": q["correct"],
         "explanation": " ".join(" ".join(q["exp"]).split()) or None,
+        "source": " ".join(" ".join(q.get("src") or []).split()) or None,
         "line": q["line"],
         "image": q.get("img"),
     })
@@ -214,6 +227,12 @@ def parse_closed(lines, base_line=1):
                 cur["mode"] = "exp"
                 cur["blank"] = False
                 continue
+            m = SRC_RE.match(s)
+            if m:
+                cur["src"] = [m.group(1)]
+                cur["mode"] = "src"
+                cur["blank"] = False
+                continue
 
         om = OPT_RE.match(s)
         if cur is not None and om and cur["mode"] in ("stem", "opt"):
@@ -239,13 +258,16 @@ def parse_closed(lines, base_line=1):
                 continue
 
         nm = NUM_RE.match(s)
+        if (nm and cur is not None and cur["mode"] in ("exp", "src") and int(nm.group(1)) != cur["number"] + 1
+                and not STRONG_NUM_RE.match(s)):
+            nm = None       # izoh ichidagi «395-yilda …» kabi qator yangi savol emas («14.» / «14)» esa yangi savol)
         complete = cur is not None and len(cur["opt_order"]) == 4
         starts_new = False
         if cur is None:
             starts_new = True
         elif nm and (complete or int(nm.group(1)) == cur["number"] + 1):
             starts_new = True
-        elif complete and (cur["answer"] or cur["marked"] or cur["blank"]) and not nm and not (cur["mode"] == "exp" and not cur["blank"]):
+        elif complete and (cur["answer"] or cur["marked"] or cur["blank"]) and not nm and not (cur["mode"] in ("exp", "src") and not cur["blank"]):
             starts_new = True
         elif complete and nm:
             starts_new = True
@@ -280,6 +302,8 @@ def parse_closed(lines, base_line=1):
                 cur["marked"].append(last)
         elif cur["mode"] == "exp":
             cur["exp"].append(s)
+        elif cur["mode"] == "src":
+            cur["src"].append(s)
         else:
             errors.append(f"{ln}-qator: tushunarsiz qator «{s[:40]}»")
 
@@ -932,7 +956,7 @@ async def save_parsed(session, default_topic_id, res: Parsed, uid: int, may_crea
             question_mode="closed",
             option_a=o["A"], option_b=o["B"], option_c=o["C"], option_d=o["D"],
             correct_option=q["correct"], correct_answer=o[q["correct"]],
-            explanation=q.get("explanation"),
+            explanation=with_source(q.get("explanation"), q.get("source")),
         )
         session.add(row)
         added_c.append(row)

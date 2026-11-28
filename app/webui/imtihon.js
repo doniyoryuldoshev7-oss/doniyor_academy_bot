@@ -19,6 +19,7 @@
     screen("Milliy sertifikat imtihoni", "", toHome,
       el("div", { class: "hint", style: "margin-bottom:8px" }, "Imtihon — vaqtli test: o'quvchi javobning to'g'riligini oxirigacha ko'rmaydi, faqat bir marta topshiradi. «Milliy sertifikat» shabloni: 35 yopiq + 10 ochiq savol, natija 75 ballik shkala va daraja (A+ … C) bilan."),
       btn("", "🏅 Milliy sertifikatni yig'ish (1–45 yoki 1–55)", () => mlyHome()),
+      btn("alt", "🗂 Tayyor variantlar (zip)", () => variants()),
       btn("alt", "➕ Yangi imtihon (bankdan)", template),
       btn("alt", "📋 Imtihonlarim", list),
       btn("alt", "✍️ Ochiq savollar qo'shish", openSubjects));
@@ -85,7 +86,7 @@
     if (W.mode === "milliy") return durations();
     closedSizes();
   }
-  const srcBack = () => (W.fixed ? mlyHome() : W.pick.length === 1 ? topics() : drawSubjects());
+  const srcBack = () => (W.vid ? variantView(W.vid) : W.fixed ? mlyHome() : W.pick.length === 1 ? topics() : drawSubjects());
   function closedSizes() {
     const nodes = [el("div", { class: "card" }, el("b", {}, W.sname), el("div", { class: "hint" }, bankLine())), el("div", { class: "hint" }, "3-qadam: nechta yopiq (A/B/C/D) savol?")];
     for (const n of OPT.closed) nodes.push(btn("alt", String(n), () => { W.c = n; openSizes(); }));
@@ -118,13 +119,14 @@
   }
   function title() {
     const inp = el("input", { class: "input", type: "text", maxlength: "200", placeholder: "Bo'sh qoldirsangiz: fan nomi va sana qo'yiladi", style: "width:100%;margin:8px 0" });
+    if (W.vdef) inp.value = W.title || W.vdef;
     screen("Imtihon nomi", "", days, el("div", { class: "hint" }, "Imtihon nomini yozing (ixtiyoriy):"), inp, btn("", "Davom etish", () => { W.title = inp.value.trim(); preview(); }));
   }
   function preview() {
     const rc = Math.min(W.c, W.ac), ro = Math.min(W.o, W.ao);
     const nodes = [el("div", { class: "card" }, el("b", {}, W.title || `${W.sname} (nom avtomatik)`),
       stat("📚 Fan", W.fixed ? "Milliy sertifikat (tayyor savollar)" : W.sname + (W.tname ? " · " + W.tname : "") + (W.pick.length > 1 ? " (fanlar orasida teng olinadi)" : "")),
-      stat("🏅 Shablon", W.mode === "milliy" ? "Milliy sertifikat" : "Oddiy"), stat("👥 Kimlar", W.glabel),
+      stat("🏅 Shablon", W.mode === "milliy" ? "Milliy sertifikat" : "Oddiy"), W.vtitle ? stat("🗂 Variant", W.vtitle) : null, stat("👥 Kimlar", W.glabel),
       stat("⏱ Vaqt", `${W.dur} daqiqa`), stat("📅 Boshlash muddati", `${W.days} kun`),
       stat("Yopiq savollar", rc + (rc < W.c ? ` (so'raldi ${W.c}, bazada yetarli emas)` : "")),
       stat("Ochiq savollar", ro + (ro < W.o ? ` (so'raldi ${W.o}, bazada yetarli emas)` : "")))];
@@ -139,7 +141,7 @@
     try { r = await post("/api/ex/create", { mode: W.mode, sids: W.pick, tid: W.tid, c: W.c, o: W.o, dur: W.dur, group: W.group, days: W.days, title: W.title, fixed: W.fixed || null }); }
     catch (e) { busy = false; return fail(e, preview); }
     busy = false;
-    if (W.fixed) { D = { a: null, c: null, o: null, buf: { c: [], o: [], a: [] } }; saveDraft(); }   /* botdagi kabi: yaratilgach qoralama tozalanadi */
+    if (W.fixed && !W.vid) { D = { a: null, c: null, o: null, buf: { c: [], o: [], a: [] } }; saveDraft(); }   /* botdagi kabi: yaratilgach qoralama tozalanadi */
     const tok = ++pollTok;
     const status = el("div", { class: "hint", style: "margin-top:8px" }, r.students ? `⏳ Xabar yuborilmoqda… 0/${r.students}` : "Bu guruhda o'quvchi yo'q — xabar yuborilmadi.");
     screen("Imtihon yaratildi", "", home,
@@ -301,9 +303,9 @@
   /* ---------- Milliy sertifikatni fayldan yig'ish (1-35 yopiq, 36-45 ochiq) ---------- */
   const NC = 35, NO = 10, KEY = "mly_draft_v1";
   const HELP = {
-    c: `Yopiq savollarni yuboring (${NC} ta, 1–${NC}): matn, .txt, .docx yoki .xlsx.\n\n1. Savol matni\nA) variant\nB) variant\nC) variant\nD) variant\nJavob: B\n\n• Ro'yxatli savol (1) 2) 3) yoki a) b) c) qatorlari, atamalar, asarlar va mualliflar) — savol matnida oddiy qator qilib yozing. Variantlar faqat KATTA A) B) C) D).\n• Rasmli savol (xarita, jadval, Venn diagrammasi): avval rasmni qo'shing, keyin savol matnini.\n• Hammasi rasmda bo'lsa: rasmni qo'shing, keyin faqat «17. Javob: C» deb yozing.\n• 33–35 kabi A–F li umumiy variantlar eng oxirida:\nUmumiy variantlar: javobni tanlang\nA) …\nF) …\n33. Savol\nJavob: B`,
-    o: `Ochiq savollarni yuboring (${NO} ta, ${NC + 1}–${NC + NO}). Har birida a) va b) qismi bor. Savollar --- qatori bilan ajratiladi.\n\nSavol matni\na) birinchi qism => javob1 | javob2\nb) ikkinchi qism => javob\n\n| — muqobil to'g'ri javoblar.`,
-    a: `Hamma savolni (1–${NC + NO}) bitta fayl qilib yuboring: .docx, .txt yoki .xlsx. Matnni to'g'ridan-to'g'ri yozsangiz ham bo'ladi. Rasmlar Word ichida turishi mumkin.\n\nTuzilishi: avval ${NC} ta yopiq savol, keyin «OCHIQ SAVOLLAR» deb yozilgan qator, keyin ${NO} ta ochiq savol.\n\n1. Savol matni\nA) variant\nB) variant\nC) variant\nD) variant\nJavob: B\n\n… (${NC} gacha)\n\nOCHIQ SAVOLLAR\n\n36. Savol matni\na) birinchi qism => javob1 | javob2\nb) ikkinchi qism => javob\n---\n37. …\n\n• Ochiq savollar --- qatori bilan ajratiladi, | — muqobil to'g'ri javoblar.\n• Rasmli savol va 33–35 kabi A–F li umumiy variantlar qoidasi yopiq savollarniki kabi.\n• Fayl 15 MB dan oshmasin; katta bo'lsa 2 qismga bo'lib qo'shing (ketma-ket qo'shiladi).\n\n🆕 55 talik tayyor test fayli ham bo'ladi: 1–55 hammasi oddiy test (A–D, to'g'ri javob ++ yoki «Javob: B»). Tizim 1–35 ni yopiq savol qiladi, 36–55 ni ochiq savolga aylantiradi: o'quvchi javobni o'zi yozadi, to'g'ri variant matni — to'g'ri javob.`,
+    c: `Yopiq savollarni yuboring (${NC} ta, 1–${NC}): matn, .txt, .docx yoki .xlsx.\n\n1. Savol matni\nA) variant\nB) variant\nC) variant\nD) variant\nJavob: B\n\n• Ro'yxatli savol (1) 2) 3) yoki a) b) c) qatorlari, atamalar, asarlar va mualliflar) — savol matnida oddiy qator qilib yozing. Variantlar faqat KATTA A) B) C) D).\n• Rasmli savol (xarita, jadval, Venn diagrammasi): avval rasmni qo'shing, keyin savol matnini.\n• Hammasi rasmda bo'lsa: rasmni qo'shing, keyin faqat «17. Javob: C» deb yozing.\n• 33–35 kabi A–F li umumiy variantlar eng oxirida:\nUmumiy variantlar: javobni tanlang\nA) …\nF) …\n33. Savol\nJavob: B\n• Izoh va manba (ixtiyoriy): to'g'ri javobdan keyin «Izoh: nega bu javob to'g'ri» va «Manba: 8-sinf O'zbekiston tarixi, 52-bet» qatorlari. O'quvchi ularni imtihon yopilgach tahlilda ko'radi. Izohda harf (A, B…) emas, javobning o'zini yozing — variantlar aralashtiriladi.`,
+    o: `Ochiq savollarni yuboring (${NO} ta, ${NC + 1}–${NC + NO}). Har birida a) va b) qismi bor. Savollar --- qatori bilan ajratiladi.\n\nSavol matni\na) birinchi qism => javob1 | javob2\nb) ikkinchi qism => javob\n\n| — muqobil to'g'ri javoblar.\n• Izoh va manba (ixtiyoriy): savol blokining oxirida «Izoh: …» va «Manba: …» qatorlari.`,
+    a: `Hamma savolni (1–${NC + NO}) bitta fayl qilib yuboring: .docx, .txt yoki .xlsx. Matnni to'g'ridan-to'g'ri yozsangiz ham bo'ladi. Rasmlar Word ichida turishi mumkin.\n\nTuzilishi: avval ${NC} ta yopiq savol, keyin «OCHIQ SAVOLLAR» deb yozilgan qator, keyin ${NO} ta ochiq savol.\n\n1. Savol matni\nA) variant\nB) variant\nC) variant\nD) variant\nJavob: B\n\n… (${NC} gacha)\n\nOCHIQ SAVOLLAR\n\n36. Savol matni\na) birinchi qism => javob1 | javob2\nb) ikkinchi qism => javob\n---\n37. …\n\n• Ochiq savollar --- qatori bilan ajratiladi, | — muqobil to'g'ri javoblar.\n• Rasmli savol va 33–35 kabi A–F li umumiy variantlar qoidasi yopiq savollarniki kabi.\n• Fayl 15 MB dan oshmasin; katta bo'lsa 2 qismga bo'lib qo'shing (ketma-ket qo'shiladi).\n• Izoh va manba (ixtiyoriy): to'g'ri javobdan keyin «Izoh: nega bu javob to'g'ri» va «Manba: 8-sinf O'zbekiston tarixi, 52-bet» qatorlari. O'quvchi ularni imtihon yopilgach tahlilda ko'radi. Izohda harf (A, B…) emas, javobning o'zini yozing — variantlar aralashtiriladi.\n\n🆕 55 talik tayyor test fayli ham bo'ladi: 1–55 hammasi oddiy test (A–D, to'g'ri javob ++ yoki «Javob: B»). Tizim 1–35 ni yopiq savol qiladi, 36–55 ni ochiq savolga aylantiradi: o'quvchi javobni o'zi yozadi, to'g'ri variant matni — to'g'ri javob.`,
   };
   const STAGE_TITLE = { c: "Yopiq savollar", o: "Ochiq savollar", a: "Hammasi bitta fayldan" };
   let D = { a: null, c: null, o: null, buf: { c: [], o: [], a: [] } };   /* c/o: tekshirilgan qismlar (yoki null) */
@@ -331,6 +333,7 @@
       stepLine("2️⃣", D.no === 20 ? `Ochiq savollar (${NC + 1}–${NC + 20}, har biri bitta javobli)` : `Ochiq savollar (${NC + 1}–${NC + NO}, har birida a va b)`, oOk, "❌ hali yuklanmagan"),
       stepLine("3️⃣", "Birlashtirib o'quvchilarga taqdim etish", ready, "⏳ avval 1 va 2-bosqichni tugating")),
       btn("", "📄 Hammasini bitta fayldan yuklash (1–45 yoki 1–55)", () => collect("a")),
+      btn("alt", "🗂 Tayyor variantlar (zip: 26 ta variant va h.k.)", () => variants()),
       btn("alt", (D.c ? "♻️ " : "1️⃣ ") + "Yopiq savollarni yuklash", () => collect("c")),
       btn("alt", (D.o ? "♻️ " : "2️⃣ ") + "Ochiq savollarni yuklash", () => collect("o")),
       btn(ready ? "" : "alt", (ready ? "✅ " : "3️⃣ ") + "Birlashtirish va taqdim etish", () => {
@@ -405,6 +408,69 @@
       if (buf.length) nodes.push(btn("alt", "🗑 Yuborganlarimni tozalash", () => { D.buf[stage] = []; saveDraft(); toast("Tozalandi"); collect(stage); }));
     }
     screen(STAGE_TITLE[stage], "", mlyHome, ...nodes);
+  }
+
+  /* ---------- Tayyor variantlar (zip yoki fayl) — botdagi «🗂 Tayyor variantlar» bilan bir xil servis ---------- */
+  const MAX_ZIP = 60 * 1024 * 1024;
+  async function variants(report) {
+    pollTok++;
+    wait();
+    let d;
+    try { d = await api("/api/mlv/list"); } catch (e) { return fail(e, mlyHome); }
+    const pick = el("input", { type: "file", accept: ".zip,.docx,.txt,.xlsx", style: "display:none" });
+    pick.addEventListener("change", async () => {
+      const f = pick.files[0]; pick.value = ""; if (!f) return;
+      if (f.size > MAX_ZIP) return toast("Fayl 60 MB dan katta. 2 ta zipga bo'lib yuklang.");
+      if (busy) return;
+      busy = true;
+      show({ focus: false }, el("div", { class: "empty pre" }, `⏳ «${f.name}» tekshirilmoqda…
+Ko'p variantli zip 10–60 soniya olishi mumkin.`));
+      let r;
+      try { r = await upload("/api/mlv/upload", f, { "X-Filename": encodeURIComponent(f.name) }); }
+      catch (e) { busy = false; toast(e.message); return variants(); }
+      busy = false;
+      variants(r);
+    });
+    const nodes = [];
+    if (report) {
+      const bad = report.items.filter((x) => !x.ok);
+      const warn = [];
+      for (const x of report.items) if (x.ok) for (const w of x.warnings.slice(0, 1)) warn.push(`${x.title}: ${w}`);
+      nodes.push(el("div", { class: "card" }, el("b", {}, bad.length ? "⚠️ Yuklash natijasi" : "✅ Variantlar yuklandi"),
+        el("div", { class: "pre", style: "margin-top:6px" }, report.lines.join("\n")),
+        warn.length ? el("div", { class: "pre hint", style: "margin-top:6px" }, "Ogohlantirishlar (saqlandi, lekin e'tibor bering):\n" + warn.slice(0, 6).map((x) => "• " + x).join("\n")) : null));
+    }
+    nodes.push(el("div", { class: "card hint pre" }, "Zip yuklang: ichida har bir variant alohida fayl (.docx, .txt yoki .xlsx). Bitta fayl ham bo'ladi.\n\n• Har bir fayl — bitta variant: 55 ta test (1–35 yopiq, 36–55 yozma javobga aylanadi) yoki 1–45 (OCHIQ SAVOLLAR bilan).\n• To'g'ri javob variant oxirida ++ yoki «Javob: B».\n• Fayl nomi — variant nomi. Shu nomli variant qayta yuklansa, yangilanadi.\n• Xato fayl saqlanmaydi, qolganlari saqlanadi. Zip 60 MB gacha.\n• Izoh va manba (ixtiyoriy): har savolning to'g'ri javobidan keyin «Izoh: …» va «Manba: …» qatorlari — o'quvchi imtihon yopilgach tahlilda ko'radi."),
+      btn("", "📦 Zip yoki fayl yuklash", () => pick.click()), pick);
+    if (!d.items.length) nodes.push(empty("Hali variant yo'q."));
+    else nodes.push(el("div", { class: "hint", style: "margin:8px 0" }, `Jami: ${d.items.length} ta variant. Variantni tanlang — undan imtihon ochasiz. ✅ — shu variantdan imtihon ochilgan.`));
+    for (const v of d.items) nodes.push(el("div", { class: "card tap", onclick: () => variantView(v.id) }, el("div", { class: "row" },
+      el("div", { class: "grow" }, el("b", {}, `${v.used ? "✅" : "📄"} ${v.title}`), el("div", { class: "hint" }, `${v.closed} yopiq · ${v.open} yozma${v.img ? ` · rasmli: ${v.img}` : ""}${v.used ? ` · ochilgan: ${v.used}` : ""}`)), icon("chev"))));
+    if (d.items.length && d.admin) nodes.push(btn("alt", "🗑 Hamma variantlarni o'chirish", () => confirmSheet("Hamma variantlar o'chirilsinmi?",
+      "Ulardan ochilgan imtihonlar va natijalar o'chmaydi.", "Ha, hammasini o'chirish", async () => {
+        try { await post("/api/mlv/delete_all"); toast("O'chirildi"); } catch (e) { toast(e.message); }
+        variants();
+      })));
+    screen("Tayyor variantlar", "Milliy sertifikat", mlyHome, ...nodes);
+  }
+  async function variantView(id) {
+    wait();
+    let v;
+    try { v = await api(`/api/mlv/${id}`); } catch (e) { return fail(e, () => variants()); }
+    const nodes = [el("div", { class: "card" }, el("b", {}, "📄 " + v.title),
+      stat("Yopiq savollar", v.closed), stat("Yozma savollar", v.open), v.img ? stat("Rasmli", v.img) : null,
+      stat("Yuklangan", v.updated), stat("Ochilgan imtihonlar", v.used),
+      v.first ? el("div", { class: "hint", style: "margin-top:6px" }, "1-savol: " + (v.first.length > 160 ? v.first.slice(0, 159) + "…" : v.first)) : null),
+      btn("", "🚀 Imtihon qilib ochish", () => {
+        W = { mode: "milliy", c: v.closed, o: v.open, pick: [], sname: "Milliy sertifikat", ac: v.closed, ao: v.open, tid: null, tname: null,
+          fixed: { v: v.id }, vid: v.id, vtitle: v.title, vdef: /milliy/i.test(v.title) ? v.title : `Milliy sertifikat — ${v.title}` };
+        afterSource();
+      })];
+    if (v.can_del) nodes.push(btn("alt", "🗑 O'chirish", () => confirmSheet("Variant o'chirilsinmi?", `📄 ${v.title}\n\nUndan ochilgan imtihonlar va natijalar o'chmaydi.`, "Ha, o'chirish", async () => {
+      try { await post(`/api/mlv/delete/${id}`); toast("O'chirildi"); } catch (e) { toast(e.message); }
+      variants();
+    })));
+    screen("Variant", "", () => variants(), ...nodes);
   }
 
   OQ.adminExam = home;

@@ -137,6 +137,7 @@ async def cb_home(c: CallbackQuery, state: FSMContext):
         "natija 75 ballik shkala va daraja (A+ … C) bilan.",
         kb([
             [InlineKeyboardButton(text="🏅 Milliy sertifikatni yig'ish (1–45 yoki 1–55)", callback_data="mly:home")],
+            [InlineKeyboardButton(text="🗂 Tayyor variantlar (zip)", callback_data="mlv:l:0")],
             [InlineKeyboardButton(text="➕ Yangi imtihon (bankdan)", callback_data="exm:n")],
             [InlineKeyboardButton(text="📋 Imtihonlarim", callback_data="exm:ml:0")],
             [InlineKeyboardButton(text="✍️ Ochiq savollar qo'shish", callback_data="exm:oa")],
@@ -471,7 +472,9 @@ async def _ask_duration(c: CallbackQuery, draft: dict):
         [InlineKeyboardButton(text=f"{m} daq.", callback_data=f"exm:nd:{m}") for m in (30, 45, 60)],
         [InlineKeyboardButton(text=f"{m} daq.", callback_data=f"exm:nd:{m}") for m in (90, 120, 150, 180)],
     ]
-    if draft.get("fixed"):
+    if draft.get("vid"):
+        rows.append([InlineKeyboardButton(text="⬅️ Orqaga", callback_data=f"mlv:v:{draft['vid']}")])
+    elif draft.get("fixed"):
         rows.append([InlineKeyboardButton(text="⬅️ Orqaga", callback_data="mly:home")])
     await show(
         c,
@@ -559,7 +562,12 @@ async def cb_days(c: CallbackQuery, state: FSMContext):
         return
     draft["days"] = int(c.data.split(":")[2])
     stamp = to_local(datetime.utcnow()).strftime("%d.%m.%Y")
-    draft["default_title"] = f"{draft['sname']} — {stamp}"[:200]
+    if draft.get("vtitle"):
+        from ..services.milliy_variant import default_exam_title
+
+        draft["default_title"] = default_exam_title(draft["vtitle"])
+    else:
+        draft["default_title"] = f"{draft['sname']} — {stamp}"[:200]
     await state.update_data(d=draft)
     await state.set_state(ExamMake.title)
     await show(
@@ -583,7 +591,8 @@ async def _preview(target, state: FSMContext, draft: dict, title: str):
         f"📝 <b>{esc(draft['title'])}</b>",
         f"📚 {esc(draft['sname'])}" + (f" · {esc(draft['tname'])}" if draft.get("tname") else "")
         + (" (savollar fanlar orasida teng olinadi)" if draft.get("sids") else ""),
-        f"🏅 Shablon: {'Milliy sertifikat' if draft['mode'] == 'milliy' else 'Oddiy'}",
+        f"🏅 Shablon: {'Milliy sertifikat' if draft['mode'] == 'milliy' else 'Oddiy'}"
+        + (f" · variant: {esc(draft['vtitle'])}" if draft.get("vtitle") else ""),
         f"👥 Kimlar: {esc(draft['grp']) if draft['grp'] else 'hamma o‘quvchilar'}",
         f"⏱ Vaqt: {draft['dur']} daqiqa · boshlash muddati: {draft['days']} kun",
         "",
@@ -642,7 +651,10 @@ async def cb_create(c: CallbackQuery, state: FSMContext):
     if not draft or "title" not in draft:
         await c.answer("Jarayon eskirgan. Qaytadan boshlang.", show_alert=True)
         return
-    await state.clear()  # ikki marta bosishdan himoya
+    if draft.get("vid"):
+        await clear_keep(state)  # variantdan: qo'lda yig'ilayotgan Milliy qoralama saqlanib qoladi
+    else:
+        await state.clear()  # ikki marta bosishdan himoya
 
     await c.answer("Yaratilmoqda…")
 
@@ -678,6 +690,10 @@ async def cb_create(c: CallbackQuery, state: FSMContext):
         exam_id, title, duration = exam.id, exam.title, exam.duration_min
         deadline = exam.closes_at
         chat_ids = [u.telegram_id for u in students if u.telegram_id != c.from_user.id]
+    if draft.get("vid"):
+        from ..services.milliy_variant import mark_used
+
+        await mark_used(draft["vid"])
 
     task = asyncio.create_task(
         _announce(c.bot, c.from_user.id, exam_id, title, real_c, real_o, duration, deadline, chat_ids)
