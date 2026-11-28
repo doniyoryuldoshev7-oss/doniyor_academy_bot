@@ -18,7 +18,7 @@
     pollTok++;
     screen("Milliy sertifikat imtihoni", "", toHome,
       el("div", { class: "hint", style: "margin-bottom:8px" }, "Imtihon — vaqtli test: o'quvchi javobning to'g'riligini oxirigacha ko'rmaydi, faqat bir marta topshiradi. «Milliy sertifikat» shabloni: 35 yopiq + 10 ochiq savol, natija 75 ballik shkala va daraja (A+ … C) bilan."),
-      btn("", "🏅 Milliy sertifikatni yig'ish (1-35, 36-45)", () => mlyHome()),
+      btn("", "🏅 Milliy sertifikatni yig'ish (1–45 yoki 1–55)", () => mlyHome()),
       btn("alt", "➕ Yangi imtihon (bankdan)", template),
       btn("alt", "📋 Imtihonlarim", list),
       btn("alt", "✍️ Ochiq savollar qo'shish", openSubjects));
@@ -303,12 +303,12 @@
   const HELP = {
     c: `Yopiq savollarni yuboring (${NC} ta, 1–${NC}): matn, .txt, .docx yoki .xlsx.\n\n1. Savol matni\nA) variant\nB) variant\nC) variant\nD) variant\nJavob: B\n\n• Ro'yxatli savol (1) 2) 3) yoki a) b) c) qatorlari, atamalar, asarlar va mualliflar) — savol matnida oddiy qator qilib yozing. Variantlar faqat KATTA A) B) C) D).\n• Rasmli savol (xarita, jadval, Venn diagrammasi): avval rasmni qo'shing, keyin savol matnini.\n• Hammasi rasmda bo'lsa: rasmni qo'shing, keyin faqat «17. Javob: C» deb yozing.\n• 33–35 kabi A–F li umumiy variantlar eng oxirida:\nUmumiy variantlar: javobni tanlang\nA) …\nF) …\n33. Savol\nJavob: B`,
     o: `Ochiq savollarni yuboring (${NO} ta, ${NC + 1}–${NC + NO}). Har birida a) va b) qismi bor. Savollar --- qatori bilan ajratiladi.\n\nSavol matni\na) birinchi qism => javob1 | javob2\nb) ikkinchi qism => javob\n\n| — muqobil to'g'ri javoblar.`,
-    a: `Hamma savolni (1–${NC + NO}) bitta fayl qilib yuboring: .docx, .txt yoki .xlsx. Matnni to'g'ridan-to'g'ri yozsangiz ham bo'ladi. Rasmlar Word ichida turishi mumkin.\n\nTuzilishi: avval ${NC} ta yopiq savol, keyin «OCHIQ SAVOLLAR» deb yozilgan qator, keyin ${NO} ta ochiq savol.\n\n1. Savol matni\nA) variant\nB) variant\nC) variant\nD) variant\nJavob: B\n\n… (${NC} gacha)\n\nOCHIQ SAVOLLAR\n\n36. Savol matni\na) birinchi qism => javob1 | javob2\nb) ikkinchi qism => javob\n---\n37. …\n\n• Ochiq savollar --- qatori bilan ajratiladi, | — muqobil to'g'ri javoblar.\n• Rasmli savol va 33–35 kabi A–F li umumiy variantlar qoidasi yopiq savollarniki kabi.\n• Fayl 15 MB dan oshmasin; katta bo'lsa 2 qismga bo'lib qo'shing (ketma-ket qo'shiladi).`,
+    a: `Hamma savolni (1–${NC + NO}) bitta fayl qilib yuboring: .docx, .txt yoki .xlsx. Matnni to'g'ridan-to'g'ri yozsangiz ham bo'ladi. Rasmlar Word ichida turishi mumkin.\n\nTuzilishi: avval ${NC} ta yopiq savol, keyin «OCHIQ SAVOLLAR» deb yozilgan qator, keyin ${NO} ta ochiq savol.\n\n1. Savol matni\nA) variant\nB) variant\nC) variant\nD) variant\nJavob: B\n\n… (${NC} gacha)\n\nOCHIQ SAVOLLAR\n\n36. Savol matni\na) birinchi qism => javob1 | javob2\nb) ikkinchi qism => javob\n---\n37. …\n\n• Ochiq savollar --- qatori bilan ajratiladi, | — muqobil to'g'ri javoblar.\n• Rasmli savol va 33–35 kabi A–F li umumiy variantlar qoidasi yopiq savollarniki kabi.\n• Fayl 15 MB dan oshmasin; katta bo'lsa 2 qismga bo'lib qo'shing (ketma-ket qo'shiladi).\n\n🆕 55 talik tayyor test fayli ham bo'ladi: 1–55 hammasi oddiy test (A–D, to'g'ri javob ++ yoki «Javob: B»). Tizim 1–35 ni yopiq savol qiladi, 36–55 ni ochiq savolga aylantiradi: o'quvchi javobni o'zi yozadi, to'g'ri variant matni — to'g'ri javob.`,
   };
   const STAGE_TITLE = { c: "Yopiq savollar", o: "Ochiq savollar", a: "Hammasi bitta fayldan" };
   let D = { a: null, c: null, o: null, buf: { c: [], o: [], a: [] } };   /* c/o: tekshirilgan qismlar (yoki null) */
   function loadDraft() {
-    try { const x = JSON.parse(localStorage.getItem(KEY) || "null"); if (x && x.buf) D = { a: x.a || null, c: x.c || null, o: x.o || null, buf: Object.assign({ c: [], o: [], a: [] }, x.buf) }; } catch (e) {}
+    try { const x = JSON.parse(localStorage.getItem(KEY) || "null"); if (x && x.buf) D = { a: x.a || null, c: x.c || null, o: x.o || null, no: x.no || null, buf: Object.assign({ c: [], o: [], a: [] }, x.buf) }; } catch (e) {}
   }
   function saveDraft() { try { localStorage.setItem(KEY, JSON.stringify(D)); } catch (e) {} }
   const upload = async (url, file, headers) => {
@@ -328,14 +328,15 @@
     const stepLine = (n, label, ok, wait_) => el("div", { class: "hint", style: "margin:4px 0" }, `${n} ${label}: ` + (ok ? "✅ yuklandi" : wait_));
     const nodes = [el("div", { class: "card" }, el("b", {}, "🏅 Milliy sertifikat imtihonini yig'ish"),
       stepLine("1️⃣", `Yopiq savollar (1–${NC})`, cOk, "❌ hali yuklanmagan"),
-      stepLine("2️⃣", `Ochiq savollar (${NC + 1}–${NC + NO}, har birida a va b)`, oOk, "❌ hali yuklanmagan"),
+      stepLine("2️⃣", D.no === 20 ? `Ochiq savollar (${NC + 1}–${NC + 20}, har biri bitta javobli)` : `Ochiq savollar (${NC + 1}–${NC + NO}, har birida a va b)`, oOk, "❌ hali yuklanmagan"),
       stepLine("3️⃣", "Birlashtirib o'quvchilarga taqdim etish", ready, "⏳ avval 1 va 2-bosqichni tugating")),
-      btn("", "📄 Hammasini bitta fayldan yuklash (1–45)", () => collect("a")),
+      btn("", "📄 Hammasini bitta fayldan yuklash (1–45 yoki 1–55)", () => collect("a")),
       btn("alt", (D.c ? "♻️ " : "1️⃣ ") + "Yopiq savollarni yuklash", () => collect("c")),
       btn("alt", (D.o ? "♻️ " : "2️⃣ ") + "Ochiq savollarni yuklash", () => collect("o")),
       btn(ready ? "" : "alt", (ready ? "✅ " : "3️⃣ ") + "Birlashtirish va taqdim etish", () => {
         if (!ready) return toast(`Avval 1-bosqich (yopiq ${NC} ta) va 2-bosqich (ochiq ${NO} ta) tugashi kerak.`);
-        W = { mode: "milliy", c: NC, o: NO, pick: [], sname: "Milliy sertifikat", ac: NC, ao: NO, tid: null, tname: null, fixed: D.a ? { a: D.a } : { c: D.c, o: D.o } };
+        const no = D.no || NO;
+        W = { mode: "milliy", c: NC, o: no, pick: [], sname: "Milliy sertifikat", ac: NC, ao: no, tid: null, tname: null, fixed: D.a ? { a: D.a } : { c: D.c, o: D.o } };
         afterSource();
       })];
     if (note) nodes.unshift(good(note + ((warnings || []).length ? "\n\nOgohlantirish:\n" + warnings.slice(0, 6).map((x) => "• " + x).join("\n") : "")));
@@ -388,10 +389,11 @@
         busy = false;
         if (r.ok) {
           const keep = buf.slice();
-          if (stage === "a") { D.a = keep; D.c = D.o = null; D.buf.a = []; }
-          else { D[stage] = keep; D.a = null; D.buf[stage] = []; }
+          if (stage === "a") { D.a = keep; D.c = D.o = null; D.buf.a = []; D.no = r.open; }
+          else { D[stage] = keep; D.a = null; D.buf[stage] = []; if (stage === "o") D.no = r.open; }
           saveDraft();
-          const done = stage === "c" ? `✅ Yopiq savollar saqlandi: ${r.closed} ta (1–${NC}).` : stage === "o" ? `✅ Ochiq savollar saqlandi: ${r.open} ta (${NC + 1}–${NC + NO}).` : `✅ Hammasi saqlandi: yopiq ${r.closed} ta (1–${NC}), ochiq ${r.open} ta (${NC + 1}–${NC + NO}).`;
+          const oRange = `${NC + 1}–${NC + (r.open || NO)}`;
+          const done = stage === "c" ? `✅ Yopiq savollar saqlandi: ${r.closed} ta (1–${NC}).` : stage === "o" ? `✅ Ochiq savollar saqlandi: ${r.open} ta (${oRange}).` : `✅ Hammasi saqlandi: yopiq ${r.closed} ta (1–${NC}), ochiq ${r.open} ta (${oRange})` + (r.open === 20 ? ", testdan yozma javobga aylantirildi." : ".");
           toast(done);
           return mlyHome(done, r.warnings);
         }

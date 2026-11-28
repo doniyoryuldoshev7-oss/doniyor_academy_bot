@@ -136,7 +136,7 @@ async def cb_home(c: CallbackQuery, state: FSMContext):
         "faqat bir marta topshiradi. «Milliy sertifikat» shabloni: 35 yopiq + 10 ochiq savol, "
         "natija 75 ballik shkala va daraja (A+ … C) bilan.",
         kb([
-            [InlineKeyboardButton(text="🏅 Milliy sertifikatni yig'ish (1-35, 36-45)", callback_data="mly:home")],
+            [InlineKeyboardButton(text="🏅 Milliy sertifikatni yig'ish (1–45 yoki 1–55)", callback_data="mly:home")],
             [InlineKeyboardButton(text="➕ Yangi imtihon (bankdan)", callback_data="exm:n")],
             [InlineKeyboardButton(text="📋 Imtihonlarim", callback_data="exm:ml:0")],
             [InlineKeyboardButton(text="✍️ Ochiq savollar qo'shish", callback_data="exm:oa")],
@@ -448,7 +448,9 @@ async def cb_fixed(c: CallbackQuery, state: FSMContext):
         return
     mly = (await state.get_data()).get("mly") or {}
     closed, opened = mly.get("c") or [], mly.get("o") or []
-    if len(closed) != MILLIY_CLOSED or len(opened) != MILLIY_OPEN:
+    from ..services.imtihon import milliy_open_ok
+
+    if len(closed) != MILLIY_CLOSED or not milliy_open_ok(opened):
         await c.answer(
             f"Avval 1-bosqich (yopiq {MILLIY_CLOSED} ta) va 2-bosqich (ochiq {MILLIY_OPEN} ta) tugashi kerak.",
             show_alert=True,

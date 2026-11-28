@@ -55,6 +55,21 @@ LEVELS = [(70, "A+"), (65, "A"), (60, "B+"), (55, "B"), (50, "C+"), (46, "C")]
 
 MILLIY_CLOSED = 35
 MILLIY_OPEN = 10
+# 55 talik fayl: 36–55 — 20 ta bitta javobli ochiq savol (testdan aylantirilgan)
+MILLIY_OPEN_SINGLE = 20
+OPEN_SINGLE_PROMPT = "Javobingizni yozing"
+
+
+def milliy_open_ok(opened) -> bool:
+    """Milliy sertifikat ochiq qismi: 10 ta (a/b qismli) yoki 20 ta bitta javobli savol."""
+    opened = list(opened or [])
+    if len(opened) == MILLIY_OPEN:
+        return True
+    return len(opened) == MILLIY_OPEN_SINGLE and all(len(x.get("p") or []) == 1 for x in opened)
+
+
+def open_range_text(n_open: int) -> str:
+    return f"{MILLIY_CLOSED + 1}–{MILLIY_CLOSED + (n_open or MILLIY_OPEN)}"
 MAX_OPEN_PARTS = 4
 MAX_ANSWER_LEN = 200
 # Vaqt tugashidan oldin yuborilgan, lekin tarmoq sababli kech yetib kelgan

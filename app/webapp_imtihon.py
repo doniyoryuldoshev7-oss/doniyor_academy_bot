@@ -174,21 +174,22 @@ def check_stage(stage, chunks, fns):
     if stage == "o":
         items, errors, warnings = build_open(parse_text(buf))
         return [], items, list(errors), list(warnings)
-    sp = split_all(buf)
+    sp = split_all(buf)        # split_all_ex: oddiy (1–45) va 55 talik test fayli
     if sp is None:
         return [], [], ["Yopiq va ochiq qismni ajratib bo'lmadi. Ochiq savollardan oldin alohida qatorga «OCHIQ SAVOLLAR» deb yozing."], []
+    extra_err, extra_warn = (sp[2], sp[3]) if len(sp) > 2 else ([], [])
     citems, cerr = check_closed(sp[0])
     oitems, oerr, warnings = build_open(parse_text(sp[1])) if sp[1].strip() else ([], ["Ochiq savollar topilmadi."], [])
-    errors = ["Yopiq qism: " + e for e in cerr] + ["Ochiq qism: " + e for e in oerr]
-    return citems, oitems, errors, list(warnings)
+    errors = ["Yopiq qism: " + e for e in cerr] + ["Ochiq qism: " + e for e in list(extra_err) + list(oerr)]
+    return citems, oitems, errors, list(extra_warn) + list(warnings)
 
 
 def _stage_fns():
-    from .handlers.milliy_yigish import _check_closed, _join, build_open, split_all
+    from .handlers.milliy_yigish import _check_closed, _join, build_open, split_all_ex
     from .handlers.milliy_yigish import parse_text
     from .services.savol_import import MAX_TEXT
 
-    return _join, _check_closed, build_open, split_all, parse_text, MAX_TEXT
+    return _join, _check_closed, build_open, split_all_ex, parse_text, MAX_TEXT
 
 
 def fixed_payloads(fixed, fns=None):
@@ -213,8 +214,10 @@ def fixed_payloads(fixed, fns=None):
         return None, "Avval yopiq (1-35) va ochiq (36-45) savollarni yuklang."
     if errors:
         return None, "Savollarda xato bor: " + "; ".join(errors[:3])
-    if len(c) != MILLIY_C or len(o) != MILLIY_O:
-        return None, f"Yopiq {MILLIY_C} ta va ochiq {MILLIY_O} ta savol bo'lishi kerak (hozir {len(c)} + {len(o)})."
+    from .services.imtihon import milliy_open_ok
+
+    if len(c) != MILLIY_C or not milliy_open_ok(o):
+        return None, f"Yopiq {MILLIY_C} ta va ochiq {MILLIY_O} ta (yoki 20 ta bitta javobli) savol bo'lishi kerak (hozir {len(c)} + {len(o)})."
     return list(c) + list(o), None
 
 

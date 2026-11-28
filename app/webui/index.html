@@ -586,7 +586,9 @@ function renderQuestion() {
       input.addEventListener("blur", commit);
       input.addEventListener("keydown", (e) => { if (e.key === "Enter") { e.preventDefault(); commit(); if (inputs[i + 1]) inputs[i + 1].focus(); else input.blur(); } });
       inputs.push(input);
-      nodes.push(el("div", { class: "part" }, el("div", { class: "pre", style: "margin-bottom:9px" }, el("span", { class: "lab" }, LET[i] + ")"), part.q), input));
+      // bitta javobli ochiq savol (55 talik fayldan): «a)» belgisi va qism matni ko'rsatilmaydi
+      nodes.push(item.p.length === 1 ? el("div", { class: "part" }, input)
+        : el("div", { class: "part" }, el("div", { class: "pre", style: "margin-bottom:9px" }, el("span", { class: "lab" }, LET[i] + ")"), part.q), input));
     });
   }
   nodes.push(el("div", { class: "nav" },
@@ -704,7 +706,7 @@ async function review(aid) {
       card.append(el("div", { class: "pre", style: "margin:6px 0" }, it.s));
       if (it.img) card.append(image(aid, it.pos));
       for (const [i, p] of it.p.entries())
-        card.append(el("div", { class: "pre", style: "margin:6px 0" }, `${p.ok ? "✅" : "❌"} ${LET[i]}) ${p.q}\nSizniki: ${p.yours || "yo'q"}` + (p.ok ? "" : `\nTo'g'ri: ${p.a.join(" / ")}`)));
+        card.append(el("div", { class: "pre", style: "margin:6px 0" }, `${p.ok ? "✅" : "❌"} ${it.p.length === 1 ? "Javob" : LET[i] + ") " + p.q}\nSizniki: ${p.yours || "yo'q"}` + (p.ok ? "" : `\nTo'g'ri: ${p.a.join(" / ")}`)));
     }
     nodes.push(card);
   }

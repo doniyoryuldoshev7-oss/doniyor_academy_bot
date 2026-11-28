@@ -212,14 +212,18 @@ def question_view(exam, attempt, items, pos: int, answers: dict):
         lines.append(esc(short(item.data.get("s", ""), 2000)))
         lines.append("")
         photo = item.data.get("img")
+        single = len(item.data["p"]) == 1
         for i, part in enumerate(item.data["p"]):
             letter = "abcd"[i]
             typed = (answers.get(f"{pos}.{i}") or "").strip()
-            lines.append(f"<b>{letter})</b> {esc(short(part['q'], 300))}")
-            lines.append("    ✍️ " + (f"<i>{esc(typed)}</i>" if typed else "— yozilmagan"))
+            if single:      # bitta javobli ochiq savol: «a)» belgisi kerak emas
+                lines.append("✍️ <b>Javobingiz:</b> " + (f"<i>{esc(typed)}</i>" if typed else "— yozilmagan"))
+            else:
+                lines.append(f"<b>{letter})</b> {esc(short(part['q'], 300))}")
+                lines.append("    ✍️ " + (f"<i>{esc(typed)}</i>" if typed else "— yozilmagan"))
             rows.append([
                 InlineKeyboardButton(
-                    text=f"{'✏️' if typed else '✍️'} {letter}) javob yozish",
+                    text=f"{'✏️' if typed else '✍️'} " + ("Javob yozish" if single else f"{letter}) javob yozish"),
                     callback_data=f"exm:w:{attempt.id}:{pos}:{i}",
                 )
             ])
@@ -513,11 +517,15 @@ async def cb_write(c: CallbackQuery, state: FSMContext):
             await c.answer("Noto'g'ri so'rov.", show_alert=True)
             return
         prompt = items[pos - 1].data["p"][part]["q"]
+        if len(items[pos - 1].data["p"]) == 1:      # bitta javobli: savolning o'zi ko'rsatiladi
+            head, prompt = f"{pos}-savol", items[pos - 1].data.get("s") or prompt
+        else:
+            head = f"{pos}-savol, {'abcd'[part]}) qism"
 
     await state.set_state(ExamTake.typing)
     sent = await present(
         c,
-        f"✍️ <b>{pos}-savol, {'abcd'[part]}) qism</b>\n\n{esc(short(prompt, 600))}\n\n"
+        f"✍️ <b>{head}</b>\n\n{esc(short(prompt, 600))}\n\n"
         "Javobingizni yozib yuboring.\n"
         "<i>Javobni o'chirish uchun «-» yuboring.</i>",
         kb([[InlineKeyboardButton(text="❌ Bekor qilish", callback_data=f"exm:q:{aid}:{pos}")]]),
@@ -930,10 +938,11 @@ async def cb_review_item(c: CallbackQuery):
         lines += [esc(short(item.data.get("s", ""), 2000)), ""]
         photo = item.data.get("img")
         units = {u.part: u for u in build_units([item])}
+        single = len(item.data["p"]) == 1
         for i, part in enumerate(item.data["p"]):
             ok = unit_correct(item, units[i], answers)
             typed = (answers.get(f"{pos}.{i}") or "").strip() or "yo‘q"
-            lines.append(f"{'✅' if ok else '❌'} <b>{'abcd'[i]})</b> {esc(short(part['q'], 300))}")
+            lines.append(f"{'✅' if ok else '❌'} " + ("<b>Javob</b>" if single else f"<b>{'abcd'[i]})</b> {esc(short(part['q'], 300))}"))
             lines.append(f"    Sizniki: <i>{esc(typed)}</i>")
             if not ok:
                 lines.append("    To'g'ri: <b>" + esc(" / ".join(part["a"][:3])) + "</b>")

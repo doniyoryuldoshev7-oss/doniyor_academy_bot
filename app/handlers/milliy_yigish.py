@@ -37,11 +37,14 @@ from ..services.savol_import import (
     save_image_bytes,
 )
 
+from ..services.imtihon import milliy_open_ok, open_range_text
+
 log = logging.getLogger(__name__)
 router = Router()
 
 CLOSED_N = 35   # 1-35
 OPEN_N = 10     # 36-45 (har birida a va b)
+OPEN_N55 = 20   # 55 talik fayl: 36-55 (har biri bitta javobli)
 
 
 _SEP = re.compile(r"^\s*(?:---+|\*\*\*+|===+)\s*$")
@@ -132,6 +135,9 @@ HELP_ALL = (
     "• Rasmli savol va 33–35 kabi A–F li umumiy variantlar qoidasi yopiq savollarniki kabi "
     "(rasm savol matnidan keyin; umumiy variantlar yopiq qismning oxirida).\n"
     "• Fayl 15 MB dan oshmasin; katta bo'lsa 2 qismga bo'lib yuboring (ketma-ket qo'shiladi).\n\n"
+    "🆕 <b>55 talik tayyor test fayli</b> ham bo'ladi: 1–55 hammasi oddiy test (A–D, to'g'ri javob "
+    "<code>++</code> yoki <code>Javob: B</code>). Bot 1–35 ni yopiq savol qiladi, 36–55 ni esa ochiq "
+    "savolga aylantiradi: o'quvchi javobni o'zi yozadi, to'g'ri variant matni — to'g'ri javob.\n\n"
     "Yuborgach «✅ Tayyor» ni bosing: bot ikkala qismni o'zi ajratadi va tekshiradi."
 )
 
@@ -142,25 +148,29 @@ def _draft(data) -> dict:
 
 def _home_text(m: dict) -> str:
     nc, no = len(m.get("c") or []), len(m.get("o") or [])
-    ready = nc == CLOSED_N and no == OPEN_N
+    o_ok = milliy_open_ok(m.get("o"))
+    ready = nc == CLOSED_N and o_ok
     return (
         "🏅 <b>Milliy sertifikat imtihonini yig'ish</b>\n\n"
         f"1️⃣ Yopiq savollar (1–{CLOSED_N}): "
         + (f"✅ {nc} ta yuklandi" if nc == CLOSED_N else "❌ hali yuklanmagan") + "\n"
-        f"2️⃣ Ochiq savollar ({CLOSED_N + 1}–{CLOSED_N + OPEN_N}, har birida a va b): "
-        + (f"✅ {no} ta yuklandi" if no == OPEN_N else "❌ hali yuklanmagan") + "\n"
-        "3️⃣ Birlashtirib o'quvchilarga taqdim etish: "
+        + (f"2️⃣ Ochiq savollar ({open_range_text(no)}, har biri bitta javobli): ✅ {no} ta yuklandi\n"
+           if o_ok and no == OPEN_N55 else
+           f"2️⃣ Ochiq savollar ({CLOSED_N + 1}–{CLOSED_N + OPEN_N}, har birida a va b): "
+           + (f"✅ {no} ta yuklandi" if o_ok else "❌ hali yuklanmagan") + "\n")
+        + "3️⃣ Birlashtirib o'quvchilarga taqdim etish: "
         + ("✅ tayyor" if ready else "⏳ avval 1 va 2-bosqichni tugating")
     )
 
 
 def _home_kb(m: dict):
     nc, no = len(m.get("c") or []), len(m.get("o") or [])
-    ready = nc == CLOSED_N and no == OPEN_N
+    o_ok = milliy_open_ok(m.get("o"))
+    ready = nc == CLOSED_N and o_ok
     rows = [
-        [B("📄 Hammasini bitta fayldan yuklash (1–45)", "mly:a")],
+        [B("📄 Hammasini bitta fayldan yuklash (1–45 yoki 1–55)", "mly:a")],
         [B(("♻️ " if nc == CLOSED_N else "1️⃣ ") + "Yopiq savollarni yuklash", "mly:c")],
-        [B(("♻️ " if no == OPEN_N else "2️⃣ ") + "Ochiq savollarni yuklash", "mly:o")],
+        [B(("♻️ " if o_ok else "2️⃣ ") + "Ochiq savollarni yuklash", "mly:o")],
         [B(("✅ " if ready else "3️⃣ ") + "Birlashtirish va taqdim etish", "exm:fx")],
     ]
     if nc or no:
@@ -273,6 +283,102 @@ def _is_marker(ln: str) -> bool:
 
 def _has_marker(buf: str) -> bool:
     return any(_is_marker(ln) for ln in buf.split("\n"))
+
+
+_NUM55 = re.compile(r"(?m)^[ \t]*(?:№\s*)?(4[6-9]|5[0-5])\s*[.)]\s+\S")
+_OPT_ANY = re.compile(r"(?m)^[ \t]*[A-D]\s*[\)\.]\s*\S")
+_PP_OPT = re.compile(r"^(\s*([A-F])\s*[\)\.].*?)\s*\+\+\s*$")
+_PP_ANY = re.compile(r"^(.*?)\s*\+\+\s*$")
+_LONG_ANSWER = 60
+
+
+def is55(buf: str) -> bool:
+    """55 talik tayyor test fayli: «OCHIQ SAVOLLAR» ajratgichi yo'q, 46–55 raqamli savollar bor
+    va 36-dan keyingi qismda A) B) C) D) variantlar bor (ya'ni ular ham test ko'rinishida)."""
+    if _has_marker(buf):
+        return False
+    lines = buf.split("\n")
+    idx = next((i for i, ln in enumerate(lines) if _FIRST_OPEN.match(ln)), None)
+    if idx is None:
+        return False
+    tail = "\n".join(lines[idx:])
+    return len(set(_NUM55.findall(tail))) >= 3 and len(_OPT_ANY.findall(tail)) >= 20
+
+
+def plus_to_javob(text: str) -> str:
+    """«C) variant ++» belgisini milliy yopiq savol formatidagi «Javob: C» qatoriga aylantiradi."""
+    out, pending, last_letter = [], None, None
+    for raw in text.split("\n"):
+        if _Q_START.match(raw) and not _OPT_UP.match(raw) and not ANS_RE.match(raw.strip()):
+            if pending:
+                out.append(f"Javob: {pending}")
+            pending, last_letter = None, None
+        m = _PP_OPT.match(raw)
+        if m:
+            last_letter = m.group(2).upper()
+            pending = last_letter
+            out.append(m.group(1))
+            continue
+        opt = re.match(r"^\s*([A-F])\s*[\)\.]", raw)
+        if opt:
+            last_letter = opt.group(1).upper()
+        m = _PP_ANY.match(raw)
+        if m and last_letter:       # variant davomi qatori oxirida «++»
+            pending = last_letter
+            out.append(m.group(1))
+            continue
+        if ANS_RE.match(raw.strip()):
+            pending = None          # «Javob: B» o'zi yozilgan
+        out.append(raw)
+    if pending:
+        out.append(f"Javob: {pending}")
+    return "\n".join(out)
+
+
+def split55(buf: str):
+    """55 talik fayl: (yopiq matn, ochiq matn, xatolar, ogohlantirishlar).
+    36–55 test savollari «savol / a) Javobingizni yozing => to'g'ri variant matni» ko'rinishiga keltiriladi."""
+    from ..services.imtihon import OPEN_SINGLE_PROMPT
+
+    lines = buf.split("\n")
+    idx = next(i for i, ln in enumerate(lines) if _FIRST_OPEN.match(ln))
+    closed = plus_to_javob("\n".join(lines[:idx]))
+    res = parse_text("\n".join(lines[idx:]))
+    errors = [e for e in res.errors]
+    warnings = []
+    if res.open:
+        errors.append(f"36–55 qismida {len(res.open)} ta «=>» li ochiq savol bor: bu qismda faqat test (A–D) bo'lishi kerak.")
+    if len(res.closed) != OPEN_N55:
+        errors.append(f"36–55 qismida {OPEN_N55} ta test bo'lishi kerak, topildi: {len(res.closed)} ta.")
+    blocks = []
+    for n, q in enumerate(res.closed, start=CLOSED_N + 1):
+        right = " ".join((q["options"].get(q["correct"]) or "").split()).replace("|", "/").replace("=>", "→")
+        stem = " ".join((q["text"] or "").split()).replace("=>", "→")
+        if not right:
+            errors.append(f"{n}-savol: to'g'ri variant matni bo'sh (rasmdagi variantni yozma javobga aylantirib bo'lmaydi).")
+            continue
+        if not stem and not q.get("image"):
+            errors.append(f"{n}-savol: savol matni yo'q.")
+            continue
+        if len(right) > _LONG_ANSWER:
+            warnings.append(f"{n}-savol: to'g'ri javob uzun ({len(right)} belgi) — o'quvchi aynan yozishi qiyin. "
+                            "Keyin «✍️ Yozma javoblarni tekshirish» orqali qabul qilish mumkin.")
+        block = []
+        if q.get("image"):
+            block.append(f"[rasm:{q['image']}]")
+        block.append(stem or "Rasmdagi savolga javob yozing.")
+        block.append(f"a) {OPEN_SINGLE_PROMPT} => {right}")
+        blocks.append("\n".join(block))
+    return closed, "\n---\n".join(blocks), errors, warnings
+
+
+def split_all_ex(buf: str):
+    """(yopiq matn, ochiq matn, qo'shimcha xatolar, ogohlantirishlar) yoki None.
+    Oddiy fayl (1–45) va 55 talik test fayli (1–55) — ikkalasi ham."""
+    if is55(buf):
+        return split55(buf)
+    sp = split_all(buf)
+    return None if sp is None else (sp[0], sp[1], [], [])
 
 
 def split_all(buf: str):
@@ -616,11 +722,12 @@ def build_open(res) -> tuple[list, list, list]:
     warnings = []
     if res.closed:
         errors.append(f"Bu bosqichda faqat ochiq savol bo'lishi kerak, lekin {len(res.closed)} ta yopiq savol topildi.")
-    if len(res.open) != OPEN_N:
-        errors.append(f"Ochiq savol {OPEN_N} ta bo'lishi kerak, topildi: {len(res.open)} ta.")
+    single = len(res.open) == OPEN_N55 and all(len(q["parts"]) == 1 for q in res.open)
+    if len(res.open) != OPEN_N and not single:
+        errors.append(f"Ochiq savol {OPEN_N} ta (a va b qismli) yoki {OPEN_N55} ta (bitta javobli) bo'lishi kerak, topildi: {len(res.open)} ta.")
     items = []
     for i, q in enumerate(res.open, start=CLOSED_N + 1):
-        if len(q["parts"]) != 2:
+        if not single and len(q["parts"]) != 2:
             warnings.append(f"{i}-savolda {len(q['parts'])} ta qism bor (odatda 2 ta: a va b).")
         items.append({
             "k": "o", "s": q["stem"], "p": [dict(p) for p in q["parts"]], "oid": None,
@@ -630,6 +737,7 @@ def build_open(res) -> tuple[list, list, list]:
 
 
 def _check_closed(buf: str):
+    buf = plus_to_javob(buf)        # «C) variant ++» ham qabul qilinadi
     plain, blocks = split_shared(buf)
     items, errors = parse_closed_strict(plain) if plain.strip() else ([], [])
     for number, block in enumerate(blocks, start=1):
@@ -653,7 +761,7 @@ async def cb_done(c: CallbackQuery, state: FSMContext):
         return
 
     if stage == "a":
-        sp = split_all(buf)
+        sp = split_all_ex(buf)
         if sp is None:
             errors, warnings = [
                 "Yopiq va ochiq qismni ajratib bo'lmadi. Ochiq savollardan oldin alohida qatorga "
@@ -661,13 +769,15 @@ async def cb_done(c: CallbackQuery, state: FSMContext):
         else:
             citems, cerr = _check_closed(sp[0])
             oitems, oerr, warnings = build_open(parse_text(sp[1])) if sp[1].strip() else ([], ["Ochiq savollar topilmadi."], [])
-            errors = ["Yopiq qism: " + e for e in cerr] + ["Ochiq qism: " + e for e in oerr]
+            errors = ["Yopiq qism: " + e for e in cerr] + ["Ochiq qism: " + e for e in list(sp[2]) + list(oerr)]
+            warnings = list(sp[3]) + list(warnings)
             if not errors:
                 m["c"], m["o"], m["ba"] = citems, oitems, ""
                 await state.update_data(mly=m)
                 await state.set_state(None)
                 done = (f"✅ <b>Hammasi saqlandi:</b> yopiq {len(citems)} ta (1–{CLOSED_N}), "
-                        f"ochiq {len(oitems)} ta ({CLOSED_N + 1}–{CLOSED_N + OPEN_N}).")
+                        f"ochiq {len(oitems)} ta ({open_range_text(len(oitems))}"
+                        + (", testdan yozma javobga aylantirildi)." if len(oitems) == OPEN_N55 else ")."))
                 if warnings:
                     done += "\n\n<b>Ogohlantirish:</b>\n" + "\n".join("• " + esc(w) for w in warnings[:6])
                 done += "\n\n" + _home_text(m)
