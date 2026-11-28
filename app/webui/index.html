@@ -265,13 +265,14 @@ function confirmSheet(title, text, yes, onYes) {
 }
 async function blobUrl(path) {
   if (S.blobs[path]) return S.blobs[path];
-  const res = await fetch(path, { headers: { "X-Init-Data": (tg && tg.initData) || "" } });
+  const res = await fetch(path, { headers: { "X-Init-Data": (tg && tg.initData) || "", "X-Lang": (window.I18N ? I18N.lang() : "uz") } });
   if (!res.ok) throw new Error("rasm");
   return (S.blobs[path] = URL.createObjectURL(await res.blob()));
 }
 function image(aid, pos) {
   const img = el("img", { class: "q", alt: "" });
-  blobUrl(`/api/img/${aid}/${pos}`).then((u) => (img.src = u)).catch(() => img.remove());
+  /* til yo'lda ham bor: rus/ingliz tilidagi rasm (bo'lsa) o'zbekchasi bilan aralashib keshlanmasin */
+  blobUrl(`/api/img/${aid}/${pos}?l=${window.I18N ? I18N.lang() : "uz"}`).then((u) => (img.src = u)).catch(() => img.remove());
   return img;
 }
 

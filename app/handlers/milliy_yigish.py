@@ -156,7 +156,8 @@ HELP_ALL = (
     "istalgani to'g'ri hisoblanadi.\n"
     "• <b>3 til</b>: savol tagida <code>RU:</code> va <code>EN:</code> bloklari — tarjima matni, A–D variantlar, "
     "<code>Объяснение:</code> / <code>Explanation:</code>; 36–55 da variant o'rniga <code>Ответ: …</code> / <code>Answer: …</code>. "
-    "O'quvchi imtihonni o'z tilida ko'radi, yozma javob qaysi tilda yozilsa ham qabul qilinadi.\n\n"
+    "O'quvchi imtihonni o'z tilida ko'radi, yozma javob qaysi tilda yozilsa ham qabul qilinadi. "
+    "RU/EN blok ichiga qo'yilgan rasm — shu tildagi rasm (yozuvli diagramma, xarita); qo'yilmasa, o'zbekchasi ko'rsatiladi.\n\n"
     "Yuborgach «✅ Tayyor» ni bosing: bot ikkala qismni o'zi ajratadi va tekshiradi."
 )
 
@@ -451,6 +452,15 @@ _TR_SRC = re.compile(r"^(?:📚\s*)?(?:manba|источник|source)\s*[:\-–�
 TR_NAMES = {"ru": "RU", "en": "EN"}
 
 
+def _tr_img(lines):
+    """Tarjima blokidagi rasm (shu tilda ko'rsatiladi): birinchi «[rasm:…]» qatori yoki None."""
+    for _ln, raw in lines:
+        m = IMG_RE.match(raw.strip())
+        if m:
+            return m.group(1)
+    return None
+
+
 def _tr_open_block(lines, ln0, lang):
     """36–55 tarjimasi: matn + «Ответ: …» (yoki ++ belgili variant) + «Принимается: …» + «Объяснение: …»."""
     from ..services.savol_import import OPT_RE, TR_EXP_RE, _marker, split_accept
@@ -492,7 +502,7 @@ def _tr_open_block(lines, ln0, lang):
     right = [b for b, mk in opts.values() if mk]
     answers = [" ".join(x.split()) for x in right] + answers
     text = " ".join(" ".join(stem).split())
-    if not text:
+    if not text and not _tr_img(lines):
         return None, f"{ln0}-qator ({TR_NAMES[lang]}): tarjimada savol matni yo'q"
     if not answers:
         return None, f"{ln0}-qator ({TR_NAMES[lang]}): tarjimada javob yo'q («Ответ: …» / «Answer: …» qatori yoki ++)"
@@ -523,6 +533,11 @@ def encode_tr(text: str):
             return
         q, lang, ln0, body = blk["q"], blk["lang"], blk["ln"], blk["lines"]
         body = [(ln, t) for ln, t in body if not _TR_SRC.match(t.strip())]   # manba umumiy (o'zbekchasi)
+        img = _tr_img(body)
+        if img and not _img_ok(img):
+            errors.append(f"{q}-savol ({TR_NAMES[lang]}): tarjimadagi rasm topilmadi (faylni qayta yuklang)")
+            blk = None
+            return
         if q is None:
             errors.append(f"{ln0}-qator: {TR_NAMES[lang]} tarjimasi qaysi savolga tegishli ekani aniqlanmadi")
         elif q > CLOSED_N and has_marker:
@@ -532,15 +547,23 @@ def encode_tr(text: str):
             if err:
                 errors.append(f"{q}-savol: " + err)
             else:
+                if img:
+                    d["img"] = image_ref(img)
                 out.insert(blk["at"], "§TR§ " + json.dumps({"lang": lang, **d}, ensure_ascii=False))
                 blocks.append((q, lang))
         else:
             d, err = parse_tr(body, ln0)
+            if err and img and "savol matni yo'q" in err:
+                # hammasi rasmda bo'lsa (savol matni rasmning ichida) — tarjimada ham matn shart emas
+                d, err = parse_tr([(ln0, "…")] + list(body), ln0)
+                if d:
+                    d["text"] = ""
             if err:
                 errors.append(f"{q}-savol ({TR_NAMES[lang]}): " + err)
             else:
                 out.insert(blk["at"], "§TR§ " + json.dumps({"lang": lang, "t": d["text"], "o": d["options"], "e": d["explanation"],
-                                                             "ans": d["answer"]}, ensure_ascii=False))
+                                                             "ans": d["answer"], "img": image_ref(img) if img else None},
+                                                            ensure_ascii=False))
                 blocks.append((q, lang))
         blk = None
 
@@ -826,7 +849,7 @@ def parse_shared(block: str, n: int):
             "e": " ".join(" ".join(q_exp).split()) or None, "m": " ".join(" ".join(q_src).split()) or None,
         })
         if shared_tr.get(qi):     # umumiy variantli savol: tarjimada matn va izoh (variantlar blok boshida — o'zbekcha)
-            items[-1]["tr"] = {l: {"t": d.get("t") or "", "e": d.get("e")} for l, d in shared_tr[qi].items()}
+            items[-1]["tr"] = {l: {"t": d.get("t") or "", "e": d.get("e"), "img": d.get("img")} for l, d in shared_tr[qi].items()}
     return ([] if errors else items), errors
 
 
@@ -975,7 +998,7 @@ def parse_closed_strict(text: str):
             bad = [TR_NAMES[l] for l, d in q["tr"].items() if d.get("ans") and d["ans"] != q["ans"]]
             if bad:
                 errors.append(f"{tag}: {', '.join(bad)} tarjimadagi javob o'zbekchasidan ({q['ans']}) farq qiladi")
-            items[-1]["tr"] = {l: {"t": d["t"], "o": d["o"], "e": d.get("e")} for l, d in q["tr"].items()}
+            items[-1]["tr"] = {l: {"t": d["t"], "o": d["o"], "e": d.get("e"), "img": d.get("img")} for l, d in q["tr"].items()}
     return items, errors
 
 
@@ -1016,7 +1039,8 @@ def build_open_text(text: str):
                         for a in d.get("a") or []:
                             if a.casefold() not in {x.casefold() for x in acc}:
                                 acc.append(a)
-                    it["tr"] = {l: {"s": d.get("s") or "", "e": d.get("e"), "a": list(d.get("a") or [])} for l, d in tr.items()}
+                    it["tr"] = {l: {"s": d.get("s") or "", "e": d.get("e"), "a": list(d.get("a") or []), "img": d.get("img")}
+                                for l, d in tr.items()}
         elif not errors:
             warnings.append("Ochiq savollarning «Izoh/Manba» qatorlarini savollarga bog'lab bo'lmadi "
                             "(savollar --- bilan ajratilganini tekshiring). Savollar saqlandi, izohlar qo'shilmadi.")

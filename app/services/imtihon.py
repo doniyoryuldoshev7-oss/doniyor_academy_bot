@@ -84,6 +84,8 @@ def apply_item_tr(data: dict, kind: str, lang: str) -> dict:
                 p["a"] = sorted(p["a"], key=lambda a: (a.casefold() not in first, first.index(a.casefold()) if a.casefold() in first else 0))
     if tr.get("e"):
         data["e"] = tr["e"]
+    if tr.get("img"):
+        data["img"] = tr["img"]       # shu tildagi rasm (matnli diagramma, xarita va h.k.)
     return data
 
 

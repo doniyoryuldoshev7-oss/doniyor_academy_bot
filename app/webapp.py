@@ -480,7 +480,9 @@ async def api_image(request: web.Request):
         attempt, exam = await _my_attempt(session, request, int(request.match_info["id"]))
         if attempt is None:
             return _err("Topilmadi.", 404)
-        items = attempt_view(await load_items(session, exam.id), exam, attempt.id, getattr(attempt, "mix", None))
+        items = await load_items(session, exam.id)
+    await _localize(items, request)              # o'quvchi tilidagi rasm (bo'lsa)
+    items = attempt_view(items, exam, attempt.id, getattr(attempt, "mix", None))
 
     item = next((i for i in items if i.pos == pos), None)   # pos — o'quvchi ko'rgan raqam
     path = item.data.get("img") if item else None
