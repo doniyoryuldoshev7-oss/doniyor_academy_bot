@@ -8,6 +8,7 @@ from __future__ import annotations
 import html
 import io
 import logging
+import re
 
 from aiogram import F, Router
 from aiogram.exceptions import TelegramBadRequest
@@ -113,18 +114,25 @@ async def cb_home(c: CallbackQuery, state: FSMContext):
     await state.clear()
     async with SessionLocal() as s:
         subjects = (await s.scalars(select(Subject).order_by(Subject.name))).all()
+    subjects = sorted(subjects, key=_natural)
     rows = [[B("📚 " + sub.name[:40], f"imq:s:{sub.id}")] for sub in subjects[:40]]
-    rows.insert(0, [B("🗂 Fan va mavzu faylning o'zida yozilgan", "imq:auto")])
+    rows.insert(0, [B("🤖 Avtomatik: darslik va mavzular fayldan aniqlanadi", "imq:auto")])
     rows.append([B("📜 Yuklashlarim (bekor qilish / tiklash)", "imq:hl")])
     rows.append([B("❌ Bekor", "imq:x")])
     await show(
         c,
         "📥 <b>Savol yuklash</b>\n\n"
-        "Qaysi fanga yuklaymiz? Yoki «Fan va mavzu faylda yozilgan» ni bosing — "
+        "Qaysi fanga yuklaymiz? Yoki «🤖 Avtomatik» ni bosing — fayldagi «1-mavzu. …», «19–20-§. …» "
+        "sarlavhalaridan sinf, darslik va mavzular o'zi aniqlanadi (yoki faylda «Fan:» / «Mavzu:» qatorlari bo'lsin), "
         "bir fayldan bir necha mavzuga yuklash mumkin.",
         kb(rows),
     )
     await c.answer()
+
+
+def _natural(x):
+    """«2-mavzu» «10-mavzu» dan oldin; «5-sinf» «10-sinf» dan oldin."""
+    return tuple((0, int(p)) if p.isdigit() else (1, p) for p in re.split(r"(\d+)", (x.name or "").casefold()))
 
 
 @router.callback_query(F.data.startswith("imq:s:"))
@@ -135,6 +143,7 @@ async def cb_subject(c: CallbackQuery, state: FSMContext):
     async with SessionLocal() as s:
         sub = await s.get(Subject, sid)
         topics = (await s.scalars(select(Topic).where(Topic.subject_id == sid).order_by(Topic.name))).all()
+        topics = sorted(topics, key=_natural)
     if sub is None:
         await c.answer("Fan topilmadi.", show_alert=True)
         return
@@ -162,7 +171,8 @@ async def cb_topic(c: CallbackQuery, state: FSMContext):
 
 
 async def _start_collect(c: CallbackQuery, state: FSMContext, topic_id):
-    where = "Fan va mavzu faylda yozilgan bo'lishi kerak."
+    where = ("🤖 <b>Avtomatik</b>: fayldagi mavzu sarlavhalaridan («1-mavzu. …», «19–20-§. …») darslik va "
+             "mavzular aniqlanadi. Butun darslik bo'yicha FULL testni bitta faylda yuborish mumkin (15 MB gacha).")
     if topic_id:
         async with SessionLocal() as s:
             t = await s.get(Topic, topic_id)
@@ -256,7 +266,7 @@ async def msg_file(m: Message, state: FSMContext):
     if (doc.mime_type or "").startswith("image/"):
         return await _take_image(m, state, doc, m.caption)
     if (doc.file_size or 0) > MAX_FILE:
-        await m.answer("Fayl juda katta (3 MB dan oshmasin).", reply_markup=collect_kb(False))
+        await m.answer("Fayl juda katta (15 MB dan oshmasin).", reply_markup=collect_kb(False))
         return
     try:
         buf = io.BytesIO()
@@ -293,7 +303,7 @@ async def cb_clear(c: CallbackQuery, state: FSMContext):
 
 # ---------------------------------------------------------------
 async def _analyse(uid, data):
-    res = parse_text(data.get("imq_buf") or "")
+    res = parse_text(data.get("imq_buf") or "", auto_book=not data.get("imq_topic"))
     async with SessionLocal() as s:
         mapping, new_topics, rerrors = await resolve_topics(
             s, res, data.get("imq_topic"), await may_create(uid), create=False
@@ -347,7 +357,7 @@ async def cb_save(c: CallbackQuery, state: FSMContext):
     if not await gate(c):
         return
     data = await state.get_data()
-    res = parse_text(data.get("imq_buf") or "")
+    res = parse_text(data.get("imq_buf") or "", auto_book=not data.get("imq_topic"))
     if not res.total:
         await c.answer("Saqlanadigan savol yo'q.", show_alert=True)
         return

@@ -131,7 +131,7 @@ HELP_ALL = (
     "• Ochiq savollar <code>---</code> qatori bilan ajratiladi, <code>|</code> — muqobil to'g'ri javoblar.\n"
     "• Rasmli savol va 33–35 kabi A–F li umumiy variantlar qoidasi yopiq savollarniki kabi "
     "(rasm savol matnidan keyin; umumiy variantlar yopiq qismning oxirida).\n"
-    "• Fayl 3 MB dan oshmasin; katta bo'lsa 2 qismga bo'lib yuboring (ketma-ket qo'shiladi).\n\n"
+    "• Fayl 15 MB dan oshmasin; katta bo'lsa 2 qismga bo'lib yuboring (ketma-ket qo'shiladi).\n\n"
     "Yuborgach «✅ Tayyor» ni bosing: bot ikkala qismni o'zi ajratadi va tekshiradi."
 )
 
@@ -364,7 +364,7 @@ async def msg_file(msg: Message, state: FSMContext):
     if (doc.mime_type or "").startswith("image/"):
         return await _take_image(msg, state, doc, msg.caption)
     if (doc.file_size or 0) > MAX_FILE:
-        await msg.answer("Fayl juda katta (3 MB dan oshmasin).", reply_markup=_collect_kb(False))
+        await msg.answer("Fayl juda katta (15 MB dan oshmasin).", reply_markup=_collect_kb(False))
         return
     try:
         buf = io.BytesIO()

@@ -1,0 +1,1812 @@
+{
+ "version": 1,
+ "books": [
+  {
+   "key": "5-tarix",
+   "grade": 5,
+   "fan": "tarix",
+   "subject": "5-sinf Tarixdan hikoyalar",
+   "book": "Tarixdan hikoyalar (metodik tavsiya)",
+   "year": 2025,
+   "topics": [
+    {
+     "from": 1,
+     "to": 1,
+     "name": "1-dars. O‘zbek davlati tarixi"
+    },
+    {
+     "from": 2,
+     "to": 2,
+     "name": "2-dars. Samarqand viloyati"
+    },
+    {
+     "from": 3,
+     "to": 3,
+     "name": "3-dars. Davlat bayrog‘i tarixi"
+    },
+    {
+     "from": 4,
+     "to": 4,
+     "name": "4-dars. Buxoro viloyati"
+    },
+    {
+     "from": 5,
+     "to": 5,
+     "name": "5-dars. Xorazm viloyati va Quyi Amudaryo hududi"
+    },
+    {
+     "from": 6,
+     "to": 6,
+     "name": "6-dars. Navoiy viloyati"
+    },
+    {
+     "from": 7,
+     "to": 7,
+     "name": "7-dars. Bosh tuzugimiz tarixi"
+    },
+    {
+     "from": 8,
+     "to": 8,
+     "name": "8-dars. Davlat madhiyasi tarixi"
+    },
+    {
+     "from": 9,
+     "to": 9,
+     "name": "9-dars. Qashqadaryo viloyati"
+    },
+    {
+     "from": 10,
+     "to": 10,
+     "name": "10-dars. Surxondaryo viloyati"
+    },
+    {
+     "from": 11,
+     "to": 11,
+     "name": "11-dars. Jizzax va Sirdaryo viloyati"
+    }
+   ],
+   "note": "Yuborilgan fayl o‘qituvchilar uchun metodik tavsiya (37 bet)"
+  },
+  {
+   "key": "6-qadimgi",
+   "grade": 6,
+   "fan": "jahon",
+   "subject": "6-sinf Qadimgi dunyo tarixi",
+   "book": "Qadimgi dunyo tarixi (A. S. Sagdullayev, V. A. Kostetskiy)",
+   "year": 2022,
+   "topics": [
+    {
+     "from": 1,
+     "to": 1,
+     "name": "1-§. Qadimgi tarix ildizlari"
+    },
+    {
+     "from": 2,
+     "to": 2,
+     "name": "2-§. Eng qadimgi odamlarning rivojlanish bosqichlari"
+    },
+    {
+     "from": 3,
+     "to": 3,
+     "name": "3-§. Urug‘chilik jamiyati"
+    },
+    {
+     "from": 4,
+     "to": 4,
+     "name": "4-§. Eneolit va bronza davri"
+    },
+    {
+     "from": 5,
+     "to": 5,
+     "name": "5-§. O‘rta Osiyo temir asriga o‘tish davrida"
+    },
+    {
+     "from": 6,
+     "to": 6,
+     "name": "6-§. Nil vodiysi va uning aholisi"
+    },
+    {
+     "from": 7,
+     "to": 7,
+     "name": "7-§. Qadimgi Misr va qo‘shni davlatlar"
+    },
+    {
+     "from": 8,
+     "to": 8,
+     "name": "8-§. Qadimgi Misrda din"
+    },
+    {
+     "from": 9,
+     "to": 9,
+     "name": "9-§. Piramidalar va daxmalar"
+    },
+    {
+     "from": 10,
+     "to": 10,
+     "name": "10-§. Qadimgi Misr madaniyati"
+    },
+    {
+     "from": 11,
+     "to": 11,
+     "name": "11-§. Mesopotamiya sivilizatsiyalari"
+    },
+    {
+     "from": 12,
+     "to": 12,
+     "name": "12-§. Bobil podsholigi"
+    },
+    {
+     "from": 13,
+     "to": 13,
+     "name": "13-§. Old Osiyo davlatlari"
+    },
+    {
+     "from": 14,
+     "to": 14,
+     "name": "14-§. Ahamoniylar davlati"
+    },
+    {
+     "from": 15,
+     "to": 15,
+     "name": "15-§. Qadimgi Hindistondagi ilk sivilizatsiya"
+    },
+    {
+     "from": 16,
+     "to": 16,
+     "name": "16-§. Qadimgi Hindiston madaniyati"
+    },
+    {
+     "from": 17,
+     "to": 17,
+     "name": "17-§. Qadimgi Xitoy sivilizatsiyalari"
+    },
+    {
+     "from": 18,
+     "to": 18,
+     "name": "18-§. Miloddan avvalgi III asrda Xitoy"
+    },
+    {
+     "from": 19,
+     "to": 20,
+     "name": "19–20-§. O‘zbekiston hududidagi qadimiy davlatlar"
+    },
+    {
+     "from": 21,
+     "to": 21,
+     "name": "21-§. Zardushtiylik va “Avesto”"
+    },
+    {
+     "from": 22,
+     "to": 22,
+     "name": "22-§. Antik tarixning boshlanishi"
+    },
+    {
+     "from": 23,
+     "to": 24,
+     "name": "23–24-§. Qadimgi Yunonistonning yuksalishi"
+    },
+    {
+     "from": 25,
+     "to": 25,
+     "name": "25-§. Yunon koloniyalari"
+    },
+    {
+     "from": 26,
+     "to": 26,
+     "name": "26-§. Afinada demokratiya"
+    },
+    {
+     "from": 27,
+     "to": 28,
+     "name": "27–28-§. Yunon-fors urushlari. Makedoniyaning Yunonistonni bosib olishi"
+    },
+    {
+     "from": 29,
+     "to": 29,
+     "name": "29-§. Yunon fuqarolari tarbiyasi"
+    },
+    {
+     "from": 30,
+     "to": 30,
+     "name": "30-§. Qadimgi Yunoniston madaniyati"
+    },
+    {
+     "from": 31,
+     "to": 31,
+     "name": "31-§. Qadimgi Yunoniston olimlari va mutafakkirlari"
+    },
+    {
+     "from": 32,
+     "to": 32,
+     "name": "32-§. Qadimgi Yunoniston afsonalari"
+    },
+    {
+     "from": 33,
+     "to": 34,
+     "name": "33–34-§. Ahamoniylarning O‘rta Osiyoga bosqinchilik yurishlari"
+    },
+    {
+     "from": 35,
+     "to": 36,
+     "name": "35–36-§. O‘rta Osiyo aholisining yunon-makedon istilochilariga qarshi kurashi"
+    },
+    {
+     "from": 37,
+     "to": 37,
+     "name": "37-§. Salavkiylar davlati va Yunon-Baqtriya podsholigi"
+    },
+    {
+     "from": 38,
+     "to": 39,
+     "name": "38–39-§. Qadimgi Xorazm"
+    },
+    {
+     "from": 40,
+     "to": 40,
+     "name": "40-§. Qadimgi Qang‘ va Davan davlatlari"
+    },
+    {
+     "from": 41,
+     "to": 41,
+     "name": "41-§. Kushon davlati"
+    },
+    {
+     "from": 42,
+     "to": 42,
+     "name": "42-§. Buyuk ipak yo‘li"
+    },
+    {
+     "from": 43,
+     "to": 43,
+     "name": "43-§. Qadimgi Italiya va uning aholisi"
+    },
+    {
+     "from": 44,
+     "to": 44,
+     "name": "44-§. Rim respublikasi"
+    },
+    {
+     "from": 45,
+     "to": 45,
+     "name": "45-§. Rim respublikasida hayot"
+    },
+    {
+     "from": 46,
+     "to": 46,
+     "name": "46-§. Qullar va gladiatorlar"
+    },
+    {
+     "from": 47,
+     "to": 47,
+     "name": "47-§. Rim respublikasining qulashi"
+    },
+    {
+     "from": 48,
+     "to": 48,
+     "name": "48-§. G‘arbiy Rim imperiyasining tanazzuli va halokati"
+    },
+    {
+     "from": 49,
+     "to": 50,
+     "name": "49–50-§. Qadimgi Rim madaniyati"
+    }
+   ],
+   "note": ""
+  },
+  {
+   "key": "7-ozb",
+   "grade": 7,
+   "fan": "ozb",
+   "subject": "7-sinf O‘zbekiston tarixi",
+   "book": "O‘zbekiston tarixi (IV asrdan – XIII asr boshlarigacha)",
+   "year": 2022,
+   "topics": [
+    {
+     "from": 1,
+     "to": 1,
+     "name": "1-mavzu. Ajdodlarimizning ma’naviy qadriyatlari – jahon sivilizatsiyasi asoslaridan biri"
+    },
+    {
+     "from": 2,
+     "to": 2,
+     "name": "2-mavzu. IV–VII asrlarda mamlakatimiz xalqlarining turmush tarzi"
+    },
+    {
+     "from": 3,
+     "to": 4,
+     "name": "3–4-mavzular. IV–VII asrlarda Xorazm"
+    },
+    {
+     "from": 5,
+     "to": 5,
+     "name": "5-mavzu. IV–V asrlarda xioniylar va kidariylar"
+    },
+    {
+     "from": 6,
+     "to": 7,
+     "name": "6–7-mavzular. Eftaliylar"
+    },
+    {
+     "from": 8,
+     "to": 9,
+     "name": "8–9-mavzular. Turk xoqonligi"
+    },
+    {
+     "from": 10,
+     "to": 11,
+     "name": "10–11-mavzular. G‘arbiy Turk xoqonligi"
+    },
+    {
+     "from": 12,
+     "to": 13,
+     "name": "12–13-mavzular. Mahalliy hokimliklarning tashkil topishi"
+    },
+    {
+     "from": 14,
+     "to": 15,
+     "name": "14–15-mavzular. Turon xalqlarining harbiy san’ati"
+    },
+    {
+     "from": 16,
+     "to": 17,
+     "name": "16–17-mavzular. VI–VII asrlarda Turon xalqlari madaniy hayoti"
+    },
+    {
+     "from": 18,
+     "to": 19,
+     "name": "18–19-mavzular. VII–VIII asr boshlarida Turonda siyosiy vaziyat"
+    },
+    {
+     "from": 20,
+     "to": 21,
+     "name": "20–21-mavzular. VIII asrda Xuroson va Movarounnahr"
+    },
+    {
+     "from": 22,
+     "to": 23,
+     "name": "22–23-mavzular. Qarluqlar. O‘g‘uzlar. Tohiriylar"
+    },
+    {
+     "from": 24,
+     "to": 25,
+     "name": "24–25-mavzular. Somoniylar"
+    },
+    {
+     "from": 26,
+     "to": 27,
+     "name": "26–27-mavzular. Somoniylar davrida ijtimoiy-iqtisodiy hayot"
+    },
+    {
+     "from": 28,
+     "to": 29,
+     "name": "28–29-mavzular. G‘aznaviylar"
+    },
+    {
+     "from": 30,
+     "to": 31,
+     "name": "30–31-mavzular. Qoraxoniylar"
+    },
+    {
+     "from": 32,
+     "to": 33,
+     "name": "32–33-mavzular. Saljuqiylar"
+    },
+    {
+     "from": 34,
+     "to": 35,
+     "name": "34–35-mavzular. Xorazmshohlar davlati va uning yuksalishi"
+    },
+    {
+     "from": 36,
+     "to": 37,
+     "name": "36–37-mavzular. Xorazmshohlar davlat boshqaruvi va ijtimoiy-iqtisodiy hayot"
+    },
+    {
+     "from": 38,
+     "to": 38,
+     "name": "38-mavzu. Etnik jarayonlar va o‘zbek xalqining shakllanishi"
+    },
+    {
+     "from": 39,
+     "to": 40,
+     "name": "39–40-mavzular. Mintaqada Islom dinining yoyilishi"
+    },
+    {
+     "from": 41,
+     "to": 42,
+     "name": "41–42-mavzular. Ta’lim"
+    },
+    {
+     "from": 43,
+     "to": 44,
+     "name": "43–44-mavzular. Aql-zakovat bilan bunyod etilgan boy ma’naviyat"
+    },
+    {
+     "from": 45,
+     "to": 46,
+     "name": "45–46-mavzular. IX–XII asrlarda ilm-fan va madaniyatning yuksalishi"
+    },
+    {
+     "from": 47,
+     "to": 48,
+     "name": "47–48-mavzular. Muhammad ibn Muso al-Xorazmiy"
+    },
+    {
+     "from": 49,
+     "to": 50,
+     "name": "49–50-mavzular. Ahmad Farg‘oniy"
+    },
+    {
+     "from": 51,
+     "to": 52,
+     "name": "51–52-mavzular. Abu Nasr Forobiy"
+    },
+    {
+     "from": 53,
+     "to": 54,
+     "name": "53–54-mavzular. Abu Rayhon Beruniy"
+    },
+    {
+     "from": 55,
+     "to": 56,
+     "name": "55–56-mavzular. Abu Ali ibn Sino"
+    }
+   ],
+   "note": ""
+  },
+  {
+   "key": "7-jahon",
+   "grade": 7,
+   "fan": "jahon",
+   "subject": "7-sinf Jahon tarixi",
+   "book": "Jahon tarixi (T. Salimov va boshq.)",
+   "year": 2022,
+   "topics": [
+    {
+     "from": 1,
+     "to": 1,
+     "name": "1-mavzu. German qabilalari va Rim imperiyasi"
+    },
+    {
+     "from": 2,
+     "to": 3,
+     "name": "2–3-mavzu. Franklar davlati: qirollikdan imperiya sari"
+    },
+    {
+     "from": 4,
+     "to": 4,
+     "name": "4-mavzu. Britaniyadan – Angliyaga"
+    },
+    {
+     "from": 5,
+     "to": 5,
+     "name": "5-mavzu. Muqaddas Rim imperiyasi"
+    },
+    {
+     "from": 6,
+     "to": 6,
+     "name": "6-mavzu. Vizantiya: G‘arb va Sharq orasida"
+    },
+    {
+     "from": 7,
+     "to": 7,
+     "name": "7-mavzu. Slavyan davlatlarining tashkil topishi"
+    },
+    {
+     "from": 8,
+     "to": 8,
+     "name": "8-mavzu. Yangi din beshigi"
+    },
+    {
+     "from": 9,
+     "to": 9,
+     "name": "9-mavzu. Arab xalifaligi: islom dunyosining barpo etilishi"
+    },
+    {
+     "from": 10,
+     "to": 10,
+     "name": "10-mavzu. Saljuqiylar davlati"
+    },
+    {
+     "from": 11,
+     "to": 11,
+     "name": "11-mavzu. Mo‘g‘ullar davlati"
+    },
+    {
+     "from": 12,
+     "to": 12,
+     "name": "12-mavzu. Hindiston – “ming ajoyibotlar mamlakati”"
+    },
+    {
+     "from": 13,
+     "to": 13,
+     "name": "13-mavzu. Xitoy – “Osmonosti imperiyasi”: yuksalish va tushkunliklar"
+    },
+    {
+     "from": 14,
+     "to": 14,
+     "name": "14-mavzu. Koreya o‘rta asrlarda"
+    },
+    {
+     "from": 15,
+     "to": 15,
+     "name": "15-mavzu. O‘rta asrlarda kunchiqar mamlakat – Yaponiya"
+    },
+    {
+     "from": 16,
+     "to": 16,
+     "name": "16-mavzu. Amerika o‘rta asrlarda"
+    },
+    {
+     "from": 17,
+     "to": 17,
+     "name": "17-mavzu. O‘rta asrlarda xristian olamida sodir bo‘lgan o‘zgarishlar"
+    },
+    {
+     "from": 18,
+     "to": 18,
+     "name": "18-mavzu. Salib yurishlari"
+    },
+    {
+     "from": 19,
+     "to": 19,
+     "name": "19-mavzu. Yevropada o‘rta asr shaharlarining o‘ziga xosligi"
+    },
+    {
+     "from": 20,
+     "to": 20,
+     "name": "20-mavzu. Osiyoning o‘rta asr shaharlari"
+    },
+    {
+     "from": 21,
+     "to": 21,
+     "name": "21-mavzu. Yevropaning o‘rta asrlar madaniyati"
+    },
+    {
+     "from": 22,
+     "to": 22,
+     "name": "22-mavzu. Arab xalifaligi mamlakatlari madaniyati"
+    },
+    {
+     "from": 23,
+     "to": 23,
+     "name": "23-mavzu. Xitoy, Koreya, Yaponiya va Hindiston xalqlari madaniyati"
+    }
+   ],
+   "note": ""
+  },
+  {
+   "key": "8-ozb",
+   "grade": 8,
+   "fan": "ozb",
+   "subject": "8-sinf O‘zbekiston tarixi",
+   "book": "O‘zbekiston tarixi (XIII–XV asrlar)",
+   "year": 2023,
+   "topics": [
+    {
+     "from": 1,
+     "to": 1,
+     "name": "1-mavzu. XIII asr boshlarida Xorazm davlatida siyosiy vaziyat"
+    },
+    {
+     "from": 2,
+     "to": 2,
+     "name": "2-mavzu. Xorazm va Mo‘g‘ul davlati o‘rtasidagi munosabatlar"
+    },
+    {
+     "from": 3,
+     "to": 3,
+     "name": "3-mavzu. Muhammad Xorazmshohning mamlakat mudofaasiga oid tadbirlari va buning oqibati"
+    },
+    {
+     "from": 4,
+     "to": 4,
+     "name": "4-mavzu. Jaloliddin Manguberdi"
+    },
+    {
+     "from": 5,
+     "to": 5,
+     "name": "5-mavzu. Jaloliddin Manguberdi xorazmshohlar davlatini tiklash yo‘lida"
+    },
+    {
+     "from": 6,
+     "to": 6,
+     "name": "6-mavzu. Chig‘atoy ulusining tashkil topishi"
+    },
+    {
+     "from": 7,
+     "to": 7,
+     "name": "7-mavzu. Chig‘atoy ulusining ikki qismga bo‘linib ketishi va ijtimoiy-iqtisodiy hayot"
+    },
+    {
+     "from": 8,
+     "to": 8,
+     "name": "8-mavzu. XIII asr – XIV asr birinchi yarmida ilm-fan"
+    },
+    {
+     "from": 9,
+     "to": 9,
+     "name": "9-mavzu. XIV asrning o‘rtalarida Turonda yuzaga kelgan siyosiy vaziyat"
+    },
+    {
+     "from": 10,
+     "to": 10,
+     "name": "10-mavzu. Amir Temur – Movarounnahr hukmdori"
+    },
+    {
+     "from": 11,
+     "to": 11,
+     "name": "11-mavzu. Amir Temur markazlashgan davlat tuzish yo‘lida"
+    },
+    {
+     "from": 12,
+     "to": 12,
+     "name": "12-mavzu. Amir Temurning davlat chegaralarini mustahkamlashi"
+    },
+    {
+     "from": 13,
+     "to": 13,
+     "name": "13-mavzu. Amir Temurning tashqi siyosati"
+    },
+    {
+     "from": 14,
+     "to": 14,
+     "name": "14-mavzu. Amir Temur davlatida qo‘shin tuzilishi"
+    },
+    {
+     "from": 15,
+     "to": 15,
+     "name": "15-mavzu. Amir Temur davlatining boshqaruvi"
+    },
+    {
+     "from": 16,
+     "to": 16,
+     "name": "16-mavzu. Amir Temurning jahon tarixida tutgan o‘rni"
+    },
+    {
+     "from": 17,
+     "to": 17,
+     "name": "17-mavzu. Amir Temur davlatida obodonlashtirish va bunyodkorlik"
+    },
+    {
+     "from": 18,
+     "to": 18,
+     "name": "18-mavzu. Temuriylar davrida Movarounnahr va Xuroson"
+    },
+    {
+     "from": 19,
+     "to": 19,
+     "name": "19-mavzu. Mirzo Ulug‘bek"
+    },
+    {
+     "from": 20,
+     "to": 20,
+     "name": "20-mavzu. Sulton Husayn mirzo"
+    },
+    {
+     "from": 21,
+     "to": 21,
+     "name": "21-mavzu. Amir Temur va temuriylar davrida iqtisodiy munosabatlar"
+    },
+    {
+     "from": 22,
+     "to": 22,
+     "name": "22-mavzu. Ikkinchi renessans asoschilari"
+    },
+    {
+     "from": 23,
+     "to": 23,
+     "name": "23-mavzu. Temuriylar davri me’morchiligi"
+    },
+    {
+     "from": 24,
+     "to": 24,
+     "name": "24-mavzu. Xattotlik va miniatyura"
+    },
+    {
+     "from": 25,
+     "to": 25,
+     "name": "25-mavzu. Temuriylar davrida hunarmandchilik"
+    },
+    {
+     "from": 26,
+     "to": 26,
+     "name": "26-mavzu. Alisher Navoiy"
+    }
+   ],
+   "note": "Darslikda mavzular raqamlanmagan: raqamlar mundarija tartibida qo‘yildi"
+  },
+  {
+   "key": "8-jahon",
+   "grade": 8,
+   "fan": "jahon",
+   "subject": "8-sinf Jahon tarixi",
+   "book": "Jahon tarixi (O. B. Abdimo‘minov va boshq.)",
+   "year": 2024,
+   "topics": [
+    {
+     "from": 1,
+     "to": 1,
+     "name": "1-mavzu. Fransiyada markazlashgan davlatning tashkil topishi. General shtatlar"
+    },
+    {
+     "from": 2,
+     "to": 2,
+     "name": "2-mavzu. Yuz yillik urush: sabablari, yakunlari va oqibatlari"
+    },
+    {
+     "from": 3,
+     "to": 3,
+     "name": "3-mavzu. Fransiyani birlashtirishning tugallanishi va uning natijalari"
+    },
+    {
+     "from": 4,
+     "to": 4,
+     "name": "4-mavzu. Angliyada markazlashgan davlatning tashkil topishi"
+    },
+    {
+     "from": 5,
+     "to": 5,
+     "name": "5-mavzu. XIV–XV asrlarda Angliya"
+    },
+    {
+     "from": 6,
+     "to": 6,
+     "name": "6-mavzu. Germaniyada ijtimoiy-siyosiy va iqtisodiy hayot"
+    },
+    {
+     "from": 7,
+     "to": 7,
+     "name": "7-mavzu. Italiya: shahar-respublikalar va Rim papalari davlati"
+    },
+    {
+     "from": 8,
+     "to": 8,
+     "name": "8-mavzu. Pireney yarimoroli mamlakatlari: Ispaniya va Portugaliya"
+    },
+    {
+     "from": 9,
+     "to": 9,
+     "name": "9-mavzu. Rus knyazliklarida ijtimoiy-siyosiy hayot"
+    },
+    {
+     "from": 10,
+     "to": 10,
+     "name": "10-mavzu. Bolqon mamlakatlari, Markaziy va Sharqiy Yevropa"
+    },
+    {
+     "from": 11,
+     "to": 11,
+     "name": "11-mavzu. Uch qit’ani birlashtirgan sultonlik (Usmoniy turklar davlati)"
+    },
+    {
+     "from": 12,
+     "to": 12,
+     "name": "12-mavzu. O‘rta asrlarda Eron"
+    },
+    {
+     "from": 13,
+     "to": 13,
+     "name": "13-mavzu. Oltin O‘rda xonligi"
+    },
+    {
+     "from": 14,
+     "to": 14,
+     "name": "14-mavzu. O‘rta asrlarda Hindiston"
+    },
+    {
+     "from": 15,
+     "to": 15,
+     "name": "15-mavzu. O‘rta asrlarda Xitoy"
+    },
+    {
+     "from": 16,
+     "to": 16,
+     "name": "16-mavzu. O‘rta asrlarda Yaponiya va Koreya"
+    },
+    {
+     "from": 17,
+     "to": 17,
+     "name": "17-mavzu. O‘rta asrlarda Afrika"
+    },
+    {
+     "from": 18,
+     "to": 18,
+     "name": "18-mavzu. O‘rta asrlarda Amerika xalqlari"
+    },
+    {
+     "from": 19,
+     "to": 19,
+     "name": "19-mavzu. O‘rta asrlar Yevropa aholisining kundalik hayoti"
+    },
+    {
+     "from": 20,
+     "to": 20,
+     "name": "20-mavzu. XIII–XV asrlarda Yevropa iqtisodiy rivojlanishining o‘ziga xos jihatlari"
+    },
+    {
+     "from": 21,
+     "to": 21,
+     "name": "21-mavzu. Osiyo, Afrika va Amerika xalqlari iqtisodiy hayoti"
+    },
+    {
+     "from": 22,
+     "to": 22,
+     "name": "22-mavzu. Yevropada ilm-fan"
+    },
+    {
+     "from": 23,
+     "to": 23,
+     "name": "23-mavzu. Yevropada me’morchilik va san’at"
+    },
+    {
+     "from": 24,
+     "to": 24,
+     "name": "24-mavzu. Ilk Uyg‘onish davri madaniyati"
+    },
+    {
+     "from": 25,
+     "to": 25,
+     "name": "25-mavzu. Osiyo, Afrika va Amerika xalqlari madaniyati"
+    }
+   ],
+   "note": ""
+  },
+  {
+   "key": "9-ozb",
+   "grade": 9,
+   "fan": "ozb",
+   "subject": "9-sinf O‘zbekiston tarixi",
+   "book": "O‘zbekiston tarixi (XVI–XIX asrlar)",
+   "year": 2024,
+   "topics": [
+    {
+     "from": 1,
+     "to": 2,
+     "name": "1–2-§. Qipchoq dashti va Movarounnahrdagi siyosiy vaziyat"
+    },
+    {
+     "from": 3,
+     "to": 3,
+     "name": "3-§. Movarounnahrda Shayboniy hukmronligining o‘rnatilishi"
+    },
+    {
+     "from": 4,
+     "to": 4,
+     "name": "4-§. Shayboniylar davrida davlat boshqaruvi"
+    },
+    {
+     "from": 5,
+     "to": 5,
+     "name": "5-§. Shayboniylar davrida ijtimoiy-iqtisodiy hayot"
+    },
+    {
+     "from": 6,
+     "to": 6,
+     "name": "6-§. Shayboniylar davrida ichki va tashqi savdo"
+    },
+    {
+     "from": 7,
+     "to": 7,
+     "name": "7-§. Shayboniylar davrida madaniy hayot"
+    },
+    {
+     "from": 8,
+     "to": 8,
+     "name": "8-§. Shayboniylar davri me’morchiligi"
+    },
+    {
+     "from": 9,
+     "to": 9,
+     "name": "9-§. Shayboniylarning tashqi siyosati"
+    },
+    {
+     "from": 10,
+     "to": 10,
+     "name": "10-§. Ashtarxoniylarning hukmronlik davri"
+    },
+    {
+     "from": 11,
+     "to": 11,
+     "name": "11-§. Ashtarxoniylar davrida davlat boshqaruvi va tashqi siyosat"
+    },
+    {
+     "from": 12,
+     "to": 12,
+     "name": "12-§. Ashtarxoniylar davrida ijtimoiy-iqtisodiy hayot"
+    },
+    {
+     "from": 13,
+     "to": 13,
+     "name": "13-§. Ashtarxoniylar davrida me’morchilik va ta’lim"
+    },
+    {
+     "from": 14,
+     "to": 14,
+     "name": "14-§. Mang‘itlar boshqaruvi davri"
+    },
+    {
+     "from": 15,
+     "to": 15,
+     "name": "15-§. Mang‘itlar davrida ijtimoiy-iqtisodiy hayot"
+    },
+    {
+     "from": 16,
+     "to": 16,
+     "name": "16-§. Mang‘itlar davrida ilm-fan va madaniyat"
+    },
+    {
+     "from": 17,
+     "to": 17,
+     "name": "17-§. Xiva xonligining tashkil topishi"
+    },
+    {
+     "from": 18,
+     "to": 18,
+     "name": "18-§. Tashqi siyosat"
+    },
+    {
+     "from": 19,
+     "to": 19,
+     "name": "19-§. Qo‘ng‘irotlar davrida ijtimoiy-iqtisodiy hayot"
+    },
+    {
+     "from": 20,
+     "to": 20,
+     "name": "20-§. Qo‘ng‘irotlar davrida Xiva me’morchiligi"
+    },
+    {
+     "from": 21,
+     "to": 21,
+     "name": "21-§. XVI–XIX asrning birinchi yarmida qoraqalpoqlar"
+    },
+    {
+     "from": 22,
+     "to": 22,
+     "name": "22-§. Qoraqalpoqlarning qo‘shni xalqlar bilan munosabatlari"
+    },
+    {
+     "from": 23,
+     "to": 23,
+     "name": "23-§. Qoraqalpoqlarning turmush tarzi"
+    },
+    {
+     "from": 24,
+     "to": 24,
+     "name": "24-§. Qoraqalpoqlarning madaniy hayoti"
+    },
+    {
+     "from": 25,
+     "to": 25,
+     "name": "25-§. Qoraqalpoqlarning milliy kiyimlari"
+    },
+    {
+     "from": 26,
+     "to": 26,
+     "name": "26-§. Minglar hukmronligi davrida siyosat"
+    },
+    {
+     "from": 27,
+     "to": 27,
+     "name": "27-§. Qo‘qon xonligida davlat boshqaruvi"
+    },
+    {
+     "from": 28,
+     "to": 28,
+     "name": "28-§. Qo‘qon xonligida ijtimoiy-iqtisodiy hayot"
+    },
+    {
+     "from": 29,
+     "to": 29,
+     "name": "29-§. Qo‘qon xonligida kiyinish madaniyati"
+    },
+    {
+     "from": 30,
+     "to": 30,
+     "name": "30-§. Ichki va tashqi savdo. Soliq tizimi"
+    },
+    {
+     "from": 31,
+     "to": 31,
+     "name": "31-§. Qo‘qon xonligida ta’lim va madaniyat"
+    },
+    {
+     "from": 32,
+     "to": 32,
+     "name": "32-§. Qo‘qon adabiy muhiti"
+    },
+    {
+     "from": 33,
+     "to": 33,
+     "name": "33-§. Qo‘qon xonligining tashqi siyosati"
+    },
+    {
+     "from": 34,
+     "to": 34,
+     "name": "34-§. O‘zbek davlatlarining harbiy salohiyati"
+    },
+    {
+     "from": 35,
+     "to": 35,
+     "name": "35-§. Turkistonning uch xonlikka bo‘linib ketishi va uning oqibatlari"
+    },
+    {
+     "from": 36,
+     "to": 36,
+     "name": "36-§. O‘zbek davlatlari tarixi bo‘yicha manbalar"
+    }
+   ],
+   "note": ""
+  },
+  {
+   "key": "9-jahon",
+   "grade": 9,
+   "fan": "jahon",
+   "subject": "9-sinf Jahon tarixi",
+   "book": "Jahon tarixi (Yangi tarix)",
+   "year": 2024,
+   "topics": [
+    {
+     "from": 1,
+     "to": 1,
+     "name": "1-mavzu. Buyuk geografik kashfiyotlar. Mustamlaka tizimining shakllanishi"
+    },
+    {
+     "from": 2,
+     "to": 2,
+     "name": "2-mavzu. G‘arbiy Yevropa mamlakatlarida industrial jamiyat asoslarining yaratilishi"
+    },
+    {
+     "from": 3,
+     "to": 3,
+     "name": "3-mavzu. Gumanizm: G‘arbiy Yevropada Yangi davr madaniyati va fani"
+    },
+    {
+     "from": 4,
+     "to": 4,
+     "name": "4-mavzu. Yevropada Reformatsiya: Yangi davr qadriyatlarining shakllanishi"
+    },
+    {
+     "from": 5,
+     "to": 5,
+     "name": "5-mavzu. Angliyada qirol hokimiyatining kuchayishi. Absolyutizm"
+    },
+    {
+     "from": 6,
+     "to": 6,
+     "name": "6-mavzu. Buyuk Britaniya: imperiya quyoshining porlashi"
+    },
+    {
+     "from": 7,
+     "to": 7,
+     "name": "7-mavzu. “Davlat – bu men!”: Fransiyada mutlaq monarxiya"
+    },
+    {
+     "from": 8,
+     "to": 8,
+     "name": "8-mavzu. Fransiya burjua inqilobi"
+    },
+    {
+     "from": 9,
+     "to": 9,
+     "name": "9-mavzu. Germaniya imperiyasidagi siyosiy-iqtisodiy jarayonlar"
+    },
+    {
+     "from": 10,
+     "to": 10,
+     "name": "10-mavzu. Rossiya — Buyuk knyazlikdan imperiya sari"
+    },
+    {
+     "from": 11,
+     "to": 11,
+     "name": "11-mavzu. XVII–XVIII asrlarda Shimoliy Amerika: yangi davlatning vujudga kelishi"
+    },
+    {
+     "from": 12,
+     "to": 12,
+     "name": "12-mavzu. Lotin Amerikasi mustamlakachilik zulmi ostida"
+    },
+    {
+     "from": 13,
+     "to": 13,
+     "name": "13-mavzu. Ma’rifat asri: ilm-fan va madaniyat rivoji"
+    },
+    {
+     "from": 14,
+     "to": 14,
+     "name": "14-mavzu. Osiyo va Afrika mamlakatlari: an’anaviy jamiyatlarda taraqqiyot muammolari"
+    },
+    {
+     "from": 15,
+     "to": 15,
+     "name": "15-mavzu. Xitoy: yuksalish va inqiroz orasida"
+    },
+    {
+     "from": 16,
+     "to": 16,
+     "name": "16-mavzu. Hindiston Boburiylar imperiyasi davrida"
+    },
+    {
+     "from": 17,
+     "to": 17,
+     "name": "17-mavzu. Yaponiya va Koreyada ijtimoiy-siyosiy jarayonlar"
+    },
+    {
+     "from": 18,
+     "to": 18,
+     "name": "18-mavzu. Usmoniylar imperiyasi: yuksalish, inqiroz va islohot"
+    },
+    {
+     "from": 19,
+     "to": 19,
+     "name": "19-mavzu. Eron rivojlanish va qaramlik arafasida"
+    },
+    {
+     "from": 20,
+     "to": 20,
+     "name": "20-mavzu. Afrika: mustamlakachilikning boshlanishi"
+    },
+    {
+     "from": 21,
+     "to": 21,
+     "name": "21-mavzu. Buyuk Britaniyaning yuksalishi"
+    },
+    {
+     "from": 22,
+     "to": 22,
+     "name": "22-mavzu. Fransiya inqilob va imperiyalar davrida"
+    },
+    {
+     "from": 23,
+     "to": 23,
+     "name": "23-mavzu. Germaniya va Italiyada mamlakatni birlashtirish uchun kurash"
+    },
+    {
+     "from": 24,
+     "to": 24,
+     "name": "24-mavzu. Rossiya: taraqqiyotning o‘zgacha yo‘li"
+    },
+    {
+     "from": 25,
+     "to": 25,
+     "name": "25-mavzu. 1800–1870-yillarda AQSH: fuqarolar urushi va keyingi taraqqiyot"
+    },
+    {
+     "from": 26,
+     "to": 26,
+     "name": "26-mavzu. Yaponiya va Koreya: ma’rifatli boshqaruv va mustaqil taraqqiyot uchun kurash"
+    },
+    {
+     "from": 27,
+     "to": 27,
+     "name": "27-mavzu. Xitoy qo‘zg‘olon va urushlar davrida"
+    },
+    {
+     "from": 28,
+     "to": 28,
+     "name": "28-mavzu. Hindistonning Buyuk Britaniya mustamlakasiga aylanishi"
+    },
+    {
+     "from": 29,
+     "to": 29,
+     "name": "29-mavzu. Usmoniylar imperiyasi inqiroz va islohotlar davrida"
+    },
+    {
+     "from": 30,
+     "to": 30,
+     "name": "30-mavzu. G‘arb mamlakatlarining Eron va Afg‘onistonni egallash uchun urinishlari"
+    },
+    {
+     "from": 31,
+     "to": 31,
+     "name": "31-mavzu. Afrika: qul savdosi va mustamlakachilikning kuchayishi"
+    }
+   ],
+   "note": ""
+  },
+  {
+   "key": "10-ozb",
+   "grade": 10,
+   "fan": "ozb",
+   "subject": "10-sinf O‘zbekiston tarixi",
+   "book": "O‘zbekiston tarixi (XIX asr ikkinchi yarmidan – XX asr oxirigacha)",
+   "year": 2022,
+   "topics": [
+    {
+     "from": 1,
+     "to": 1,
+     "name": "1-mavzu. Rossiya imperiyasi bosqini arafasida Buxoro amirligi, Qo‘qon va Xiva xonliklaridagi ijtimoiy-siyosiy va iqtisodiy ahvol"
+    },
+    {
+     "from": 2,
+     "to": 2,
+     "name": "2-mavzu. Rossiya imperiyasining O‘rta Osiyoga yurishi va Turkiston general-gubernatorligining tashkil topishi"
+    },
+    {
+     "from": 3,
+     "to": 3,
+     "name": "3-mavzu. Buxoro amirligi va Xiva xonligining Rossiya imperiyasi vassaliga aylanishi"
+    },
+    {
+     "from": 4,
+     "to": 4,
+     "name": "4-mavzu. Turkiston o‘lkasida siyosiy-ma’muriy boshqaruv tizimi"
+    },
+    {
+     "from": 5,
+     "to": 5,
+     "name": "5-mavzu. Turkistonda Rossiya imperiyasiga qarshi milliy-ozodlik harakatlari"
+    },
+    {
+     "from": 6,
+     "to": 6,
+     "name": "6-mavzu. Birinchi jahon urushining boshlanishi va uning Turkistonga ta’siri"
+    },
+    {
+     "from": 7,
+     "to": 7,
+     "name": "7-mavzu. Turkistonda 1916-yilgi qo‘zg‘olonning boshlanishi"
+    },
+    {
+     "from": 8,
+     "to": 8,
+     "name": "8-mavzu. XIX asrning ikkinchi yarmi – XX asrning boshlarida Buxoro amirligi"
+    },
+    {
+     "from": 9,
+     "to": 9,
+     "name": "9-mavzu. XIX asrning ikkinchi yarmi – XX asrning boshlarida Xiva xonligi"
+    },
+    {
+     "from": 10,
+     "to": 10,
+     "name": "10-mavzu. XIX asr ikkinchi yarmi – XX asr boshlarida qoraqalpoqlar madaniyati"
+    },
+    {
+     "from": 11,
+     "to": 11,
+     "name": "11-mavzu. Turkistonda jadidchilik harakati"
+    },
+    {
+     "from": 12,
+     "to": 12,
+     "name": "12-mavzu. Jadidchilik harakati namoyandalari va ularning faoliyati"
+    },
+    {
+     "from": 13,
+     "to": 13,
+     "name": "13-mavzu. Turkistonda ilm-fan va madaniyat"
+    },
+    {
+     "from": 14,
+     "to": 14,
+     "name": "14-mavzu. Turkiston o‘lkasi 1917-yil fevral-oktyabr oralig‘ida"
+    },
+    {
+     "from": 15,
+     "to": 15,
+     "name": "15-mavzu. Yosh buxoroliklar faoliyati va Buxoro amirligining tugatilishi"
+    },
+    {
+     "from": 16,
+     "to": 16,
+     "name": "16-mavzu. Xiva xonligining tugatilishi"
+    },
+    {
+     "from": 17,
+     "to": 17,
+     "name": "17-mavzu. Turkiston muxtoriyati"
+    },
+    {
+     "from": 18,
+     "to": 18,
+     "name": "18-mavzu. Turkiston o‘lkasida sovet hokimiyati boshqaruv tizimining o‘rnatilishi"
+    },
+    {
+     "from": 19,
+     "to": 19,
+     "name": "19-mavzu. Turkiston ASSR, BXSR va XXSRda sovet hokimiyatiga qarshi qurolli harakatlar"
+    },
+    {
+     "from": 20,
+     "to": 20,
+     "name": "20-mavzu. O‘rta Osiyoda hududiy chegaralanish"
+    },
+    {
+     "from": 21,
+     "to": 21,
+     "name": "21-mavzu. O‘zbekiston SSRning tashkil topishi"
+    },
+    {
+     "from": 22,
+     "to": 22,
+     "name": "22-mavzu. Sovet hokimiyati amalga oshirgan islohotlarning mohiyati. Industrlashtirish siyosati va uning natijalari"
+    },
+    {
+     "from": 23,
+     "to": 23,
+     "name": "23-mavzu. O‘zbekistonda sovet hokimiyati yuritgan madaniy siyosat"
+    },
+    {
+     "from": 24,
+     "to": 24,
+     "name": "24-mavzu. Sovet hokimiyatining O‘zbekistondagi qatag‘onlik siyosati"
+    },
+    {
+     "from": 25,
+     "to": 25,
+     "name": "25-mavzu. O‘zbekiston Ikkinchi jahon urushi yillarida"
+    },
+    {
+     "from": 26,
+     "to": 26,
+     "name": "26-mavzu. O‘zbekistonliklarning frontdagi jasorati va qahramonliklari"
+    },
+    {
+     "from": 27,
+     "to": 27,
+     "name": "27-mavzu. O‘zbekiston fani va madaniyati g‘alaba uchun xizmatda"
+    },
+    {
+     "from": 28,
+     "to": 28,
+     "name": "28-mavzu. O‘zbekiston xalq xo‘jaligining urushdan keyingi yillardagi rivojlanishi"
+    },
+    {
+     "from": 29,
+     "to": 29,
+     "name": "29-mavzu. 1980–1990-yillarda O‘zbekiston"
+    },
+    {
+     "from": 30,
+     "to": 30,
+     "name": "30-mavzu. O‘zbekistonda ijtimoiy-siyosiy faollik va mustaqillik sari intilishning kuchayishi"
+    }
+   ],
+   "note": "Darslikda mavzular raqamlanmagan: raqamlar mundarija tartibida qo‘yildi («Sobir Rahimovning dafn qilinishi» va «Sharof Rashidov» qo‘shimcha sahifalari alohida mavzu qilinmadi)"
+  },
+  {
+   "key": "10-jahon",
+   "grade": 10,
+   "fan": "jahon",
+   "subject": "10-sinf Jahon tarixi",
+   "book": "Jahon tarixi (Sh. Ergashev va boshq.)",
+   "year": 2022,
+   "topics": [
+    {
+     "from": 1,
+     "to": 1,
+     "name": "1-mavzu. Industrial sivilizatsiyaning qaror topishi"
+    },
+    {
+     "from": 2,
+     "to": 2,
+     "name": "2-mavzu. “Yanada Buyuk Britaniya” uchun: yangi iqtisodiy va mafkuraviy tizimning paydo bo‘lishi"
+    },
+    {
+     "from": 3,
+     "to": 3,
+     "name": "3-mavzu. Fransiya va Germaniya: Yevropada yetakchilik uchun kurash"
+    },
+    {
+     "from": 4,
+     "to": 4,
+     "name": "4-mavzu. Sharqiy Yevropa va Rossiya: jamiyatni isloh qilish muammolari"
+    },
+    {
+     "from": 5,
+     "to": 5,
+     "name": "5-mavzu. Ikki xil Amerika: Shimoliy va Janubiy Amerikada taraqqiyot yo‘nalishlari"
+    },
+    {
+     "from": 6,
+     "to": 6,
+     "name": "6-mavzu. Yaponiya, Xitoy va Hindiston: islohotlarning osiyocha yo‘li"
+    },
+    {
+     "from": 7,
+     "to": 7,
+     "name": "7-mavzu. Islom sivilizatsiyasi mamlakatlarida an’anaviylik va islohotchilik o‘rtasidagi kurash"
+    },
+    {
+     "from": 8,
+     "to": 8,
+     "name": "8-mavzu. Afrika mamlakatlarida mustamlakachilik va taraqqiyot muammolari"
+    },
+    {
+     "from": 9,
+     "to": 9,
+     "name": "9-mavzu. Birinchi jahon urushining kelib chiqish sabablari va oqibatlari"
+    },
+    {
+     "from": 10,
+     "to": 10,
+     "name": "10-mavzu. Liberal-demokratik mamlakatlarda taraqqiyotning yangi muammolari"
+    },
+    {
+     "from": 11,
+     "to": 11,
+     "name": "11-mavzu. Totalitar va avtoritar diktatura mamlakatlari: yangi urush o‘chog‘ining paydo bo‘lishi"
+    },
+    {
+     "from": 12,
+     "to": 12,
+     "name": "12-mavzu. Osiyo mamlakatlarida mustaqillik va taraqqiyot muammolari"
+    },
+    {
+     "from": 13,
+     "to": 13,
+     "name": "13-mavzu. Afrikada milliy uyg‘onish va mustaqillik g‘oyalarining paydo bo‘lishi"
+    },
+    {
+     "from": 14,
+     "to": 14,
+     "name": "14-mavzu. Ikkinchi jahon urushining kelib chiqish sabablari va oqibatlari"
+    },
+    {
+     "from": 15,
+     "to": 15,
+     "name": "15-mavzu. G‘arbiy Yevropa va Shimoliy Amerika mamlakatlari rivojlanishining asosiy yo‘nalishlari"
+    },
+    {
+     "from": 16,
+     "to": 16,
+     "name": "16-mavzu. SSSR va Sharqiy Yevropa mamlakatlari rivojlanishining asosiy yo‘nalishlari"
+    },
+    {
+     "from": 17,
+     "to": 17,
+     "name": "17-mavzu. AQSH: yangi liderning paydo bo‘lishi"
+    },
+    {
+     "from": 18,
+     "to": 18,
+     "name": "18-mavzu. Buyuk Britaniya va Fransiya: yangi Yevropani qurish"
+    },
+    {
+     "from": 19,
+     "to": 19,
+     "name": "19-mavzu. Germaniya va Italiya: mag‘lubiyatdan keyingi taraqqiyot"
+    },
+    {
+     "from": 20,
+     "to": 20,
+     "name": "20-mavzu. G‘arbiy Yevropada iqtisodiy va siyosiy integratsiya jarayonlari"
+    },
+    {
+     "from": 21,
+     "to": 21,
+     "name": "21-mavzu. Janubiy va Shimoliy Yevropa mamlakatlari: diktatura va demokratiya"
+    },
+    {
+     "from": 22,
+     "to": 22,
+     "name": "22-mavzu. Sovet Ittifoqida islohotlar va inqiroz: imperiyaning tugatilishi"
+    },
+    {
+     "from": 23,
+     "to": 23,
+     "name": "23-mavzu. Markaziy va Sharqiy Yevropa mamlakatlari totalitarizm va demokratiya oralig‘ida"
+    },
+    {
+     "from": 24,
+     "to": 24,
+     "name": "24-mavzu. Osiyo, Afrika va Lotin Amerikasi mamlakatlari rivojlanishining asosiy yo‘nalishlari"
+    },
+    {
+     "from": 25,
+     "to": 25,
+     "name": "25-mavzu. Yaponiya, Xitoy va Janubiy Koreya: Osiyo sivilizatsiyasi qadriyatlari va G‘arb ishlab chiqarish usuli uyg‘unligi"
+    },
+    {
+     "from": 26,
+     "to": 26,
+     "name": "26-mavzu. Hindiston va Pokistonda mustaqillikning murakkab yo‘li"
+    },
+    {
+     "from": 27,
+     "to": 27,
+     "name": "27-mavzu. Turkiya, Eron va Afg‘oniston: diniy qadriyatlar va zamonaviy sivilizatsiya muammolari"
+    },
+    {
+     "from": 28,
+     "to": 28,
+     "name": "28-mavzu. Suriya, Iroq va Janubi-g‘arbiy Osiyo mamlakatlari"
+    },
+    {
+     "from": 29,
+     "to": 29,
+     "name": "29-mavzu. Lotin Amerikasida milliy islohotchilik va taraqqiyotning boshqa yo‘llari"
+    },
+    {
+     "from": 30,
+     "to": 30,
+     "name": "30-mavzu. Afrikada mustaqillik, qashshoqlik va taraqqiyot muammolari"
+    },
+    {
+     "from": 31,
+     "to": 31,
+     "name": "31-mavzu. XX asrning ikkinchi yarmida ilm-fan va madaniyatning rivojlanishi"
+    }
+   ],
+   "note": ""
+  },
+  {
+   "key": "11-ozb",
+   "grade": 11,
+   "fan": "ozb",
+   "subject": "11-sinf O‘zbekiston tarixi",
+   "book": "O‘zbekiston tarixi (A. Zamonov, O. Abdimo‘minov, I. Bobojonov)",
+   "year": 2025,
+   "topics": [
+    {
+     "from": 1,
+     "to": 1,
+     "name": "1-mavzu. Mustaqil O‘zbekiston Respublikasining tashkil topishi"
+    },
+    {
+     "from": 2,
+     "to": 2,
+     "name": "2-mavzu. O‘zbekistonda davlat boshqaruvi tizimi"
+    },
+    {
+     "from": 3,
+     "to": 3,
+     "name": "3-mavzu. Fuqarolik jamiyatining shakllanishi va rivojlanishi"
+    },
+    {
+     "from": 4,
+     "to": 4,
+     "name": "4-mavzu. O‘zbekistonda tub islohotlar: Harakatlar strategiyasidan Taraqqiyot strategiyasi sari"
+    },
+    {
+     "from": 5,
+     "to": 5,
+     "name": "5-mavzu. Qurolli kuchlar va milliy armiya"
+    },
+    {
+     "from": 6,
+     "to": 6,
+     "name": "6-mavzu. Milliy iqtisodiyotning barpo etilishi"
+    },
+    {
+     "from": 7,
+     "to": 7,
+     "name": "7-mavzu. Mamlakatda ishlab chiqarish salohiyatining oshishi va jahon iqtisodiyotiga integratsiyalashuv"
+    },
+    {
+     "from": 8,
+     "to": 8,
+     "name": "8-mavzu. Ijtimoiy siyosat va uni amalga oshirish bosqichlari"
+    },
+    {
+     "from": 9,
+     "to": 9,
+     "name": "9-mavzu. Millatlararo totuvlik va diniy bag‘rikenglik"
+    },
+    {
+     "from": 10,
+     "to": 10,
+     "name": "10-mavzu. Ta’lim tizimidagi islohotlar"
+    },
+    {
+     "from": 11,
+     "to": 11,
+     "name": "11-mavzu. Ilm-fanda erishilgan yutuqlar"
+    },
+    {
+     "from": 12,
+     "to": 12,
+     "name": "12-mavzu. Jismoniy tarbiya va sportning rivojlanishi"
+    },
+    {
+     "from": 13,
+     "to": 13,
+     "name": "13-mavzu. O‘zbekistonda yoshlarga oid davlat siyosati"
+    },
+    {
+     "from": 14,
+     "to": 14,
+     "name": "14-mavzu. Ma’naviy va tarixiy merosga munosabat. Buyuk ajdodlar xotirasining tiklanishi"
+    },
+    {
+     "from": 15,
+     "to": 15,
+     "name": "15-mavzu. Milliy va diniy qadriyatlarning qayta tiklanishi"
+    },
+    {
+     "from": 16,
+     "to": 16,
+     "name": "16-mavzu. Madaniyat va san’at taraqqiyoti"
+    },
+    {
+     "from": 17,
+     "to": 17,
+     "name": "17-mavzu. O‘zbekiston Respublikasi tashqi siyosatining shakllanishi va ustuvor yo‘nalishlari"
+    },
+    {
+     "from": 18,
+     "to": 18,
+     "name": "18-mavzu. Markaziy Osiyo – O‘zbekiston tashqi siyosatining ustuvor yo‘nalishi"
+    },
+    {
+     "from": 19,
+     "to": 19,
+     "name": "19-mavzu. O‘zbekiston va dunyoning yetakchi mamlakatlari hamkorligi"
+    },
+    {
+     "from": 20,
+     "to": 20,
+     "name": "20-mavzu. O‘zbekiston va Sharqning rivojlangan davlatlari aloqalari"
+    },
+    {
+     "from": 21,
+     "to": 21,
+     "name": "21-mavzu. O‘zbekiston va Birlashgan Millatlar Tashkiloti: o‘zaro hamkorlikning ustuvor yo‘nalishlari"
+    },
+    {
+     "from": 22,
+     "to": 22,
+     "name": "22-mavzu. O‘zbekistonning mintaqaviy tashkilotlar doirasida ko‘ptomonlama munosabatlari"
+    }
+   ],
+   "note": ""
+  },
+  {
+   "key": "11-jahon",
+   "grade": 11,
+   "fan": "jahon",
+   "subject": "11-sinf Jahon tarixi",
+   "book": "Jahon tarixi (Sh. Ergashev, T. Bobomatov, J. Abdullayev)",
+   "year": 2025,
+   "topics": [
+    {
+     "from": 1,
+     "to": 1,
+     "name": "1-mavzu. XX asr oxiri – XXI asr birinchi choragida xalqaro munosabatlar"
+    },
+    {
+     "from": 2,
+     "to": 2,
+     "name": "2-mavzu. Sharqiy Yevropa mamlakatlarida demokratik inqiloblar va sotsialistik lagerning parchalanishi"
+    },
+    {
+     "from": 3,
+     "to": 3,
+     "name": "3-mavzu. Sovet respublikalarida mustaqillikning e’lon qilinishi va SSSRning parchalanishi"
+    },
+    {
+     "from": 4,
+     "to": 4,
+     "name": "4-mavzu. Rossiya Federatsiyasi"
+    },
+    {
+     "from": 5,
+     "to": 5,
+     "name": "5-mavzu. Ukraina, Belarus va Moldova Respublikalari"
+    },
+    {
+     "from": 6,
+     "to": 6,
+     "name": "6-mavzu. Kavkazorti davlatlari"
+    },
+    {
+     "from": 7,
+     "to": 7,
+     "name": "7-mavzu. Markaziy Osiyo davlatlari"
+    },
+    {
+     "from": 8,
+     "to": 8,
+     "name": "8-mavzu. G‘arb mamlakatlarida integratsiyalashuv jarayonlarining jadallashuvi"
+    },
+    {
+     "from": 9,
+     "to": 9,
+     "name": "9-mavzu. Amerika Qo‘shma Shtatlari"
+    },
+    {
+     "from": 10,
+     "to": 10,
+     "name": "10-mavzu. Germaniya Federativ Respublikasi"
+    },
+    {
+     "from": 11,
+     "to": 11,
+     "name": "11-mavzu. Buyuk Britaniya"
+    },
+    {
+     "from": 12,
+     "to": 12,
+     "name": "12-mavzu. Fransiya"
+    },
+    {
+     "from": 13,
+     "to": 13,
+     "name": "13-mavzu. Italiya"
+    },
+    {
+     "from": 14,
+     "to": 14,
+     "name": "14-mavzu. Osiyo, Afrika va Lotin Amerikasi mamlakatlari siyosiy, ijtimoiy-iqtisodiy rivojlanishining asosiy yo‘nalishlari"
+    },
+    {
+     "from": 15,
+     "to": 15,
+     "name": "15-mavzu. Xitoy Xalq Respublikasi"
+    },
+    {
+     "from": 16,
+     "to": 16,
+     "name": "16-mavzu. Yaponiya va Koreya"
+    },
+    {
+     "from": 17,
+     "to": 17,
+     "name": "17-mavzu. Janubi-sharqiy Osiyo mamlakatlari"
+    },
+    {
+     "from": 18,
+     "to": 18,
+     "name": "18-mavzu. Hindiston Respublikasi"
+    },
+    {
+     "from": 19,
+     "to": 19,
+     "name": "19-mavzu. Turkiya Respublikasi"
+    },
+    {
+     "from": 20,
+     "to": 20,
+     "name": "20-mavzu. Eron Islom Respublikasi"
+    },
+    {
+     "from": 21,
+     "to": 21,
+     "name": "21-mavzu. Pokiston va Afg‘oniston"
+    },
+    {
+     "from": 22,
+     "to": 22,
+     "name": "22-mavzu. Suriya va Iroq"
+    },
+    {
+     "from": 23,
+     "to": 23,
+     "name": "23-mavzu. Ko‘rfaz arab mamlakatlari"
+    },
+    {
+     "from": 24,
+     "to": 24,
+     "name": "24-mavzu. Falastin va Isroil: ikki xalq uchun ikki davlat"
+    },
+    {
+     "from": 25,
+     "to": 25,
+     "name": "25-mavzu. Lotin Amerikasi mamlakatlari"
+    },
+    {
+     "from": 26,
+     "to": 26,
+     "name": "26-mavzu. Afrika mamlakatlari"
+    },
+    {
+     "from": 27,
+     "to": 27,
+     "name": "27-mavzu. XX asr oxiri – XXI asr birinchi choragida globallashuv muammolari, harbiy, ekstremistik va ekologik xavf-xatarlar"
+    },
+    {
+     "from": 28,
+     "to": 28,
+     "name": "28-mavzu. XX asr oxiri – XXI asr birinchi choragida barqaror rivojlanish va etno-ijtimoiy muammolar"
+    },
+    {
+     "from": 29,
+     "to": 29,
+     "name": "29-mavzu. XX asr oxiri – XXI asr birinchi choragida ilmiy-texnik taraqqiyot: ilm-fan, adabiyot, san’at"
+    }
+   ],
+   "note": ""
+  }
+ ]
+}

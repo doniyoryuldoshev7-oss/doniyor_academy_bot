@@ -28,9 +28,9 @@ import uuid
 from dataclasses import dataclass, field
 from pathlib import Path
 
-MAX_TEXT = 400_000
-MAX_QUESTIONS = 600
-MAX_FILE = 3 * 1024 * 1024
+MAX_TEXT = 3_000_000
+MAX_QUESTIONS = 3000  # butun darslik bo'yicha FULL test bitta faylda
+MAX_FILE = 15 * 1024 * 1024
 
 IMG_DIR = Path("app/question_images")
 IMG_RE = re.compile(r"^\[\s*rasm\s*:\s*([A-Za-z0-9_.\-]{3,80})\s*\]$", re.I)
@@ -48,7 +48,9 @@ NUM_RE = re.compile(r"^(?:#|№\s*)?(\d{1,4})\s*(?:\.+|\)|:|;|-|–|—)\s*(.+)$
 ROW_RE = re.compile(r"^#@(\d{1,6})$")
 SEP_RE = re.compile(r"^\s*(?:---+|\*\*\*+|===+)\s*$")
 HDR_RE = re.compile(r"^\s*(fan|mavzu)\s*[:=]\s*(.+?)\s*$", re.I)
-PART_ARROW_RE = re.compile(r"^(\s*[a-dA-D]\s*[\)\.].*?)(?:→|⇒|->|=>)(.*)$")
+# Ochiq savol qismi: «a) savol → javob». Faqat KICHIK harf: «A) X → Y → Z» kabi yopiq savol varianti
+# (voqealar ketma-ketligi) ochiq savol deb o'qilmasin.
+PART_ARROW_RE = re.compile(r"^(\s*[a-d]\s*[\)\.].*?)(?:→|⇒|->|=>)(.*)$")
 
 
 @dataclass
@@ -417,7 +419,9 @@ def attach_tr(qs, trs, errors):
 # ---------------------------------------------------------------
 #  Umumiy
 # ---------------------------------------------------------------
-def parse_text(text: str) -> Parsed:
+def parse_text(text: str, auto_book: bool = False) -> Parsed:
+    """auto_book=True — «1-mavzu. …», «19–20-§. …» sarlavhalaridan darslik va mavzular avtomatik aniqlanadi
+    (services/darsliklar.py). Faylda «Fan:»/«Mavzu:» qatorlari bo'lsa, ular ustun."""
     from .imtihon import parse_open_text
 
     res = Parsed()
@@ -428,6 +432,15 @@ def parse_text(text: str) -> Parsed:
     if len(text) > MAX_TEXT:
         res.errors.append(f"Matn juda uzun (>{MAX_TEXT} belgi). Bir necha qismga bo'lib yuklang.")
         return res
+    if auto_book:
+        try:
+            from .darsliklar import annotate
+
+            text, book_notes, book_warn = annotate(text)
+            res.warnings.extend(book_notes)
+            res.warnings.extend(book_warn)
+        except Exception:  # noqa: BLE001 — aniqlab bo'lmasa, oddiy yuklash davom etadi
+            pass
 
     blocks, cur, start = [], [], 1
     ctx = {"subject": None, "topic": None}
@@ -758,7 +771,7 @@ def extract_text(filename: str, data: bytes):
     name = (filename or "").lower()
     warn = []
     if len(data) > MAX_FILE:
-        raise ValueError("Fayl juda katta (3 MB dan oshmasin).")
+        raise ValueError("Fayl juda katta (15 MB dan oshmasin).")
     if name.endswith(".docx"):
         try:
             from docx import Document
@@ -815,7 +828,10 @@ def extract_text(filename: str, data: bytes):
 #  Saqlash
 # ---------------------------------------------------------------
 def _nm(s):
-    return " ".join((s or "").casefold().split())
+    # apostrof (‘ ’ ʻ ') va tire (– —) farqi hisobga olinmaydi: «O'zbekiston» = «O‘zbekiston»
+    from .darsliklar import norm
+
+    return norm(s)
 
 
 async def resolve_topics(session, res, default_topic_id, may_create=False, create=False):

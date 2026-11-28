@@ -102,6 +102,11 @@ async def main():
     _tf_install()
     print(f"MAVZU NOMLARI: tuzatildi={await _tf_fix()}", flush=True)
 
+    # Darsliklar katalogi: sinflar bo'yicha fanlar va mavzular (yo'qlari qo'shiladi)
+    from .services.darsliklar import sync_on_start as _dars_sync
+
+    await _dars_sync()
+
     # Oldin tugagan guruh testlarini test tarixiga qo'shish (bir marta)
     from .services.group_results import backfill_group_attempts
 

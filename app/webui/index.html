@@ -721,7 +721,7 @@ async function importScreen() {
   show({ focus: false }, el("div", { class: "hint" }, "Yuklanmoqda…"));
   let tp;
   try { tp = await api("/api/import/topics"); } catch (e) { return toast(e.message); }
-  const selS = el("select", {}, el("option", { value: "" }, "Fan (yoki faylda yozilgan)"),
+  const selS = el("select", {}, el("option", { value: "" }, "🤖 Avtomatik (darslik fayldan aniqlanadi)"),
     tp.subjects.map((s) => el("option", { value: s.id }, s.name)));
   const selT = el("select", {}, el("option", { value: "" }, "Mavzu"));
   selS.addEventListener("change", () => {

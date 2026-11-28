@@ -563,7 +563,7 @@ async def api_import_extract(request: web.Request):
     await _staff(request)
     data = await request.read()
     if len(data) > MAX_FILE:
-        return _err("Fayl juda katta (3 MB dan oshmasin).")
+        return _err("Fayl juda katta (15 MB dan oshmasin).")
     name = request.headers.get("X-Filename", "")
     try:
         from urllib.parse import unquote
@@ -580,7 +580,7 @@ async def _import_analyse(request: web.Request, body: dict):
 
     tid = body.get("topic_id")
     tid = int(tid) if str(tid or "").isdigit() else None
-    res = parse_text(str(body.get("text") or ""))
+    res = parse_text(str(body.get("text") or ""), auto_book=not tid)   # mavzu tanlanmagan bo'lsa — darslik fayldan aniqlanadi
     creator = is_full_admin(request["tg_id"]) or await can_add_questions(request["tg_id"])
     async with SessionLocal() as session:
         _m, new_topics, rerrors = await resolve_topics(session, res, tid, creator, create=False)

@@ -124,6 +124,7 @@ def _helpers():
 async def api_s_subjects(request):
     async with SessionLocal() as s:
         subs = (await s.scalars(select(Subject).where(Subject.is_active.is_(True)).order_by(Subject.name))).all()
+        subs = sorted(subs, key=lambda x: tuple((0, int(p)) if p.isdigit() else (1, p) for p in re.split(r"(\d+)", (x.name or "").casefold())))
         rows = (
             await s.execute(
                 select(Topic.subject_id, func.count(Question.id))

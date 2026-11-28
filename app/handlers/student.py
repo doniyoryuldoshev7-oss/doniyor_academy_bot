@@ -239,6 +239,7 @@ async def subjects(c, state):
     await state.clear()
     async with SessionLocal() as s: 
         xs = (await s.scalars(select(Subject).where(Subject.is_active.is_(True)).order_by(Subject.name))).all()
+    xs = sorted(xs, key=natural_topic_key)   # «5-sinf …» «10-sinf …» dan oldin
     kb = [[InlineKeyboardButton(text=f'📚 {x.name}', callback_data=f'sub:{x.id}')] for x in xs]
     kb.append([InlineKeyboardButton(text='⬅️ Orqaga', callback_data='mn:test')])
     kb.append([InlineKeyboardButton(text='🏠 Bosh menyu', callback_data='home')])
