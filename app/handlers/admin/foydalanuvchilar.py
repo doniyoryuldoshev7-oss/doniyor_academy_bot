@@ -76,9 +76,6 @@ async def approve_user(c: CallbackQuery):
         if len(full_name.split()) < 2:
             missing.append("ism-familiya")
 
-        if phone_number.lower() in invalid_values:
-            missing.append("telefon")
-
         if group_name.lower() in invalid_values:
             missing.append("guruh")
 
@@ -383,7 +380,7 @@ async def admin_users_find(c: CallbackQuery, state: FSMContext):
     await state.set_state(AdminState.user_search)
     await c.message.edit_text(
         "<b>\U0001f50d QIDIRUV</b>\n\n"
-        "Ism, username, guruh, telefon yoki Telegram ID yozing:",
+        "Ism, username, guruh yoki Telegram ID yozing:",
         reply_markup=InlineKeyboardMarkup(inline_keyboard=[
             [InlineKeyboardButton(text="Bekor qilish", callback_data="adm:users")]
         ]),
@@ -459,7 +456,6 @@ async def admin_user_detail(c: CallbackQuery):
         f"\U0001f464 Ism-familiya: <b>{safe_name}</b>\n"
         f"\U0001f4f1 Username: @{safe_username}\n"
         f"\U0001f194 Telegram ID: <code>{user.telegram_id}</code>\n"
-        f"\U0001f4de Telefon: {safe_phone}\n"
         f"\U0001f465 Guruh: {safe_group}\n"
         f"\U0001f4cc Holat: <b>{html.escape(status)}</b>\n"
         f"\U0001f512 Hisob: <b>{blocked}</b>"

@@ -420,10 +420,7 @@ async def api_result(request: web.Request):
         return _err("Natija topilmadi.", 404)
 
     sc = mine.score
-    top = [
-        {"name": r.user.full_name, "value": r.score.value, "me": r.attempt.id == attempt.id}
-        for r in results[:10]
-    ]
+    top = []  # Reyting: boshqa o'quvchilarning ismi va natijasi yashirin; o'rni rank/total da ko'rinadi
 
     return web.json_response({
         "title": exam.title, "mode": exam.mode,

@@ -819,17 +819,18 @@ async def cb_top(c: CallbackQuery):
             return
         _items, results = await exam_results(session, exam)
 
-    medals = ["🥇", "🥈", "🥉"]
-    lines = [f"🏆 <b>{esc(short(exam.title, 40))}</b> — reyting", ""]
-    for i, r in enumerate(results[:10]):
-        prefix = medals[i] if i < 3 else f"{i + 1}."
-        value = f"{r.score.value}" + ("" if exam.mode == "milliy" else "%")
-        you = "  ← siz" if r.attempt.id == mine.id else ""
-        lines.append(f"{prefix} {esc(short(r.user.full_name, 28))} — <b>{value}</b>{you}")
-
+    # Reyting: o'quvchi faqat o'z ismi, o'rni va natijasini ko'radi; boshqalar yashirin
     my_rank = next((i for i, r in enumerate(results) if r.attempt.id == mine.id), None)
-    if my_rank is not None and my_rank >= 10:
-        lines += ["…", f"{my_rank + 1}. Siz — <b>{results[my_rank].score.value}</b>"]
+    lines = [f"🏆 <b>{esc(short(exam.title, 40))}</b> — reyting", ""]
+    if my_rank is not None:
+        me_r = results[my_rank]
+        value = f"{me_r.score.value}" + ("" if exam.mode == "milliy" else "%")
+        lines += [
+            f"👤 {esc(short(me_r.user.full_name, 28))}",
+            f"🏅 O'rningiz: <b>{my_rank + 1}</b> / {len(results)}",
+            f"⭐ Natijangiz: <b>{value}</b>",
+        ]
+    lines += ["", "🔒 Boshqa o'quvchilarning ismi va natijasi yashirin. Sizniki ham boshqalarga ko'rinmaydi."]
 
     await present(
         c, "\n".join(lines),

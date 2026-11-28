@@ -342,7 +342,7 @@ async def blocked_overview(c: CallbackQuery):
     else:
         lines.append("")
         lines.append(
-            "Ular botga xabar yoza olmaydi, shuning uchun telefon yoki "
+            "Ular botga xabar yoza olmaydi, shuning uchun "
             "guruh orqali bog'laning. Botni qayta ishga tushirsa, "
             "tekshirishda blok belgisi o'zi olib tashlanadi."
         )
@@ -440,13 +440,12 @@ async def blocked_csv(c: CallbackQuery):
 
     buffer = io.StringIO()
     writer = csv.writer(buffer)
-    writer.writerow(["Ism-familiya", "Telefon", "Guruh", "Username", "Telegram ID", "Ro'yxatdan o'tgan"])
+    writer.writerow(["Ism-familiya", "Guruh", "Username", "Telegram ID", "Ro'yxatdan o'tgan"])
 
     for user in users:
         writer.writerow(
             [
                 user.full_name or "",
-                user.phone_number or "",
                 user.group_name or "",
                 ("@" + user.username) if user.username else "",
                 user.telegram_id,

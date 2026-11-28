@@ -44,38 +44,18 @@ def valid_required(value):
 
 
 def registration_complete(user):
+    # Telefon endi so'ralmaydi: ism-familiya va guruh yetarli
     return (
         len((user.full_name or "").strip().split()) >= 2
-        and valid_required(user.phone_number)
         and valid_required(user.group_name)
     )
 
 
-def contact_kb() -> ReplyKeyboardMarkup:
-    return ReplyKeyboardMarkup(
-        keyboard=[
-            [
-                KeyboardButton(
-                    text="📱 Kontaktni yuborish",
-                    request_contact=True,
-                )
-            ]
-        ],
-        resize_keyboard=True,
-        one_time_keyboard=True,
-    )
 
 
 async def start_registration(message: Message, state: FSMContext):
-    await state.clear()
-    await state.set_state(RegistrationState.first_name)
-
-    await message.answer(
-        "🎓 <b>Doniyor Academy</b>\n\n"
-        "Botdan foydalanish uchun ro‘yxatdan o‘tishingiz kerak.\n\n"
-        "1️⃣ <b>Ismingizni</b> kiriting:",
-        reply_markup=ReplyKeyboardRemove(),
-    )
+    from .royxat import begin
+    await begin(message, state)
 
 
 @router.message(CommandStart())
@@ -317,211 +297,14 @@ async def start_cmd(message: Message, state: FSMContext):
         await start_registration(message, state)
 
 
-@router.message(RegistrationState.first_name)
-async def registration_first_name(
-    message: Message,
-    state: FSMContext,
-):
-    first_name = (message.text or "").strip()
-
-    if not valid_required(first_name):
-        await message.answer(
-            "❗ Iltimos, ismingizni matn ko‘rinishida kiriting."
-        )
-        return
-
-    await state.update_data(first_name=first_name)
-    await state.set_state(RegistrationState.last_name)
-
-    await message.answer(
-        "2️⃣ <b>Familiyangizni</b> kiriting:"
-    )
 
 
-@router.message(RegistrationState.last_name)
-async def registration_last_name(
-    message: Message,
-    state: FSMContext,
-):
-    last_name = (message.text or "").strip()
-
-    if not valid_required(last_name):
-        await message.answer(
-            "❗ Iltimos, familiyangizni matn ko‘rinishida kiriting."
-        )
-        return
-
-    await state.update_data(last_name=last_name)
-    await state.set_state(RegistrationState.phone)
-
-    await message.answer(
-        "3️⃣ <b>Telefon raqamingizni</b> yuboring.\n\n"
-        "Quyidagi tugmani bosing:",
-        reply_markup=contact_kb(),
-    )
 
 
-@router.message(RegistrationState.phone, F.contact)
-async def registration_phone(
-    message: Message,
-    state: FSMContext,
-):
-    contact = message.contact
-
-    if contact is None:
-        await message.answer(
-            "❗ Kontakt ma'lumoti olinmadi."
-        )
-        return
-
-    # Foydalanuvchi faqat o‘z kontaktini yuborishi kerak
-    if contact.user_id != message.from_user.id:
-        await message.answer(
-            "❗ Iltimos, <b>o‘zingizning telefon raqamingizni</b> "
-            "Telegram kontakt tugmasi orqali yuboring."
-        )
-        return
-
-    phone_number = (contact.phone_number or "").strip()
-
-    if not valid_required(phone_number):
-        await message.answer(
-            "❗ Telefon raqamingiz olinmadi.\n\n"
-            "📱 <b>Kontaktni yuborish</b> tugmasini bosing.",
-            reply_markup=contact_kb(),
-        )
-        return
-
-    await state.update_data(
-        phone_number=phone_number
-    )
-    await state.set_state(RegistrationState.group_name)
-
-    await message.answer(
-        "4️⃣ <b>Guruhingiz qaysi?</b>\n\n"
-        "Masalan: <b>175-guruh</b>.",
-        reply_markup=ReplyKeyboardRemove(),
-    )
 
 
-@router.message(RegistrationState.phone)
-async def registration_phone_invalid(
-    message: Message,
-):
-    await message.answer(
-        "❗ Telefon raqamingizni Telegram orqali yuboring.\n\n"
-        "📱 <b>Kontaktni yuborish</b> tugmasini bosing.",
-        reply_markup=contact_kb(),
-    )
 
 
-@router.message(RegistrationState.group_name)
-async def registration_group_name(
-    message: Message,
-    state: FSMContext,
-):
-    group_name = (message.text or "").strip()
-
-    if not valid_required(group_name):
-        await message.answer(
-            "❗ Iltimos, guruhingizni kiriting."
-        )
-        return
-
-    data = await state.get_data()
-
-    first_name = data.get("first_name")
-    last_name = data.get("last_name")
-    phone_number = data.get("phone_number")
-
-    if not all(
-        valid_required(value)
-        for value in (
-            first_name,
-            last_name,
-            phone_number,
-            group_name,
-        )
-    ):
-        await state.clear()
-        await message.answer(
-            "❗ Ro‘yxatdan o‘tish ma'lumotlarida xatolik yuz berdi.\n\n"
-            "Iltimos, /start buyrug‘ini qayta bosing."
-        )
-        return
-
-    full_name = f"{first_name} {last_name}"
-
-    async with SessionLocal() as s:
-        user = await s.scalar(
-            select(User).where(
-                User.telegram_id == message.from_user.id
-            )
-        )
-
-        if user is None:
-            user = User(
-                telegram_id=message.from_user.id,
-                username=message.from_user.username,
-                full_name=full_name,
-                phone_number=phone_number,
-                group_name=group_name,
-                registration_status="pending",
-                is_blocked=False,
-            )
-            s.add(user)
-        else:
-            user.username = message.from_user.username
-            user.full_name = full_name
-            user.phone_number = phone_number
-            user.group_name = group_name
-            user.registration_status = "pending"
-
-        await s.commit()
-
-    # Yangi ariza haqida administratorlarga xabar
-    admin_kb = InlineKeyboardMarkup(
-        inline_keyboard=[
-            [
-                InlineKeyboardButton(text="✅ Tasdiqlash", callback_data=f"adm:approve_user:{message.from_user.id}"),
-                InlineKeyboardButton(text="❌ Rad etish", callback_data=f"adm:reject_user:{message.from_user.id}"),
-            ]
-        ]
-    )
-
-    username = f"@{message.from_user.username}" if message.from_user.username else "yo‘q"
-
-    admin_text = (
-        "🔔 <b>Yangi ro‘yxatdan o‘tish arizasi!</b>\n\n"
-        f"👤 Ism-familiya: <b>{full_name}</b>\n"
-        f"📱 Telefon: <b>{phone_number}</b>\n"
-        f"👥 Guruh: <b>{group_name}</b>\n"
-        f"🆔 Telegram ID: <code>{message.from_user.id}</code>\n"
-        f"👤 Username: <b>{username}</b>"
-    )
-
-    for admin_id in settings.admins:
-        try:
-            await _tg_retry(lambda: message.bot.send_message(
-                admin_id,
-                admin_text,
-                reply_markup=admin_kb,
-            ), tries=3)
-        except Exception:
-            pass
-
-    await state.clear()
-
-    await message.answer(
-        "✅ <b>Ro‘yxatdan o‘tish yakunlandi.</b>\n\n"
-        f"👤 Ism-familiya: <b>{full_name}</b>\n"
-        f"📱 Telefon: <b>{phone_number}</b>\n"
-        f"👥 Guruh: <b>{group_name}</b>\n\n"
-        "⏳ Ma'lumotlaringiz administratorga yuborildi.\n"
-        "Tasdiqlangandan so‘ng Doniyor Academy’dan "
-        "foydalanishingiz mumkin.",
-        reply_markup=ReplyKeyboardRemove(),
-    )
 
 
 @router.callback_query(
@@ -557,3 +340,6 @@ async def start_exit(
 
     await c.answer("🚪 Testdan chiqildi")
 
+# Yangi ro'yxatdan o'tish: telefonsiz, guruh ro'yxati, imtihon maqsadi, admin shablonlari
+from .royxat import setup as _royxat_setup
+_royxat_setup(router)

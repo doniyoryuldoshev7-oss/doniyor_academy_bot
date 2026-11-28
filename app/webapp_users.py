@@ -1,5 +1,5 @@
 """Veb-ilova: admin paneli, 3-bosqich (Foydalanuvchilar, Statistika). Botdagi bilan bir xil qoidalar:
-faqat adminlar; tasdiqlash uchun ism-familiya, telefon va guruh to'liq bo'lishi shart; tasdiqlash/rad etishda
+faqat adminlar; tasdiqlash uchun ism-familiya va guruh to'liq bo'lishi shart; tasdiqlash/rad etishda
 foydalanuvchiga botdan xabar boradi. Qo'shimcha himoya: adminni bloklash yoki rad etish mumkin emas."""
 from __future__ import annotations
 
@@ -50,8 +50,6 @@ def missing_fields(user) -> list:
     out = []
     if len((getattr(user, "full_name", None) or "").strip().split()) < 2:
         out.append("ism-familiya")
-    if (getattr(user, "phone_number", None) or "").strip().lower() in INVALID:
-        out.append("telefon")
     if (getattr(user, "group_name", None) or "").strip().lower() in INVALID:
         out.append("guruh")
     return out

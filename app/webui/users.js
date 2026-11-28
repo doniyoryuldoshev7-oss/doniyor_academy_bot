@@ -21,7 +21,7 @@
     const nodes = [];
     nodes.push(el("div", { class: "row", style: "gap:6px;margin-bottom:8px" }, ...SORTS.map(([k, t]) =>
       btn("small grow" + (U.sort === k ? "" : " alt"), t, () => { U.sort = k; U.page = 0; users(); }))));
-    const inp = el("input", { class: "ans", type: "text", maxlength: "50", placeholder: "Ism, username, guruh, telefon yoki ID", value: U.q, autocomplete: "off", style: "margin:0" });
+    const inp = el("input", { class: "ans", type: "text", maxlength: "50", placeholder: "Ism, username, guruh yoki ID", value: U.q, autocomplete: "off", style: "margin:0" });
     const go = () => { U.q = inp.value.trim(); U.page = 0; users(); };
     inp.addEventListener("keydown", (ev) => { if (ev.key === "Enter") go(); });
     nodes.push(el("div", { class: "row", style: "gap:6px;margin-bottom:8px" }, inp, btn("small sq", "🔍", go)));
@@ -49,7 +49,7 @@
     const line = (k, v) => el("div", { class: "row", style: "margin:4px 0" }, el("span", { class: "hint grow" }, k), el("b", {}, v || "—"));
     const nodes = [el("div", { class: "card" },
       line("Ism-familiya", c.name), line("Username", c.username ? "@" + c.username : ""), line("Telegram ID", String(c.tg)),
-      line("Telefon", c.phone), line("Guruh", c.group), line("Holat", c.status),
+      line("Guruh", c.group), line("Holat", c.status),
       line("Hisob", c.blocked ? "🚫 Bloklangan" : "✅ Faol"), line("Testlar / ball", `${c.tests} / ${c.score}`))];
     if (!c.complete) nodes.push(el("div", { class: "hint" }, "⚠️ Ariza to'liq emas. Foydalanuvchi botda /start orqali ro'yxatdan o'tishi kerak."));
     if (c.is_admin) nodes.push(el("div", { class: "hint" }, "🛡 Bu foydalanuvchi admin."));

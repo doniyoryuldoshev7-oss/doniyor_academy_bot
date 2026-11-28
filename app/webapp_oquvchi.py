@@ -322,13 +322,15 @@ async def api_s_profile(request):
 
 
 async def api_s_leaderboard(request):
+    # Reyting: faqat o'zining ismi, o'rni va bali; boshqa o'quvchilar yashirin
     async with SessionLocal() as s:
-        top = (await s.scalars(select(User).order_by(User.total_score.desc(), User.id).limit(10))).all()
         me = await s.get(User, request["user_id"])
-        ahead = int(await s.scalar(select(func.count(User.id)).where(User.total_score > me.total_score)) or 0)
+        total = int(await s.scalar(select(func.count(User.id)).where(User.registration_status == "approved")) or 0)
+        ahead = int(await s.scalar(select(func.count(User.id)).where(
+            User.registration_status == "approved", User.total_score > me.total_score)) or 0)
     return web.json_response({
-        "top": [{"name": u.full_name, "score": u.total_score, "me": u.id == me.id} for u in top],
-        "me": {"rank": ahead + 1, "score": me.total_score},
+        "top": [],
+        "me": {"rank": ahead + 1, "score": me.total_score, "name": me.full_name or "", "total": total},
     })
 
 

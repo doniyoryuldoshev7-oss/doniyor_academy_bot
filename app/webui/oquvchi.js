@@ -111,7 +111,7 @@
       tiles(
         menuTile("user", "g", "Mening profilim", "Ma'lumotlar va tarix", profile),
         menuTile("map", "b", "Bilimlar xaritasi", "Kuchli va zaif joylar", () => (window.OQ.knowledge ? window.OQ.knowledge() : soon("Bilimlar xaritasi"))),
-        menuTile("trophy", "o", "Reyting", "TOP 10 va o'rningiz", leaderboard),
+        menuTile("trophy", "o", "Reyting", "O'rningiz va balingiz", leaderboard),
         menuTile("chart", "p", "Statistikam", "Javoblar va foiz", () => stats(profileHub))));
   }
   function resultTiles() {
@@ -321,13 +321,12 @@
     wait();
     let d;
     try { d = await api("/api/s/leaderboard"); } catch (e) { toast(e.message); return profileHub(); }
-    const medals = ["🥇", "🥈", "🥉"];
-    const card = el("div", { class: "card" });
-    d.top.forEach((u, i) => card.append(el("div", { class: "stat", style: u.me ? "color:var(--gold);font-weight:800" : "" },
-      el("span", {}, `${medals[i] || (i + 1) + "."} ${u.name}${u.me ? " ← siz" : ""}`), el("b", {}, `${u.score} ball`))));
-    if (!d.top.length) card.append(el("div", { class: "empty" }, "Hozircha reyting bo'sh."));
-    screen("TOP 10 reyting", null, profileHub, card,
-      el("div", { class: "hint" }, `Sizning o'rningiz: ${d.me.rank} · ${d.me.score} ball`));
+    // Reyting: faqat o'zining ismi, o'rni va bali; boshqa o'quvchilar yashirin
+    const card = el("div", { class: "card" },
+      el("div", { class: "stat", style: "color:var(--gold);font-weight:800" }, el("span", {}, d.me.name || "Siz"), el("b", {}, `${d.me.score} ball`)),
+      el("div", { class: "stat" }, el("span", {}, "O'rningiz"), el("b", {}, d.me.total ? `${d.me.rank} / ${d.me.total}` : String(d.me.rank))));
+    screen("Reyting", null, profileHub, card,
+      el("div", { class: "hint" }, "🔒 Boshqa o'quvchilarning ismi va bali yashirin. Sizning ismingiz va balingiz ham boshqalarga ko'rinmaydi."));
   }
 
   /* ---------- mening xatolarim ---------- */

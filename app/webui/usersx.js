@@ -57,7 +57,7 @@
     const nodes = [el("div", { class: "card" }, stat("Jami", d.total + " ta"))];
     if (!d.total) nodes.push(el("div", { class: "hint" }, "Hozircha bloklagan o'quvchi aniqlanmagan. Tekshirish tugmasi hammani yashirin tekshiradi."));
     for (const x of d.items) nodes.push(el("div", { class: "card" }, el("b", {}, x.name), el("div", { class: "hint" }, contact(x) || "—")));
-    if (d.total) nodes.push(el("div", { class: "hint" }, "Ular botga xabar yoza olmaydi, shuning uchun telefon yoki guruh orqali bog'laning. Qaytib kelsa, tekshirishda blok belgisi o'zi olib tashlanadi."));
+    if (d.total) nodes.push(el("div", { class: "hint" }, "Ular botga xabar yoza olmaydi, shuning uchun guruh orqali bog'laning. Qaytib kelsa, tekshirishda blok belgisi o'zi olib tashlanadi."));
     if (d.pages > 1) nodes.push(el("div", { class: "row", style: "margin-top:8px" },
       d.page > 0 ? btn("alt small grow", "⬅️ Oldingi", () => blocked(d.page - 1)) : null,
       d.page + 1 < d.pages ? btn("alt small grow", "Keyingi ➡️", () => blocked(d.page + 1)) : null));
@@ -105,7 +105,7 @@
     const nodes = [];
     nodes.push(el("div", { class: "row", style: "gap:6px;margin-bottom:8px;flex-wrap:wrap" }, ...FILTERS.map(([k, t]) =>
       btn("small grow" + (D.filter === k ? "" : " alt"), t, () => { D.filter = k; D.page = 0; delList(); }))));
-    const inp = el("input", { class: "ans", type: "text", maxlength: "50", placeholder: "Ism, guruh, telefon yoki ID", value: D.q, autocomplete: "off", style: "margin:0" });
+    const inp = el("input", { class: "ans", type: "text", maxlength: "50", placeholder: "Ism, guruh yoki ID", value: D.q, autocomplete: "off", style: "margin:0" });
     const go = () => { D.q = inp.value.trim(); D.page = 0; delList(); };
     inp.addEventListener("keydown", (ev) => { if (ev.key === "Enter") go(); });
     nodes.push(el("div", { class: "row", style: "gap:6px;margin-bottom:8px" }, inp, btn("small sq", "🔍", go)));

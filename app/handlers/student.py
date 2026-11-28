@@ -1046,12 +1046,34 @@ async def stats(c):
 
 @router.callback_query(F.data == 'leaderboard')
 async def leaderboard(c):
-    async with SessionLocal() as s: 
-        us = (await s.scalars(select(User).order_by(User.total_score.desc()).limit(10))).all()
-    lines = ['🏆 <b>TOP 10 REYTING</b>\n']
-    medals = {1: '🥇', 2: '🥈', 3: '🥉'}
-    for i, u in enumerate(us, 1): 
-        lines.append(f"{medals.get(i, str(i) + '.')} {u.full_name} — <b>{u.total_score}</b> ball")
+    # Reyting: o'quvchi faqat o'z ismi, o'rni va balini ko'radi; boshqalar yashirin. Admin to'liq ro'yxatni ko'radi.
+    import html as _html
+    async with SessionLocal() as s:
+        me = await s.scalar(select(User).where(User.telegram_id == c.from_user.id))
+        if c.from_user.id in settings.admins:
+            us = (await s.scalars(select(User).order_by(User.total_score.desc()).limit(10))).all()
+            total = ahead = 0
+        else:
+            us = None
+            my_score = me.total_score if me else 0
+            total = int(await s.scalar(select(func.count(User.id)).where(User.registration_status == 'approved')) or 0)
+            ahead = int(await s.scalar(select(func.count(User.id)).where(
+                User.registration_status == 'approved', User.total_score > my_score)) or 0)
+    if us is not None:
+        lines = ['🏆 <b>TOP 10 REYTING</b> (faqat admin ko‘radi)\n']
+        medals = {1: '🥇', 2: '🥈', 3: '🥉'}
+        for i, u in enumerate(us, 1):
+            lines.append(f"{medals.get(i, str(i) + '.')} {_html.escape(u.full_name or '')} — <b>{u.total_score}</b> ball")
+    else:
+        name = _html.escape((me.full_name if me else '') or 'Siz')
+        lines = [
+            '🏆 <b>REYTING</b>\n',
+            f'👤 {name}',
+            f"🏅 O‘rningiz: <b>{ahead + 1}</b>" + (f' / {total}' if total else ''),
+            f"⭐ Ballingiz: <b>{me.total_score if me else 0}</b>",
+            '',
+            '🔒 Boshqa o‘quvchilarning ismi va bali yashirin. Sizning ismingiz va balingiz ham boshqalarga ko‘rinmaydi.',
+        ]
     await edit_or_answer(c.message, '\n'.join(lines), reply_markup=_back('prof'))
     await c.answer()
 

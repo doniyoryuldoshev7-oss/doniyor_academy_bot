@@ -88,9 +88,9 @@ def user_row(u) -> dict:
 def csv_bytes(users) -> bytes:
     buf = io.StringIO()
     w = csv.writer(buf)
-    w.writerow(["Ism-familiya", "Telefon", "Guruh", "Username", "Telegram ID", "Ro'yxatdan o'tgan"])
+    w.writerow(["Ism-familiya", "Guruh", "Username", "Telegram ID", "Ro'yxatdan o'tgan"])
     for u in users:
-        w.writerow([u.full_name or "", u.phone_number or "", u.group_name or "",
+        w.writerow([u.full_name or "", u.group_name or "",
                     ("@" + u.username) if u.username else "", u.telegram_id,
                     u.created_at.strftime("%d.%m.%Y") if u.created_at else ""])
     return buf.getvalue().encode("utf-8-sig")  # Excel o'zbekcha harflarni to'g'ri ochadi

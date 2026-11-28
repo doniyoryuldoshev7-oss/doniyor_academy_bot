@@ -2,7 +2,7 @@
 
 Joylashuvi: app/services/profil_eslatma.py
 
-Ismi-familiyasi, telefoni yoki guruhi to'liq kiritilmagan o'quvchilarga
+Ismi-familiyasi yoki guruhi to'liq kiritilmagan o'quvchilarga
 bot muntazam eslatma yuboradi va "To'ldirish" tugmasi bilan ro'yxatdan
 o'tishni davom ettirtiradi.
 
@@ -84,9 +84,6 @@ def missing_fields(user) -> list[str]:
 
     if len((user.full_name or "").strip().split()) < 2:
         missing.append("ism-familiya")
-
-    if not valid_required(user.phone_number):
-        missing.append("telefon raqam")
 
     if not valid_required(user.group_name):
         missing.append("guruh")
@@ -519,7 +516,7 @@ async def profile_fill(c: CallbackQuery, state: FSMContext):
     current = await state.get_state()
 
     # Boshqa jarayon (masalan, test) yo'qolib ketmasin
-    if current and not str(current).startswith("RegistrationState"):
+    if current and not str(current).startswith(("RegistrationState", "Royxat")):
         await c.answer(
             "Avval joriy amalni tugating, so'ng /start bosing.",
             show_alert=True,

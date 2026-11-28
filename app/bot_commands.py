@@ -17,6 +17,7 @@ ADMIN = COMMON + [
     BotCommand(command="natijalar", description="📊 O'quvchilar natijasi"),
     BotCommand(command="ustoz", description="👨‍🏫 Ustoz paneli"),
     BotCommand(command="savol_sifati", description="🔎 Savollar sifati"),
+    BotCommand(command="guruhlar", description="👥 Guruhlar"),
 ]
 
 
