@@ -193,6 +193,10 @@ async def _localize(items, request):
             tr = trs.get((it.data or {}).get("qid")) if it.kind == "c" else None
             if tr is not None:
                 _qt._apply(it.data, tr)
+            elif (it.data or {}).get("tr"):
+                from .services.imtihon import apply_item_tr
+
+                apply_item_tr(it.data, it.kind, lang)     # Milliy variant: tarjima savolning o'zida
     except Exception:  # noqa: BLE001 — tarjima o'qilmasa o'zbekcha qoladi
         pass
     return items

@@ -89,6 +89,9 @@ def keep_source(translated, original):
     return translated.rstrip() + SRC_MARK + src
 
 
+# Milliy sertifikat: savol tarjimasi (RU/EN) ichki qatori — milliy_yigish.encode_tr yozadi
+TR_LINE = "§TR§ "
+
 # Ochiq savol bloklarida ham «Izoh:», «Manba:» va «Qabul:» qatorlari (Milliy sertifikat bilan bir xil)
 _OPEN_SEP = re.compile(r"^\s*(?:---+|\*\*\*+|===+)\s*$")
 _OPEN_PART = re.compile(r"^\s*[a-dA-D]\s*[\)\.]")
@@ -96,23 +99,31 @@ _OPEN_PART = re.compile(r"^\s*[a-dA-D]\s*[\)\.]")
 
 def split_open_meta(text: str):
     """Ochiq savollar matnidan «Izoh: …», «Manba: …» qatorlarini ajratadi, «Qabul: x | y» ni oxirgi «=>» qatoriga
-    muqobil javob qilib qo'shadi. Qaytaradi: (toza matn, [(izoh, manba)] — har bir savol bloki uchun, tartibda)."""
+    muqobil javob qilib qo'shadi. Qaytaradi: (toza matn, [(izoh, manba, tarjimalar)] — har bir savol bloki uchun, tartibda)."""
     out, metas = [], []
-    cur, meta, mode = [], {"exp": [], "src": []}, None
+    cur, meta, mode = [], {"exp": [], "src": [], "tr": {}}, None
 
     def flush():
         if any(x.strip() for x in cur):
-            metas.append((" ".join(" ".join(meta["exp"]).split()), " ".join(" ".join(meta["src"]).split())))
-        elif (meta["exp"] or meta["src"]) and metas:      # izoh savoldan keyin --- bilan ajratilgan bo'lsa
-            e, m = metas[-1]
-            metas[-1] = ((e + " " + " ".join(meta["exp"])).strip(), (m + " " + " ".join(meta["src"])).strip())
+            metas.append((" ".join(" ".join(meta["exp"]).split()), " ".join(" ".join(meta["src"]).split()), dict(meta["tr"])))
+        elif (meta["exp"] or meta["src"] or meta["tr"]) and metas:      # izoh savoldan keyin --- bilan ajratilgan bo'lsa
+            e, m, tr = metas[-1]
+            metas[-1] = ((e + " " + " ".join(meta["exp"])).strip(), (m + " " + " ".join(meta["src"])).strip(), {**tr, **meta["tr"]})
 
     for line in (text or "").split("\n"):
         st = line.strip()
         if _OPEN_SEP.match(line):
             flush()
-            cur, meta, mode = [], {"exp": [], "src": []}, None
+            cur, meta, mode = [], {"exp": [], "src": [], "tr": {}}, None
             out.append(line)
+            continue
+        if st.startswith(TR_LINE.strip()):
+            try:
+                d = json.loads(st[len(TR_LINE.strip()):].strip())
+                meta["tr"][d.pop("lang")] = d
+            except (ValueError, KeyError, AttributeError):
+                pass
+            mode = None
             continue
         acc = ACC_RE.match(st)
         if acc:                              # «Qabul: x | y» — oxirgi «=>» qatoriga muqobil javob qo'shiladi
@@ -147,7 +158,7 @@ def parse_open_meta(text: str):
     clean, metas = split_open_meta(text)
     qs, errs = parse_open_text(clean)
     if len(metas) == len(qs):
-        for q, (e, m) in zip(qs, metas):
+        for q, (e, m, _tr) in zip(qs, metas):
             if e:
                 q["e"] = e
             if m:

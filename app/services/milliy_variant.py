@@ -193,6 +193,17 @@ def variant_payloads(v) -> list:
     return data if isinstance(data, list) else []
 
 
+def langs_line(items) -> str:
+    """«o'zbek, rus (55/55), ingliz (55/55)» — variantda qaysi tillar bor."""
+    n = len(items)
+    out = ["o'zbek"]
+    for code, name in (("ru", "rus"), ("en", "ingliz")):
+        k = sum(1 for p in items if code in (p.get("tr") or {}))
+        if k:
+            out.append(name if k == n else f"{name} ({k}/{n})")
+    return ", ".join(out)
+
+
 def default_exam_title(vtitle: str) -> str:
     vtitle = (vtitle or "").strip()
     if "milliy" in vtitle.casefold():

@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import html
 import io
+import json
 import logging
 import re
 from pathlib import Path
@@ -35,6 +36,7 @@ from ..services.savol_import import (
     SRC_RE,
     extract_text,
     split_open_meta,
+    TR_LINE,
     image_ref,
     parse_text,
     save_image_bytes,
@@ -151,7 +153,10 @@ HELP_ALL = (
     "<code>++</code> yoki <code>Javob: B</code>). Bot 1–35 ni yopiq savol qiladi, 36–55 ni esa ochiq "
     "savolga aylantiradi: o'quvchi javobni o'zi yozadi, to'g'ri variant matni — to'g'ri javob.\n"
     "• To'g'ri javob bir nechta bo'lsa (36–55): <code>Qabul: Samarqand | Qarshi | Termiz</code> qatori — "
-    "istalgani to'g'ri hisoblanadi.\n\n"
+    "istalgani to'g'ri hisoblanadi.\n"
+    "• <b>3 til</b>: savol tagida <code>RU:</code> va <code>EN:</code> bloklari — tarjima matni, A–D variantlar, "
+    "<code>Объяснение:</code> / <code>Explanation:</code>; 36–55 da variant o'rniga <code>Ответ: …</code> / <code>Answer: …</code>. "
+    "O'quvchi imtihonni o'z tilida ko'radi, yozma javob qaysi tilda yozilsa ham qabul qilinadi.\n\n"
     "Yuborgach «✅ Tayyor» ni bosing: bot ikkala qismni o'zi ajratadi va tekshiradi."
 )
 
@@ -344,7 +349,7 @@ def plus_to_javob(text: str) -> str:
             continue
         if ANS_RE.match(raw.strip()):
             pending = None          # «Javob: B» o'zi yozilgan
-        elif pending and (EXP_RE.match(raw.strip()) or SRC_RE.match(raw.strip())):
+        elif pending and (EXP_RE.match(raw.strip()) or SRC_RE.match(raw.strip()) or raw.lstrip().startswith(TR_LINE)):
             out.append(f"Javob: {pending}")   # izoh/manba variantning davomi bo'lib qolmasin
             pending, last_letter = None, None
         out.append(raw)
@@ -388,7 +393,16 @@ def split55(buf: str):
     lines = buf.split("\n")
     idx = next(i for i, ln in enumerate(lines) if _FIRST_OPEN.match(ln))
     closed = plus_to_javob("\n".join(lines[:idx]))
-    res = parse_text("\n".join(lines[idx:]))
+    tail, tr_by_q, qn = [], {}, CLOSED_N
+    for ln in lines[idx:]:
+        qm = _QDOT.match(ln)
+        if qm and int(qm.group(1)) == qn + 1:
+            qn += 1
+        if ln.lstrip().startswith(TR_LINE):
+            tr_by_q.setdefault(qn, []).append(ln.strip())     # tarjima (encode_tr) — keyin o'z blokiga qo'shiladi
+            continue
+        tail.append(ln)
+    res = parse_text("\n".join(tail))
     errors = [e for e in res.errors]
     warnings = []
     if res.open:
@@ -422,17 +436,164 @@ def split55(buf: str):
             block.append("Izoh: " + q["explanation"])
         if q.get("source"):
             block.append("Manba: " + q["source"])
+        block += tr_by_q.get(n, [])
         blocks.append("\n".join(block))
     return closed, "\n---\n".join(blocks), errors, warnings
 
 
+# ---------------------------------------------------------------
+#  Uch til: savol tagidagi «RU:» / «EN:» bloklari
+# ---------------------------------------------------------------
+_QDOT = re.compile(r"^\s*(?:#|№\s*)?(\d{1,3})\s*\.\s*\S")
+_TR_TEXT_ANS = re.compile(r"^(?:ответ|правильный\s+ответ|answer|correct\s+answer|javob)\s*[:\-–—]\s*(.+)$", re.I)
+_TR_ACC = re.compile(r"^(?:принимается|принимаются|также|accept(?:ed)?|also)\s*[:\-–—]\s*(.+)$", re.I)
+_TR_SRC = re.compile(r"^(?:📚\s*)?(?:manba|источник|source)\s*[:\-–—]", re.I)
+TR_NAMES = {"ru": "RU", "en": "EN"}
+
+
+def _tr_open_block(lines, ln0, lang):
+    """36–55 tarjimasi: matn + «Ответ: …» (yoki ++ belgili variant) + «Принимается: …» + «Объяснение: …»."""
+    from ..services.savol_import import OPT_RE, TR_EXP_RE, _marker, split_accept
+
+    stem, answers, exp, opts, mode = [], [], [], {}, "stem"
+    for ln, raw in lines:
+        s = raw.strip()
+        if not s or IMG_RE.match(s) or _TR_SRC.match(s):
+            continue
+        m = _TR_TEXT_ANS.match(s)
+        if m and not re.fullmatch(r"[A-Da-dАВСас]\s*\.?", m.group(1).strip()):
+            answers += split_accept(m.group(1))
+            mode = "after"
+            continue
+        m = _TR_ACC.match(s)
+        if m:
+            answers += split_accept(m.group(1))
+            mode = "after"
+            continue
+        m = TR_EXP_RE.match(s)
+        if m:
+            exp, mode = [m.group(1)], "exp"
+            continue
+        om = OPT_RE.match(s)
+        if om and mode in ("stem", "opt") and om.group(1).upper() in "ABCD":
+            body, marked = _marker(om.group(2))
+            opts[om.group(1).upper()] = (body, marked)
+            mode = "opt"
+            continue
+        if mode == "stem":
+            stem.append(s)
+        elif mode == "exp":
+            exp.append(s)
+        elif mode == "opt" and opts:
+            k = list(opts)[-1]
+            opts[k] = (opts[k][0] + " " + s, opts[k][1])
+        else:
+            return None, f"{ln}-qator ({TR_NAMES[lang]}): tushunarsiz qator «{s[:40]}»"
+    right = [b for b, mk in opts.values() if mk]
+    answers = [" ".join(x.split()) for x in right] + answers
+    text = " ".join(" ".join(stem).split())
+    if not text:
+        return None, f"{ln0}-qator ({TR_NAMES[lang]}): tarjimada savol matni yo'q"
+    if not answers:
+        return None, f"{ln0}-qator ({TR_NAMES[lang]}): tarjimada javob yo'q («Ответ: …» / «Answer: …» qatori yoki ++)"
+    seen, out = set(), []
+    for a in answers:
+        a = a.replace("=>", "→").strip()
+        if a and a.casefold() not in seen:
+            seen.add(a.casefold())
+            out.append(a)
+    return {"s": text, "a": out, "e": " ".join(" ".join(exp).split()) or None}, None
+
+
+def encode_tr(text: str):
+    """«RU:» / «EN:» bloklarini savoldan ajratib, o'rniga bitta «§TR§ {…}» qatori qo'yadi (keyingi bosqichlar uni
+    o'z savoliga biriktiradi). Qaytaradi: (matn, xatolar, ogohlantirishlar)."""
+    from ..services.savol_import import TR_LANG, TR_RE, parse_tr
+
+    if not re.search(r"(?mi)^\s*(RU|RUS|EN|ENG)\s*[:：]\s*$", text or ""):
+        return text, [], []
+    lines = (text or "").split("\n")
+    out, errors, blocks = [], [], []
+    cur_q, blk = None, None
+    has_marker = _has_marker(text)
+
+    def close():
+        nonlocal blk
+        if blk is None:
+            return
+        q, lang, ln0, body = blk["q"], blk["lang"], blk["ln"], blk["lines"]
+        body = [(ln, t) for ln, t in body if not _TR_SRC.match(t.strip())]   # manba umumiy (o'zbekchasi)
+        if q is None:
+            errors.append(f"{ln0}-qator: {TR_NAMES[lang]} tarjimasi qaysi savolga tegishli ekani aniqlanmadi")
+        elif q > CLOSED_N and has_marker:
+            errors.append(f"{q}-savol: {TR_NAMES[lang]} tarjimasi faqat 1–35 va 55 talik faylning 36–55 savollari uchun")
+        elif q > CLOSED_N:
+            d, err = _tr_open_block(body, ln0, lang)
+            if err:
+                errors.append(f"{q}-savol: " + err)
+            else:
+                out.insert(blk["at"], "§TR§ " + json.dumps({"lang": lang, **d}, ensure_ascii=False))
+                blocks.append((q, lang))
+        else:
+            d, err = parse_tr(body, ln0)
+            if err:
+                errors.append(f"{q}-savol ({TR_NAMES[lang]}): " + err)
+            else:
+                out.insert(blk["at"], "§TR§ " + json.dumps({"lang": lang, "t": d["text"], "o": d["options"], "e": d["explanation"],
+                                                             "ans": d["answer"]}, ensure_ascii=False))
+                blocks.append((q, lang))
+        blk = None
+
+    for ln, raw in enumerate(lines, start=1):
+        m = TR_RE.match(raw)
+        if m:
+            close()
+            blk = {"q": cur_q, "lang": TR_LANG[m.group(1).upper()], "ln": ln, "lines": [], "at": len(out)}
+            continue
+        qm = _QDOT.match(raw)
+        is_next = bool(qm) and (int(qm.group(1)) == (cur_q or 0) + 1 or (cur_q is None and int(qm.group(1)) == 1))
+        if blk is not None and not is_next and not _is_marker(raw) and not _SEP.match(raw):
+            blk["lines"].append((ln, raw))
+            continue
+        close()
+        if is_next:
+            cur_q = int(qm.group(1))
+        out.append(raw)
+    close()
+    warnings = []
+    if blocks:
+        langs = {}
+        for q, lang in blocks:
+            langs.setdefault(lang, set()).add(q)
+        dup = len(blocks) - sum(len(v) for v in langs.values())
+        if dup:
+            errors.append(f"{dup} ta savolga bir tilning tarjimasi ikki marta yozilgan.")
+        for lang, qs in sorted(langs.items()):
+            warnings.append(f"Tarjima ({TR_NAMES[lang]}): {len(qs)} ta savolga qo'shildi.")
+    return "\n".join(out), errors, warnings
+
+
+def tr_line(line: str):
+    """«§TR§ {…}» qatori → (til, ma'lumot) yoki None."""
+    if not line.lstrip().startswith(TR_LINE):
+        return None
+    try:
+        d = json.loads(line.strip()[len(TR_LINE):])
+    except ValueError:
+        return None
+    lang = d.pop("lang", None)
+    return (lang, d) if lang in TR_NAMES else None
+
+
 def split_all_ex(buf: str):
     """(yopiq matn, ochiq matn, qo'shimcha xatolar, ogohlantirishlar) yoki None.
-    Oddiy fayl (1–45) va 55 talik test fayli (1–55) — ikkalasi ham."""
+    Oddiy fayl (1–45) va 55 talik test fayli (1–55) — ikkalasi ham. «RU:»/«EN:» tarjimalari ham."""
+    buf, tr_err, tr_warn = encode_tr(buf)
     if is55(buf):
-        return split55(buf)
+        sp = split55(buf)
+        return sp[0], sp[1], list(sp[2]) + tr_err, list(sp[3]) + tr_warn
     sp = split_all(buf)
-    return None if sp is None else (sp[0], sp[1], [], [])
+    return None if sp is None else (sp[0], sp[1], tr_err, tr_warn)
 
 
 def split_all(buf: str):
@@ -595,8 +756,14 @@ def parse_shared(block: str, n: int):
     errors = []
     tag = f"{n}-umumiy blok"
     meta = None             # izoh/manba davom etayotgan bo'lsa: 3 yoki 4
+    shared_tr = {}
     for line in lines[1:]:
         if not line.strip():
+            continue
+        trd = tr_line(line)
+        if trd:
+            if questions:
+                shared_tr.setdefault(len(questions) - 1, {})[trd[0]] = trd[1]
             continue
         ans = _ANS.match(line)
         if ans and questions:
@@ -645,7 +812,7 @@ def parse_shared(block: str, n: int):
         errors.append(f"{tag}: birorta ham raqamlangan savol yo'q (33. Savol matni).")
     items = []
     head = " ".join(x for x in intro if x)
-    for num, qlines, answer, q_exp, q_src in questions:
+    for qi, (num, qlines, answer, q_exp, q_src) in enumerate(questions):
         text = " ".join(qlines).strip()
         if not text:
             errors.append(f"{tag}: {num}-savol matni bo'sh.")
@@ -658,6 +825,8 @@ def parse_shared(block: str, n: int):
             "o": dict(options), "c": answer, "img": None, "qid": None,
             "e": " ".join(" ".join(q_exp).split()) or None, "m": " ".join(" ".join(q_src).split()) or None,
         })
+        if shared_tr.get(qi):     # umumiy variantli savol: tarjimada matn va izoh (variantlar blok boshida — o'zbekcha)
+            items[-1]["tr"] = {l: {"t": d.get("t") or "", "e": d.get("e")} for l, d in shared_tr[qi].items()}
     return ([] if errors else items), errors
 
 
@@ -682,13 +851,19 @@ def parse_closed_strict(text: str):
 
     def new_q(number, first):
         q = {"n": number, "body": [first] if first else [], "opts": {}, "ans": None, "exp": [], "src": [], "acc": [], "meta": None,
-             "img": pending_img}
+             "img": pending_img, "tr": {}}
         questions.append(q)
         return q
 
     for raw in (text or "").split("\n"):
         line = raw.strip()
         if not line:
+            continue
+        trd = tr_line(line)
+        if trd:
+            if cur is not None:
+                cur["tr"][trd[0]] = trd[1]
+                cur["meta"] = None
             continue
         if line.startswith("#") and not re.match(r"^#\s*\d", line):
             continue
@@ -796,6 +971,11 @@ def parse_closed_strict(text: str):
             "e": " ".join(" ".join(q["exp"]).split()) or None, "qid": None,
             "m": " ".join(" ".join(q["src"]).split()) or None,
         })
+        if q["tr"]:
+            bad = [TR_NAMES[l] for l, d in q["tr"].items() if d.get("ans") and d["ans"] != q["ans"]]
+            if bad:
+                errors.append(f"{tag}: {', '.join(bad)} tarjimadagi javob o'zbekchasidan ({q['ans']}) farq qiladi")
+            items[-1]["tr"] = {l: {"t": d["t"], "o": d["o"], "e": d.get("e")} for l, d in q["tr"].items()}
     return items, errors
 
 
@@ -825,10 +1005,18 @@ def build_open_text(text: str):
     """Ochiq savollar (matn) → (elementlar, xatolar, ogohlantirishlar); izoh va manba ham biriktiriladi."""
     clean, metas = split_open_meta(text)
     items, errors, warnings = build_open(parse_text(clean))
-    if any(e or m for e, m in metas):
+    if any(e or m or tr for e, m, tr in metas):
         if len(metas) == len(items):
-            for it, (e, m) in zip(items, metas):
+            for it, (e, m, tr) in zip(items, metas):
                 it["e"], it["m"] = e or None, m or None
+                if tr and len(it["p"]) == 1:
+                    # tarjima: matn va izoh; javobning tarjimalari ham to'g'ri hisoblanadi (qaysi tilda yozsa ham)
+                    acc = it["p"][0]["a"]
+                    for d in tr.values():
+                        for a in d.get("a") or []:
+                            if a.casefold() not in {x.casefold() for x in acc}:
+                                acc.append(a)
+                    it["tr"] = {l: {"s": d.get("s") or "", "e": d.get("e"), "a": list(d.get("a") or [])} for l, d in tr.items()}
         elif not errors:
             warnings.append("Ochiq savollarning «Izoh/Manba» qatorlarini savollarga bog'lab bo'lmadi "
                             "(savollar --- bilan ajratilganini tekshiring). Savollar saqlandi, izohlar qo'shilmadi.")
@@ -841,6 +1029,7 @@ def open_text_as_is(text: str) -> str:
 
 
 def _check_closed(buf: str):
+    buf, tr_err, _tr_warn = encode_tr(buf)     # «RU:» / «EN:» tarjimalari (allaqachon kodlangan bo'lsa — o'zgarmaydi)
     buf = plus_to_javob(buf)        # «C) variant ++» ham qabul qilinadi
     plain, blocks = split_shared(buf)
     items, errors = parse_closed_strict(plain) if plain.strip() else ([], [])
@@ -848,6 +1037,7 @@ def _check_closed(buf: str):
         got, errs = parse_shared(block, number)
         items += got
         errors += errs
+    errors = list(tr_err) + list(errors)
     if not errors and len(items) != CLOSED_N:
         errors.append(f"Yopiq savol {CLOSED_N} ta bo'lishi kerak, topildi: {len(items)} ta.")
     return items, errors

@@ -58,6 +58,33 @@ MILLIY_OPEN = 10
 # 55 talik fayl: 36–55 — 20 ta bitta javobli ochiq savol (testdan aylantirilgan)
 MILLIY_OPEN_SINGLE = 20
 OPEN_SINGLE_PROMPT = "Javobingizni yozing"
+OPEN_SINGLE_PROMPT_TR = {"ru": "Напишите ответ", "en": "Write your answer"}
+
+
+def apply_item_tr(data: dict, kind: str, lang: str) -> dict:
+    """Milliy variant elementi ichidagi tarjima (data["tr"][lang]) — o'quvchiga shu tilda ko'rsatish uchun.
+    Baholash o'zgarmaydi: yozma javobning hamma tildagi to'g'ri shakllari allaqachon qabul qilinadi."""
+    tr = ((data or {}).get("tr") or {}).get(lang)
+    if not tr:
+        return data
+    if kind == "c":
+        if tr.get("t"):
+            data["t"] = tr["t"]
+        for k, v in (tr.get("o") or {}).items():
+            if v and k in (data.get("o") or {}):
+                data["o"][k] = v
+    else:
+        if tr.get("s"):
+            data["s"] = tr["s"]
+        first = [a.casefold() for a in tr.get("a") or []]
+        for p in data.get("p") or []:
+            if p.get("q") == OPEN_SINGLE_PROMPT:
+                p["q"] = OPEN_SINGLE_PROMPT_TR.get(lang, p["q"])
+            if first and p.get("a"):
+                p["a"] = sorted(p["a"], key=lambda a: (a.casefold() not in first, first.index(a.casefold()) if a.casefold() in first else 0))
+    if tr.get("e"):
+        data["e"] = tr["e"]
+    return data
 
 
 def milliy_open_ok(opened) -> bool:

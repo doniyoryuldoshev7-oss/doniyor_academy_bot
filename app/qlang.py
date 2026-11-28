@@ -127,7 +127,12 @@ async def localize_items(items, tg_id):
         ids = {(it.data or {}).get("qid") for it in items if it.kind == "c"}
         async with SessionLocal() as s:
             trs = await qtrans.load(s, ids, lang)
+        from .services.imtihon import apply_item_tr
+
         for it in items:
+            if (it.data or {}).get("tr"):
+                apply_item_tr(it.data, it.kind, lang)     # Milliy variant: tarjima savolning o'zida
+                continue
             if it.kind != "c":
                 continue
             tr = trs.get((it.data or {}).get("qid"))

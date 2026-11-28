@@ -494,6 +494,9 @@ async def api_mlv_one(request):
     row = variant_row(v, request["tg_id"], is_admin, fmt_datetime)
     first = next((p for p in variant_payloads(v) if p.get("k") == "c"), None)
     row["first"] = (first or {}).get("t") or ""
+    from .services.milliy_variant import langs_line
+
+    row["langs"] = langs_line(variant_payloads(v))
     return web.json_response(row)
 
 

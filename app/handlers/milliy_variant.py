@@ -94,7 +94,8 @@ async def cb_upload(c: CallbackQuery, state: FSMContext):
         "• Xato fayl saqlanmaydi, qolganlari saqlanadi.\n"
         "• <b>Izoh va manba</b> (ixtiyoriy): har savolning to'g'ri javobidan keyin "
         "<code>Izoh: …</code> va <code>Manba: …</code> qatorlari — o'quvchi imtihon yopilgach tahlilda ko'radi.\n"
-        "• 36–55 da to'g'ri javob bir nechta bo'lsa: <code>Qabul: Samarqand | Qarshi | Termiz</code> — istalgani qabul qilinadi.\n\n"
+        "• 36–55 da to'g'ri javob bir nechta bo'lsa: <code>Qabul: Samarqand | Qarshi | Termiz</code> — istalgani qabul qilinadi.\n"
+        "• 3 til: savol tagida <code>RU:</code> va <code>EN:</code> tarjima bloklari (36–55 da <code>Ответ:</code> / <code>Answer:</code>).\n\n"
         "⚠️ Telegram botga 20 MB dan katta fayl yuborib bo'lmaydi. Katta zipni "
         "<b>veb-ilovadan</b> yuklang (60 MB gacha) yoki 2 ta zipga bo'ling.",
         kb([[B("⬅️ Orqaga", "mlv:l:0")]]),
@@ -168,6 +169,7 @@ async def cb_view(c: CallbackQuery, state: FSMContext):
     lines = [
         f"📄 <b>{esc(v.title)}</b>\n",
         f"Yopiq: <b>{v.n_closed}</b> · Yozma: <b>{v.n_open}</b>" + (f" · rasmli: {imgs}" if imgs else ""),
+        f"🌐 Tillar: {MV.langs_line(items)}",
         f"Yuklangan: {fmt_datetime(v.updated_at or v.created_at)}",
         f"Shu variantdan ochilgan imtihonlar: <b>{v.used}</b>",
     ]
