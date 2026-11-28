@@ -442,6 +442,8 @@ class ExamAttempt(Base):
     finished_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
     status: Mapped[str] = mapped_column(String(12), default="active", index=True)
     answers: Mapped[str] = mapped_column(Text, default="{}")
+    # boshlagan paytdagi tartib (aralash/bir xil). Ustoz keyin o'zgartirsa ham, bu urinish o'z tartibida qoladi
+    mix: Mapped[bool | None] = mapped_column(Boolean, nullable=True)
 
 
 class MilliyVariant(Base):

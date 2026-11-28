@@ -114,13 +114,20 @@
   }
   function days() {
     const nodes = [el("div", { class: "hint" }, "O'quvchilar imtihonni necha kun ichida boshlay olishadi? (Boshlagandan keyin esa faqat imtihon vaqti beriladi.)")];
-    for (const n of OPT.days) nodes.push(btn("alt", `${n} kun`, () => { W.days = n; title(); }));
+    for (const n of OPT.days) nodes.push(btn("alt", `${n} kun`, () => { W.days = n; order(); }));
     screen("Boshlash muddati", "", groups, ...nodes);
+  }
+  /* savollar tartibi: imtihonni ochayotganda so'raladi (botdagi bilan bir xil) */
+  function order() {
+    screen("Savollar tartibi", "", days,
+      el("div", { class: "hint pre" }, "Savollar tartibi qanday bo'lsin?\n\n🔀 Aralashtirilsin — har bir o'quvchida savollar va A–D variantlar tartibi boshqacha (ko'chirishning oldi olinadi).\n📋 Hammaga bir xil — hamma bir xil tartibda ko'radi (faylingizdagidek)."),
+      btn(W.shuffle === false ? "alt" : "", "🔀 Aralashtirilsin", () => { W.shuffle = true; title(); }),
+      btn(W.shuffle === false ? "" : "alt", "📋 Hammaga bir xil", () => { W.shuffle = false; title(); }));
   }
   function title() {
     const inp = el("input", { class: "input", type: "text", maxlength: "200", placeholder: "Bo'sh qoldirsangiz: fan nomi va sana qo'yiladi", style: "width:100%;margin:8px 0" });
     if (W.vdef) inp.value = W.title || W.vdef;
-    screen("Imtihon nomi", "", days, el("div", { class: "hint" }, "Imtihon nomini yozing (ixtiyoriy):"), inp, btn("", "Davom etish", () => { W.title = inp.value.trim(); preview(); }));
+    screen("Imtihon nomi", "", order, el("div", { class: "hint" }, "Imtihon nomini yozing (ixtiyoriy):"), inp, btn("", "Davom etish", () => { W.title = inp.value.trim(); preview(); }));
   }
   function preview() {
     const rc = Math.min(W.c, W.ac), ro = Math.min(W.o, W.ao);
@@ -128,6 +135,7 @@
       stat("📚 Fan", W.fixed ? "Milliy sertifikat (tayyor savollar)" : W.sname + (W.tname ? " · " + W.tname : "") + (W.pick.length > 1 ? " (fanlar orasida teng olinadi)" : "")),
       stat("🏅 Shablon", W.mode === "milliy" ? "Milliy sertifikat" : "Oddiy"), W.vtitle ? stat("🗂 Variant", W.vtitle) : null, stat("👥 Kimlar", W.glabel),
       stat("⏱ Vaqt", `${W.dur} daqiqa`), stat("📅 Boshlash muddati", `${W.days} kun`),
+      stat("🔀 Tartib", W.shuffle === false ? "hammaga bir xil" : "aralashtiriladi"),
       stat("Yopiq savollar", rc + (rc < W.c ? ` (so'raldi ${W.c}, bazada yetarli emas)` : "")),
       stat("Ochiq savollar", ro + (ro < W.o ? ` (so'raldi ${W.o}, bazada yetarli emas)` : "")))];
     if (rc + ro === 0) nodes.push(empty("Tanlangan fanda savol yo'q. Avval savol qo'shing."));
@@ -138,7 +146,7 @@
     if (busy) return;
     busy = true; wait();
     let r;
-    try { r = await post("/api/ex/create", { mode: W.mode, sids: W.pick, tid: W.tid, c: W.c, o: W.o, dur: W.dur, group: W.group, days: W.days, title: W.title, fixed: W.fixed || null }); }
+    try { r = await post("/api/ex/create", { mode: W.mode, sids: W.pick, tid: W.tid, c: W.c, o: W.o, dur: W.dur, group: W.group, days: W.days, title: W.title, fixed: W.fixed || null, shuffle: W.shuffle !== false }); }
     catch (e) { busy = false; return fail(e, preview); }
     busy = false;
     if (W.fixed && !W.vid) { D = { a: null, c: null, o: null, buf: { c: [], o: [], a: [] } }; saveDraft(); }   /* botdagi kabi: yaratilgach qoralama tozalanadi */
@@ -179,6 +187,7 @@
     if (note) toast(note);
     const nodes = [el("div", { class: "card" }, el("b", {}, "📝 " + d.title), el("div", { class: "hint" }, `${d.subject} · ${d.mode === "milliy" ? "Milliy sertifikat" : "Oddiy"}`),
       stat("👥 Kimlar", d.group || "hamma o'quvchilar"), stat("⏱ Vaqt", `${d.duration} daqiqa`),
+      stat("🔀 Tartib", d.shuffle ? "aralashtirilgan" : "hammaga bir xil"),
       stat(d.open ? "🟢 Holat" : "🔒 Holat", (d.open ? "Ochiq" : "Yopiq") + (d.closes ? ` · muddat: ${d.closes}` : "")),
       stat("✅ Topshirgan", d.finished), stat("⏳ Yechayotgan", d.active), stat("🕳 Boshlamagan", d.missing_count),
       d.avg !== null ? stat("📊 O'rtacha", d.mode === "milliy" ? `${d.avg} / ${d.scale}` : `${d.avg}%`) : null)];
@@ -186,6 +195,13 @@
       ...d.missing.map((n) => el("div", { class: "hint" }, "• " + n)), d.missing_count > d.missing.length ? el("div", { class: "hint" }, `… yana ${d.missing_count - d.missing.length} ta`) : null));
     nodes.push(btn("", "📊 Natijalar", () => results(id, 0)), btn("alt", "📉 Qiyin savollar", () => hard(id)),
       btn("alt", "✍️ Yozma javoblarni tekshirish", () => openReview(id)));
+    /* savollar tartibi — istalgan vaqtda o'zgartirish mumkin */
+    const mix = async () => {
+      let r;
+      try { r = await post(`/api/ex/shuffle/${id}`); } catch (e) { return toast(e.message); }
+      manage(id, r.note);
+    };
+    nodes.push(btn("alt", d.shuffle ? "📋 Tartibni hammaga bir xil qilish" : "🔀 Savollarni aralashtirish", mix));
     nodes.push(btn("alt", d.open ? "🔒 Yopish (tahlil ochiladi)" : "🔓 Qayta ochish", async () => {
       try { const r = await post(`/api/ex/toggle/${id}`); manage(id, r.note); } catch (e) { toast(e.message); }
     }));

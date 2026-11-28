@@ -146,7 +146,7 @@ async def attempt_ctx(session, telegram_id: int, attempt_id: int, lock: bool = F
     items = await load_items(session, exam.id)
     await _tl_items(items, telegram_id)          # tarjima asl harflar bo'yicha, aralashtirishdan oldin
     # o'quvchi ko'radigan tartib: savollar va variantlar shu urinish uchun aralashtirilgan bo'lishi mumkin
-    return attempt, exam, attempt_view(items, exam, attempt.id), user
+    return attempt, exam, attempt_view(items, exam, attempt.id, getattr(attempt, "mix", None)), user
 
 
 def _answers(attempt, items) -> dict:
@@ -410,6 +410,7 @@ async def cb_start(c: CallbackQuery, state: FSMContext):
                 deadline_at=now + timedelta(minutes=exam.duration_min),
                 status="active",
                 answers="{}",
+                mix=bool(exam.shuffle),
             )
             session.add(attempt)
             try:

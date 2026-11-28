@@ -143,8 +143,10 @@ def validate_make(body, is_admin, groups):
     elif group not in groups:
         return None, "Guruh topilmadi (ro'yxat o'zgargan bo'lishi mumkin). Imtihon yaratilmadi, qaytadan urinib ko'ring."
     title = str(body.get("title") or "").strip()[:200]
+    shuffle = body.get("shuffle")
+    shuffle = True if shuffle is None else bool(shuffle)    # so'ralmagan bo'lsa — avvalgidek aralashtiriladi
     return {"mode": mode, "sids": sids, "tid": None if fixed else tid, "c": c, "o": o, "dur": dur, "days": days,
-            "group": group, "title": title, "fixed": fixed}, None
+            "group": group, "title": title, "fixed": fixed, "shuffle": shuffle}, None
 
 
 MAX_CHUNKS = 500
@@ -392,7 +394,7 @@ async def api_ex_create(request):
             if not payloads:
                 return _err("Savol topilmadi. Imtihon yaratilmadi.")
             exam = await create_exam(s, title=title, subject_name=sname, mode=d["mode"], created_by=uid, group_name=d["group"],
-                                     duration_min=d["dur"], days_open=d["days"], payloads=payloads)
+                                     duration_min=d["dur"], days_open=d["days"], payloads=payloads, shuffle=d["shuffle"])
             students = await target_students(s, exam)
             eid, etitle, dur, closes = exam.id, exam.title, exam.duration_min, exam.closes_at
             chat_ids = [u.telegram_id for u in students if u.telegram_id != uid]
@@ -612,6 +614,7 @@ async def api_ex_exam(request):
         open_now = exam_is_open(exam)
         data = {"id": exam.id, "title": exam.title, "subject": exam.subject_name, "mode": exam.mode,
                 "group": exam.group_name or "", "duration": exam.duration_min, "open": bool(open_now),
+                "shuffle": bool(exam.shuffle),
                 "closes": fmt_datetime(exam.closes_at) if exam.closes_at else "",
                 "finished": sum(1 for a in attempts if a.status == "finished"),
                 "active": sum(1 for a in attempts if a.status == "active"),
@@ -719,6 +722,22 @@ async def api_ex_accept(request):
     return web.json_response({"ok": True, "note": note})
 
 
+async def api_ex_shuffle(request):
+    """Savollar tartibi istalgan vaqtda: aralashtirish ↔ hammaga bir xil (botdagi bilan bir xil).
+    Boshlab qo'ygan o'quvchilar o'z tartibida qoladi (ExamAttempt.mix)."""
+    eid = int(request.match_info["id"])
+    async with SessionLocal() as s:
+        exam, err = await _load(request, s, eid)
+        if err:
+            return err
+        exam.shuffle = not exam.shuffle
+        mix = bool(exam.shuffle)
+        await s.commit()
+    return web.json_response({"ok": True, "shuffle": mix, "note": (
+        "Endi savollar har bir o'quvchida aralashtiriladi." if mix else "Endi hamma savollarni bir xil tartibda ko'radi.")
+        + " Bu imtihonni endi boshlaydiganlarga ta'sir qiladi; boshlab qo'yganlar o'z tartibida davom etadi."})
+
+
 async def api_ex_toggle(request):
     from .services.imtihon import exam_is_open
 
@@ -810,6 +829,7 @@ def setup(app: web.Application) -> None:
     r.add_get("/api/ex/results/{id:\\d+}", api_ex_results)
     r.add_get("/api/ex/hard/{id:\\d+}", api_ex_hard)
     r.add_post("/api/ex/toggle/{id:\\d+}", api_ex_toggle)
+    r.add_post("/api/ex/shuffle/{id:\\d+}", api_ex_shuffle)
     r.add_get("/api/ex/openreview/{id:\\d+}", api_ex_openreview)
     r.add_post("/api/ex/accept/{id:\\d+}", api_ex_accept)
     r.add_post("/api/ex/delete/{id:\\d+}", api_ex_delete)

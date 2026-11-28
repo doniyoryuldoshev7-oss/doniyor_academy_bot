@@ -561,6 +561,30 @@ async def cb_days(c: CallbackQuery, state: FSMContext):
     if draft is None or "dur" not in draft or "grp" not in draft:
         return
     draft["days"] = int(c.data.split(":")[2])
+    await state.update_data(d=draft)
+    await show(
+        c,
+        "➕ <b>Yangi imtihon</b>\n\nSavollar tartibi qanday bo'lsin?\n\n"
+        "🔀 <b>Aralashtirilsin</b> — har bir o'quvchida savollar va A–D variantlar tartibi boshqacha "
+        "(ko'chirishning oldi olinadi).\n"
+        "📋 <b>Hammaga bir xil</b> — hamma bir xil tartibda ko'radi (faylingizdagidek).",
+        kb([
+            [InlineKeyboardButton(text="🔀 Aralashtirilsin", callback_data="exm:sh:1")],
+            [InlineKeyboardButton(text="📋 Hammaga bir xil", callback_data="exm:sh:0")],
+        ]),
+    )
+    await c.answer()
+
+
+@router.callback_query(F.data.regexp(r"^exm:sh:[01]$"))
+async def cb_shuffle(c: CallbackQuery, state: FSMContext):
+    """Savollar tartibi: aralashtirish yoki hammaga bir xil (imtihonni ochayotganda so'raladi)."""
+    if not await gate(c):
+        return
+    draft = await _draft(state, c)
+    if draft is None or "days" not in draft:
+        return
+    draft["shuf"] = c.data.endswith(":1")
     stamp = to_local(datetime.utcnow()).strftime("%d.%m.%Y")
     if draft.get("vtitle"):
         from ..services.milliy_variant import default_exam_title
@@ -595,6 +619,7 @@ async def _preview(target, state: FSMContext, draft: dict, title: str):
         + (f" · variant: {esc(draft['vtitle'])}" if draft.get("vtitle") else ""),
         f"👥 Kimlar: {esc(draft['grp']) if draft['grp'] else 'hamma o‘quvchilar'}",
         f"⏱ Vaqt: {draft['dur']} daqiqa · boshlash muddati: {draft['days']} kun",
+        "🔀 Tartib: " + ("aralashtiriladi (har o'quvchida boshqacha)" if draft.get("shuf", True) else "hammaga bir xil"),
         "",
         f"Yopiq savollar: <b>{real_c}</b>" + (f" (so'raldi {want_c}, bazada yetarli emas)" if real_c < want_c else ""),
         f"Ochiq savollar: <b>{real_o}</b>" + (f" (so'raldi {want_o}, bazada yetarli emas)" if real_o < want_o else ""),
@@ -685,6 +710,7 @@ async def cb_create(c: CallbackQuery, state: FSMContext):
             duration_min=draft["dur"],
             days_open=draft["days"],
             payloads=payloads,
+            shuffle=draft.get("shuf", True),
         )
         students = await target_students(session, exam)
         exam_id, title, duration = exam.id, exam.title, exam.duration_min
@@ -822,7 +848,7 @@ async def _manage_view(c: CallbackQuery, exam_id: int, note: str | None = None):
         f"📝 <b>{esc(exam.title)}</b>",
         f"📚 {esc(exam.subject_name)} · {'Milliy sertifikat' if exam.mode == 'milliy' else 'Oddiy'}",
         f"👥 {esc(exam.group_name) if exam.group_name else 'hamma o‘quvchilar'}",
-        f"⏱ {exam.duration_min} daqiqa",
+        f"⏱ {exam.duration_min} daqiqa · " + ("🔀 aralashtirilgan" if exam.shuffle else "📋 hammaga bir xil tartib"),
         f"{'🟢 Ochiq' if open_now else '🔒 Yopiq'}"
         + (f" · muddat: {fmt_datetime(exam.closes_at)}" if exam.closes_at else ""),
         "",
@@ -843,6 +869,10 @@ async def _manage_view(c: CallbackQuery, exam_id: int, note: str | None = None):
             InlineKeyboardButton(text="📉 Qiyin savollar", callback_data=f"exm:hard:{exam_id}"),
         ],
         [InlineKeyboardButton(text="✍️ Yozma javoblarni tekshirish", callback_data=f"exm:yz:{exam_id}")],
+        [InlineKeyboardButton(
+            text="📋 Tartibni hammaga bir xil qilish" if exam.shuffle else "🔀 Savollarni aralashtirish",
+            callback_data=f"exm:mx:{exam_id}",
+        )],
         [InlineKeyboardButton(
             text="🔒 Yopish (tahlil ochiladi)" if open_now else "🔓 Qayta ochish",
             callback_data=f"exm:cl:{exam_id}",
@@ -1065,6 +1095,26 @@ async def cb_toggle(c: CallbackQuery):
             if exam.closes_at is None or exam.closes_at <= datetime.utcnow():
                 exam.closes_at = datetime.utcnow() + timedelta(days=1)
             note = "Imtihon qayta ochildi (1 kun)."
+        await session.commit()
+    await _manage_view(c, eid, note)
+
+
+# ---------------- savollar tartibi: istalgan vaqtda o'zgartirish ----------------
+@router.callback_query(F.data.regexp(r"^exm:mx:\d+$"))
+async def cb_mix(c: CallbackQuery):
+    """Aralashtirish ↔ hammaga bir xil. Yechayotgan va topshirganlar o'z tartibida qoladi (javoblari aralashib ketmaydi)."""
+    if not await gate(c):
+        return
+    eid = int(c.data.split(":")[2])
+    async with SessionLocal() as session:
+        exam = await session.get(Exam, eid)
+        if exam is None or exam.is_removed or not can_see(c.from_user.id, exam):
+            await c.answer("Imtihon topilmadi.", show_alert=True)
+            return
+        exam.shuffle = not exam.shuffle
+        note = (("🔀 Endi savollar va variantlar har bir o'quvchida aralashtiriladi." if exam.shuffle
+                 else "📋 Endi hamma savollarni bir xil tartibda ko'radi.")
+                + " Bu imtihonni endi boshlaydiganlarga ta'sir qiladi; boshlab qo'yganlar o'z tartibida davom etadi.")
         await session.commit()
     await _manage_view(c, eid, note)
 

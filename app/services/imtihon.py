@@ -406,10 +406,11 @@ def _can_shuffle_options(data: dict) -> bool:
     return not any(_SELF_REF.search(str(v or "")) for v in (data.get("o") or {}).values())
 
 
-def attempt_view(items: list[Item], exam, attempt_id: int) -> list[Item]:
+def attempt_view(items: list[Item], exam, attempt_id: int, mix: bool | None = None) -> list[Item]:
     """O'quvchiga ko'rsatiladigan elementlar: pos = ko'rinishdagi raqam (1, 2, ...).
-    data["_cp"] — asl raqam, data["_om"] — {ko'rinish harfi: asl harf}."""
-    mix = bool(getattr(exam, "shuffle", False))
+    data["_cp"] — asl raqam, data["_om"] — {ko'rinish harfi: asl harf}.
+    mix — urinish boshlangan paytdagi tartib (ExamAttempt.mix); yo'q bo'lsa — imtihonniki."""
+    mix = bool(getattr(exam, "shuffle", False)) if mix is None else bool(mix)
     order = list(items)
     rng = None
     if mix:

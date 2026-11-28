@@ -205,7 +205,7 @@ async def _localize(items, request):
 async def _view(request, exam, attempt, items):
     """O'quvchi ko'radigan tartib (aralashtirilgan bo'lishi mumkin): raqamlar va harflar shu urinishniki."""
     await _localize(items, request)
-    return attempt_view(items, exam, attempt.id)
+    return attempt_view(items, exam, attempt.id, getattr(attempt, "mix", None))
 
 
 def _state(exam, attempt, items):
@@ -314,7 +314,7 @@ async def api_exam_start(request: web.Request):
             attempt = ExamAttempt(
                 exam_id=exam_id, user_id=user.id, started_at=now,
                 deadline_at=now + timedelta(minutes=exam.duration_min),
-                status="active", answers="{}",
+                status="active", answers="{}", mix=bool(exam.shuffle),
             )
             session.add(attempt)
             try:
@@ -361,7 +361,7 @@ async def api_answer(request: web.Request):
         items = await load_items(session, exam.id)
         by_pos = {it.pos: it for it in items}
         # o'quvchi ko'rinishidagi raqam/harf -> imtihonning asl tartibi
-        key, value = view_key_to_canon(key, value, attempt_view(items, exam, attempt.id))
+        key, value = view_key_to_canon(key, value, attempt_view(items, exam, attempt.id, getattr(attempt, "mix", None)))
         if key is None:
             return _err("Noto'g'ri savol yoki variant.")
         head, _, tail = key.partition(".")
@@ -480,7 +480,7 @@ async def api_image(request: web.Request):
         attempt, exam = await _my_attempt(session, request, int(request.match_info["id"]))
         if attempt is None:
             return _err("Topilmadi.", 404)
-        items = attempt_view(await load_items(session, exam.id), exam, attempt.id)
+        items = attempt_view(await load_items(session, exam.id), exam, attempt.id, getattr(attempt, "mix", None))
 
     item = next((i for i in items if i.pos == pos), None)   # pos — o'quvchi ko'rgan raqam
     path = item.data.get("img") if item else None
