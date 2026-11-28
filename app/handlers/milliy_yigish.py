@@ -335,6 +335,33 @@ def plus_to_javob(text: str) -> str:
     return "\n".join(out)
 
 
+_SUFFIX_RULES = [
+    (re.compile(r"(\d)\s*-\s*(yillarda|yillari|yillar|yilda|yili|yilgi)$", re.I), r"\1"),   # «395-yilda» → «395»
+    (re.compile(r"\s+asrlarda$|\s+asrda$|\s+asrlar$", re.I), " asr"),                      # «XIII asrda» → «XIII asr»
+    (re.compile(r"\s+marta$", re.I), ""),                                                    # «17 marta» → «17»
+    (re.compile(r"(\w{3,})(?:ning|da|ga|dan)$", re.I), r"\1"),                               # «Falastinda» → «Falastin»
+]
+
+
+def answer_variants(right: str) -> list[str]:
+    """Testning to'g'ri variantidan yozma javob uchun qabul qilinadigan ko'rinishlar:
+    asl matn + qo'shimchasiz qisqa shakli («395-yilda» → «395», «XIII asrda» → «XIII asr»)."""
+    out = [right]
+    cur = right
+    for rx, rep in _SUFFIX_RULES:
+        nxt = rx.sub(rep, cur).strip()
+        if nxt and nxt != cur:
+            cur = nxt
+            out.append(cur)
+    seen, res = set(), []
+    for v in out:
+        k = v.casefold()
+        if k not in seen:
+            seen.add(k)
+            res.append(v)
+    return res
+
+
 def split55(buf: str):
     """55 talik fayl: (yopiq matn, ochiq matn, xatolar, ogohlantirishlar).
     36–55 test savollari «savol / a) Javobingizni yozing => to'g'ri variant matni» ko'rinishiga keltiriladi."""
@@ -367,7 +394,7 @@ def split55(buf: str):
         if q.get("image"):
             block.append(f"[rasm:{q['image']}]")
         block.append(stem or "Rasmdagi savolga javob yozing.")
-        block.append(f"a) {OPEN_SINGLE_PROMPT} => {right}")
+        block.append(f"a) {OPEN_SINGLE_PROMPT} => " + " | ".join(answer_variants(right)))
         blocks.append("\n".join(block))
     return closed, "\n---\n".join(blocks), errors, warnings
 
@@ -667,6 +694,8 @@ def parse_closed_strict(text: str):
                 pending_img = None
                 continue
 
+        if cur is None and not questions:
+            continue        # birinchi savoldan oldingi sarlavha/izoh qatorlari (fayl nomi, mavzu) tashlanadi
         if cur is None or cur["ans"] is not None:
             errors.append(f"Raqamsiz matn: «{line[:40]}» (savol «1.» kabi raqamdan boshlanishi kerak).")
             continue
