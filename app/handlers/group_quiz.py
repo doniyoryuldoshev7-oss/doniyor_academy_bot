@@ -567,6 +567,7 @@ async def _stop_poll_quietly(bot, chat_id, message_id) -> None:
 async def _finish_group_quiz_locked(bot, gid: int) -> bool:
     participants = []
     names: dict[int, str] = {}
+    tg_ids: dict[int, int] = {}  # guruhda ismlar yashirin: natija shaxsiy xabarda
     chat_id = None
     topic_name = "Test"
     total_questions = 0
@@ -628,6 +629,7 @@ async def _finish_group_quiz_locked(bot, gid: int) -> bool:
 
             if user:
                 names[participant.user_id] = user.full_name or ""
+                tg_ids[participant.user_id] = user.telegram_id
                 user.total_tests += 1
                 user.total_questions += total_questions
                 user.correct_answers += participant.score
@@ -657,24 +659,49 @@ async def _finish_group_quiz_locked(bot, gid: int) -> bool:
     _cancel_timer(gid)
     await _stop_poll_quietly(bot, chat_id, last_message_id)
 
-    rows = []
-
-    for index, participant in enumerate(participants, 1):
-        name = names.get(participant.user_id) or str(participant.user_id)
-
-        medal = ["🥇", "🥈", "🥉"][index - 1] if index <= 3 else f"{index}."
-
-        rows.append(
-            f"{medal} <b>{html.escape(name or 'Foydalanuvchi')}</b> — "
-            f"{participant.score}/{total_questions}"
+    # Guruhda ismlar yashirin: faqat umumiy natija; har kimga o'z natijasi shaxsiy xabarda
+    scores = [p.score for p in participants]
+    if scores:
+        avg = sum(scores) / len(scores)
+        summary = (
+            f"📊 O'rtacha natija: <b>{avg:.1f}/{total_questions}</b>\n"
+            f"⭐ Eng yuqori natija: <b>{max(scores)}/{total_questions}</b>\n\n"
+            "🔒 Ishtirokchilarning ismi va natijasi guruhda ko'rsatilmaydi. "
+            "Har biringizga o'z natijangiz va o'rningiz shaxsiy xabarda yuborildi."
         )
+    else:
+        summary = "Hali hech kim javob bermadi."
 
     text = (
         "🏆 <b>GURUH TESTI NATIJASI</b>\n\n"
         f"📚 <b>{html.escape(topic_name)}</b>\n"
         f"👥 Ishtirokchilar: <b>{len(participants)}</b>\n\n"
-        + ("\n".join(rows) if rows else "Hali hech kim javob bermadi.")
+        + summary
     )
+
+    not_reached = 0
+    for participant in participants:
+        tid = tg_ids.get(participant.user_id)
+        if not tid:
+            continue
+        rank = 1 + sum(1 for s in scores if s > participant.score)
+        try:
+            await bot.send_message(
+                tid,
+                "🏆 <b>Guruh testi natijangiz</b>\n\n"
+                f"📚 {html.escape(topic_name)}\n"
+                f"✅ Natija: <b>{participant.score}/{total_questions}</b>\n"
+                f"🏅 O'rningiz: <b>{rank}</b> / {len(participants)}\n\n"
+                "🔒 Natijangizni faqat siz va ustozingiz ko'radi.",
+            )
+        except Exception:
+            not_reached += 1
+        await asyncio.sleep(0.05)
+    if not_reached:
+        text += (
+            f"\n\nℹ️ {not_reached} kishiga xabar yetmadi: natijani olish uchun botga "
+            "shaxsiy chatda /start bosing."
+        )
 
     try:
         await bot.send_message(chat_id, text[:4000])
