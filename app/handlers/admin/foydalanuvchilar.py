@@ -450,6 +450,11 @@ async def admin_user_detail(c: CallbackQuery):
     safe_username = html.escape(user.username or "-")
     safe_phone = html.escape(user.phone_number or "-")
     safe_group = html.escape(user.group_name or "-")
+    try:
+        from ..royxat import _get_exam_goal as _rg_goal
+        safe_goal = html.escape(await _rg_goal(user.telegram_id) or "-")
+    except Exception:
+        safe_goal = "-"
 
     text = (
         "<b>\U0001f464 FOYDALANUVCHI MA'LUMOTLARI</b>\n\n"
@@ -457,6 +462,7 @@ async def admin_user_detail(c: CallbackQuery):
         f"\U0001f4f1 Username: @{safe_username}\n"
         f"\U0001f194 Telegram ID: <code>{user.telegram_id}</code>\n"
         f"\U0001f465 Guruh: {safe_group}\n"
+        f"\U0001f3af Maqsad: {safe_goal}\n"
         f"\U0001f4cc Holat: <b>{html.escape(status)}</b>\n"
         f"\U0001f512 Hisob: <b>{blocked}</b>"
     )
@@ -502,14 +508,9 @@ async def admin_user_detail(c: CallbackQuery):
         )
 
     if user.registration_status != "rejected":
-        buttons.append(
-            [
-                InlineKeyboardButton(
-                    text="\u274c Rad etish",
-                    callback_data=f"adm:reject_user:{user.telegram_id}",
-                )
-            ]
-        )
+        # Guruhga biriktirish va rad etish shablonlari (ro'yxatdan o'tish arizasidagi kabi)
+        from ..royxat import card_buttons as _rg_card
+        buttons.extend(_rg_card(user.telegram_id, is_admin(user.telegram_id)))
 
     if user.is_blocked:
         buttons.append(

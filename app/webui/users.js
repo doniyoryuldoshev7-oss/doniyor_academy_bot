@@ -54,8 +54,10 @@
     if (!c.complete) nodes.push(el("div", { class: "hint" }, "⚠️ Ariza to'liq emas. Foydalanuvchi botda /start orqali ro'yxatdan o'tishi kerak."));
     if (c.is_admin) nodes.push(el("div", { class: "hint" }, "🛡 Bu foydalanuvchi admin."));
     const here = () => userCard(tg);
+    if (OQ.guruh) { try { nodes.push(...(await OQ.guruh.infoBox(c))); } catch (e) { /* ixtiyoriy */ } }
     if (c.can_approve) nodes.push(btn("", "✅ Tasdiqlash", () => act("approve", tg, "Foydalanuvchi tasdiqlandi."), "check"));
-    if (c.can_reject) nodes.push(btn("alt", "❌ Rad etish", () => confirmSheet("Arizani rad etasizmi?", `${c.name}ga rad etilgani haqida xabar boradi.`, "Ha, rad etish", () => act("reject", tg, "Foydalanuvchi rad etildi."))));
+    if (OQ.guruh) { try { nodes.push(...(await OQ.guruh.actionBox(c, here))); } catch (e) { /* ixtiyoriy */ } }
+    else if (c.can_reject) nodes.push(btn("alt", "❌ Rad etish", () => confirmSheet("Arizani rad etasizmi?", `${c.name}ga rad etilgani haqida xabar boradi.`, "Ha, rad etish", () => act("reject", tg, "Foydalanuvchi rad etildi."))));
     if (c.blocked) nodes.push(btn("alt", "🔓 Blokdan chiqarish", () => act("unblock", tg, "Foydalanuvchi blokdan chiqarildi.")));
     else if (c.can_block) nodes.push(btn("alt", "🚫 Bloklash", () => confirmSheet("Bloklaysizmi?", `${c.name} botdan foydalana olmaydi.`, "Ha, bloklash", () => act("block", tg, "Foydalanuvchi bloklandi."))));
     if (OQ.usersX) { try { nodes.push(...(await OQ.usersX.roleBox(c, here))); } catch (e) { /* huquq bloki ixtiyoriy */ } }

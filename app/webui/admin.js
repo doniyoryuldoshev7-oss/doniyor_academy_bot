@@ -29,6 +29,7 @@
     if (ME.admin) t.push(menuTile("users", "g", "Ustozlar", "Ustozlarni boshqarish", () => (OQ.adminTeachers ? OQ.adminTeachers(admin) : soon("Ustozlar"))));
     if (ME.admin || ME.teacher) t.push(menuTile("list", "b", "Ustoz topshirig'i", "Topshiriqlar va natijalari", () => (OQ.adminAssign ? OQ.adminAssign(admin) : soon("Ustoz topshirig'i"))));
     if (ME.admin) t.push(menuTile("users", "b", "Foydalanuvchilar", "Ro'yxat, tasdiqlash, bloklash", () => (OQ.adminUsers ? OQ.adminUsers(true) : soon("Foydalanuvchilar"))));
+    if (ME.admin) t.push(menuTile("users", "o", "Guruhlar", "Guruhlar va o'quvchilarni ajratish", () => (OQ.guruh ? OQ.guruh.home() : soon("Guruhlar"))));
     if (ME.admin) t.push(menuTile("chart", "o", "O'quvchilar natijasi", "Hisobotlar va tarix", () => (OQ.adminReports ? OQ.adminReports(admin) : soon("O'quvchilar natijasi"))));
     if (ME.admin) t.push(menuTile("chart", "p", "Savollar sifati", "Shubhali va qiyin savollar", () => (OQ.quality ? OQ.quality(admin) : soon("Savollar sifati"))));
     if (ME.admin) t.push(menuTile("chart", "g", "Statistika", "Tizim statistikasi", () => (OQ.adminStats ? OQ.adminStats() : soon("Statistika"))));

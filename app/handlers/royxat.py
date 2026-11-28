@@ -460,13 +460,28 @@ async def on_again(c: CallbackQuery, state: FSMContext):
 # ---------------------------------------------------------------
 #  Admin: rad etish (shablon yoki o'z so'zi) va guruhga biriktirish
 # ---------------------------------------------------------------
-async def _reject(bot, tid: int, reason: str) -> tuple[bool, str]:
+def card_buttons(tid: int, target_is_admin: bool) -> list:
+    """Admin paneldagi foydalanuvchi kartasi uchun: guruhga biriktirish va rad etish shablonlari."""
+    if target_is_admin:
+        return []
+    return [
+        [InlineKeyboardButton(text="👥 Guruhga biriktirish", callback_data=f"rg:sg:{tid}")],
+        [InlineKeyboardButton(text=REJECT_BTN["ism"], callback_data=f"rg:R:{tid}:ism"),
+         InlineKeyboardButton(text=REJECT_BTN["fam"], callback_data=f"rg:R:{tid}:fam")],
+        [InlineKeyboardButton(text=REJECT_BTN["alm"], callback_data=f"rg:R:{tid}:alm"),
+         InlineKeyboardButton(text=REJECT_BTN["gur"], callback_data=f"rg:R:{tid}:gur")],
+        [InlineKeyboardButton(text="✍️ O'z so'zim bilan rad etish", callback_data=f"rg:RC:{tid}")],
+    ]
+
+
+async def _reject(bot, tid: int, reason: str, force: bool = False) -> tuple[bool, str]:
+    """force=True: admin paneldagi kartadan (tasdiqlangan o'quvchini ham rad etish mumkin, eski «Rad etish» kabi)."""
     async with SessionLocal() as s:
         user = await s.scalar(select(User).where(User.telegram_id == tid))
         if user is None:
             return False, "Foydalanuvchi topilmadi."
-        if user.registration_status == "approved":
-            return False, "Bu o'quvchi allaqachon tasdiqlangan."
+        if user.registration_status == "approved" and not force:
+            return False, "Bu o'quvchi allaqachon tasdiqlangan. Kerak bo'lsa, admin paneldagi kartasidan rad eting."
         user.registration_status = "rejected"
         name = user.full_name or "o'quvchi"
         await s.commit()
@@ -483,11 +498,11 @@ async def _reject(bot, tid: int, reason: str) -> tuple[bool, str]:
 async def on_reject_tpl(c: CallbackQuery):
     if not _is_admin(c.from_user.id):
         return await c.answer()
-    _, _, tid, code = c.data.split(":")
+    _, kind, tid, code = c.data.split(":")
     reason = REJECT.get(code)
     if not reason:
         return await c.answer()
-    ok, msg = await _reject(c.bot, int(tid), reason)
+    ok, msg = await _reject(c.bot, int(tid), reason, force=(kind == "R"))
     await c.answer(msg, show_alert=not ok)
     if ok:
         try:
@@ -501,7 +516,7 @@ async def on_reject_custom(c: CallbackQuery, state: FSMContext):
         return await c.answer()
     tid = int(c.data.split(":")[2])
     await state.set_state(AdminRoyxat.sabab)
-    await state.update_data(rg_tid=tid)
+    await state.update_data(rg_tid=tid, rg_force=c.data.startswith("rg:RC:"))
     await c.answer()
     await c.message.answer(
         "✍️ O'quvchiga yuboriladigan sababni yozing (masalan: «Familiyangizni to'liq yozing»).\n"
@@ -523,7 +538,8 @@ async def on_reject_custom_text(message: Message, state: FSMContext):
     if not tid:
         await message.answer("Qaysi o'quvchi ekani topilmadi. Arizadagi tugmani qayta bosing.")
         return
-    ok, msg = await _reject(message.bot, int(tid), "Ustozingiz izohi: «" + html.escape(txt[:500]) + "»")
+    ok, msg = await _reject(message.bot, int(tid), "Ustozingiz izohi: «" + html.escape(txt[:500]) + "»",
+                            force=bool(data.get("rg_force")))
     await message.answer(("❌ " if ok else "⚠️ ") + msg)
 
 
@@ -636,6 +652,24 @@ def _split_names(raw: str) -> list[str]:
     return [n for n in names if n and len(n) <= 40 and not n.startswith("/")]
 
 
+async def goal_counts() -> list[tuple[str, int]]:
+    """Imtihon maqsadi bo'yicha o'quvchilar soni (tasdiqlangan va kutayotganlar, adminlarsiz)."""
+    await ensure_schema()
+    async with engine.connect() as conn:
+        rows = (await conn.execute(text(
+            "SELECT telegram_id, exam_goal FROM users "
+            "WHERE registration_status IN ('approved', 'pending') "
+            "AND (is_blocked IS NULL OR is_blocked = :f)"
+        ), {"f": False})).fetchall()
+    out: dict[str, int] = {}
+    for tid, goal in rows:
+        if tid in settings.admins:
+            continue
+        g = (goal or "").strip() or "Ko'rsatilmagan"
+        out[g] = out.get(g, 0) + 1
+    return sorted(out.items(), key=lambda kv: (kv[0] == "Ko'rsatilmagan", -kv[1], kv[0]))
+
+
 async def _render_home(target, state: FSMContext, edit: bool = False):
     groups = await _groups()
     counts = dict(await _user_groups())
@@ -665,6 +699,10 @@ async def _render_home(target, state: FSMContext, edit: bool = False):
         lines += ["", "✍️ <b>O'quvchilar o'zi yozgan, ro'yxatda yo'q guruhlar:</b>"]
         lines += [f"• {html.escape(n)} — {c} ta" for n, c in custom[:10]]
         lines.append("Bitta tugma bilan ro'yxatga qo'shasiz; o'xshash yozilganlar (175 guruh, 175-guruh) bitta guruhga birlashadi.")
+    goals = await goal_counts()
+    if goals:
+        lines += ["", "🎯 <b>Tarix qaysi imtihon uchun kerak:</b>"]
+        lines += [f"• {html.escape(g)} — {n} ta" for g, n in goals[:12]]
     await _say(target, "\n".join(lines), _kb(rows), edit)
 
 
@@ -991,8 +1029,8 @@ def setup(router: Router) -> None:
     router.callback_query.register(on_again, F.data == "rg:again")
     # admin: ariza
     router.message.register(on_reject_custom_text, AdminRoyxat.sabab)
-    router.callback_query.register(on_reject_tpl, F.data.startswith("rg:r:"))
-    router.callback_query.register(on_reject_custom, F.data.startswith("rg:rc:"))
+    router.callback_query.register(on_reject_tpl, F.data.startswith("rg:r:") | F.data.startswith("rg:R:"))
+    router.callback_query.register(on_reject_custom, F.data.startswith("rg:rc:") | F.data.startswith("rg:RC:"))
     router.callback_query.register(on_set_group_menu, F.data.startswith("rg:sg:"))
     router.callback_query.register(on_set_group, F.data.startswith("rg:ss:"))
     # admin: guruhlar paneli
