@@ -826,6 +826,7 @@ async def _manage_view(c: CallbackQuery, exam_id: int, note: str | None = None):
             InlineKeyboardButton(text="📊 Natijalar", callback_data=f"exm:res:{exam_id}:0"),
             InlineKeyboardButton(text="📉 Qiyin savollar", callback_data=f"exm:hard:{exam_id}"),
         ],
+        [InlineKeyboardButton(text="✍️ Yozma javoblarni tekshirish", callback_data=f"exm:yz:{exam_id}")],
         [InlineKeyboardButton(
             text="🔒 Yopish (tahlil ochiladi)" if open_now else "🔓 Qayta ochish",
             callback_data=f"exm:cl:{exam_id}",
@@ -905,6 +906,129 @@ async def cb_hard(c: CallbackQuery):
     lines.append("\nShu mavzularni darsda takrorlash foydali.")
     await show(c, "\n".join(lines), kb([[InlineKeyboardButton(text="⬅️ Orqaga", callback_data=f"exm:m:{eid}")]]))
     await c.answer()
+
+
+# ---------------- yozma javoblarni ustoz tekshiradi (veb-ilovadagi bilan bir xil servis) ----------------
+async def _open_groups(exam):
+    from ..services.imtihon import open_answer_groups
+
+    async with SessionLocal() as session:
+        items, results = await exam_results(session, exam)
+    return open_answer_groups(items, [attempt_answers(r.attempt) for r in results]), len(results)
+
+
+@router.callback_query(F.data.regexp(r"^exm:yz:\d+$"))
+async def cb_open_review(c: CallbackQuery):
+    """Yozma qismlar ro'yxati: har birida nechta ko'rib chiqiladigan yozilish bor."""
+    if not await gate(c):
+        return
+    eid = int(c.data.split(":")[2])
+    exam = await _load_exam(c, eid)
+    if exam is None:
+        return
+    parts, count = await _open_groups(exam)
+    if not parts:
+        await c.answer("Bu imtihonda yozma savol yo'q.", show_alert=True)
+        return
+    if not count:
+        await c.answer("Hali hech kim topshirmagan.", show_alert=True)
+        return
+    pending = sum(len(p["wrong"]) for p in parts)
+    lines = [f"✍️ <b>Yozma javoblarni tekshirish</b>\n{esc(short(exam.title, 40))}\n",
+             f"👥 Topshirganlar: <b>{count}</b> · 🔎 ko'rib chiqiladigan yozilishlar: <b>{pending}</b>\n",
+             "Avtomatik to'g'ri deb topilmagan javoblar. «✅» bosilsa — shu yozilish SHU imtihonda to'g'ri hisoblanadi "
+             "va shunday yozgan hammaning bali qayta hisoblanadi. Savollar bazasi o'zgarmaydi."]
+    rows = []
+    for i, p in enumerate(parts[:40]):
+        tag = f"{p['pos']}-savol" + (f", {'abcd'[p['part']]})" if len([x for x in parts if x['pos'] == p['pos']]) > 1 else "")
+        rows.append([InlineKeyboardButton(text=f"{tag} — {len(p['wrong'])} ta" + (f" · +{len(p['ax'])}" if p["ax"] else ""),
+                                          callback_data=f"exm:yp:{eid}:{i}")])
+    rows.append([InlineKeyboardButton(text="⬅️ Orqaga", callback_data=f"exm:m:{eid}")])
+    await show(c, "\n".join(lines), kb(rows))
+    await c.answer()
+
+
+async def _open_part_view(c: CallbackQuery, exam, pi: int, note: str | None = None):
+    parts, _count = await _open_groups(exam)
+    if pi >= len(parts):
+        await c.answer("Qism topilmadi.", show_alert=True)
+        return
+    p = parts[pi]
+    lines = [f"✍️ <b>{p['pos']}-savol" + (f", {'abcd'[p['part']]})" if p["q"] and p["q"] != "Javobingizni yozing" else "") + "</b>",
+             esc(short(p["q"], 300)) if p["q"] and p["q"] != "Javobingizni yozing" else "",
+             f"✅ To'g'ri javob: <b>{esc(' / '.join(p['a'][:5]))}</b>",
+             f"To'g'ri yechganlar: {p['ok']} ta"]
+    rows = []
+    if p["ax"]:
+        lines.append("\n➕ <b>Qo'shimcha qabul qilinganlar</b> (bekor qilish uchun bosing):")
+        for xi, x in enumerate(p["ax"][:15]):
+            lines.append(f"  {xi + 1}) «{esc(short(x, 60))}»")
+            rows.append([InlineKeyboardButton(text=f"↩️ Bekor: {xi + 1}) {short(x, 30)}", callback_data=f"exm:yu:{exam.id}:{pi}:{xi}")])
+    if p["wrong"]:
+        lines.append("\n🔎 <b>Ko'rib chiqiladigan javoblar</b> (to'g'ri bo'lsa, ✅ ni bosing):")
+        for wi, w in enumerate(p["wrong"][:20]):
+            lines.append(f"  {wi + 1}) «{esc(short(w['text'], 60))}» — {w['count']} kishi")
+            rows.append([InlineKeyboardButton(text=f"✅ {wi + 1}) {short(w['text'], 30)} ({w['count']})", callback_data=f"exm:ya:{exam.id}:{pi}:{wi}")])
+        if len(p["wrong"]) > 20:
+            lines.append(f"  … va yana {len(p['wrong']) - 20} ta (avval shularni ko'rib chiqing)")
+    else:
+        lines.append("\nKo'rib chiqiladigan javob yo'q.")
+    rows.append([InlineKeyboardButton(text="⬅️ Qismlar ro'yxati", callback_data=f"exm:yz:{exam.id}")])
+    await show(c, "\n".join(x for x in lines if x is not None)[:3900], kb(rows))
+    await c.answer(note, show_alert=bool(note))
+
+
+@router.callback_query(F.data.regexp(r"^exm:yp:\d+:\d+$"))
+async def cb_open_part(c: CallbackQuery):
+    if not await gate(c):
+        return
+    _a, _b, eid, pi = c.data.split(":")
+    exam = await _load_exam(c, int(eid))
+    if exam is not None:
+        await _open_part_view(c, exam, int(pi))
+
+
+@router.callback_query(F.data.regexp(r"^exm:y[au]:\d+:\d+:\d+$"))
+async def cb_open_accept(c: CallbackQuery):
+    """exm:ya — yozilishni qabul qilish, exm:yu — qo'shimcha qabulni bekor qilish."""
+    from ..models import ExamItem
+    from ..services.imtihon import toggle_extra_variant
+
+    if not await gate(c):
+        return
+    _a, act, eid, pi, wi = c.data.split(":")
+    eid, pi, wi = int(eid), int(pi), int(wi)
+    exam = await _load_exam(c, eid)
+    if exam is None:
+        return
+    parts, _count = await _open_groups(exam)
+    if pi >= len(parts):
+        await c.answer("Ro'yxat o'zgargan. Qayta oching.", show_alert=True)
+        return
+    p = parts[pi]
+    pool = [w["text"] for w in p["wrong"][:20]] if act == "ya" else list(p["ax"][:15])
+    if wi >= len(pool):
+        await c.answer("Ro'yxat o'zgargan. Qayta oching.", show_alert=True)
+        return
+    text = pool[wi]
+    async with SessionLocal() as session:
+        row = await session.scalar(
+            select(ExamItem).where(ExamItem.exam_id == eid, ExamItem.position == p["pos"]).with_for_update())
+        if row is None:
+            await c.answer("Savol topilmadi.", show_alert=True)
+            return
+        try:
+            payload = json.loads(row.payload)
+        except ValueError:
+            await c.answer("Savol ma'lumoti buzilgan.", show_alert=True)
+            return
+        changed, note = toggle_extra_variant(payload, p["part"], text, act == "ya")
+        if changed:
+            row.payload = json.dumps(payload, ensure_ascii=False)
+            await session.commit()
+    if changed:
+        log.info("bot: imtihon %s, %s: %s «%s» (%s)", eid, p["key"], "qabul" if act == "ya" else "bekor", text[:60], c.from_user.id)
+    await _open_part_view(c, exam, pi, note=f"«{short(text, 40)}»: {note}")
 
 
 @router.callback_query(F.data.regexp(r"^exm:cl:\d+$"))

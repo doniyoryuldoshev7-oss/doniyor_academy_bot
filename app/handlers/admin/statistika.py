@@ -112,10 +112,12 @@ async def admin_statistics(c: CallbackQuery):
         "────────────────────"
     )
 
-    # Statistika oynasining tagida faqat orqaga qaytish (Bekor qilish) tugmasi turadi
+    # Statistika ostida: aniqlik tekshiruvi (veb-ilovadagi bilan bir xil) va orqaga
+    _markup = cancel_kb()
+    _markup.inline_keyboard.insert(0, [InlineKeyboardButton(text="🔎 Aniqlikni tekshirish", callback_data="adm:audit")])
     await c.message.edit_text(
         stats_text,
-        reply_markup=cancel_kb(),  # Sizda bor bo'lgan cancel_kb() funksiyasini chaqiramiz
+        reply_markup=_markup,
         parse_mode="HTML",
     )
     await c.answer()
@@ -375,3 +377,31 @@ async def delete_subject_menu(c: CallbackQuery):
     )
 
     await c.answer()
+
+
+@router.callback_query(F.data == "adm:audit")
+async def admin_audit(c: CallbackQuery):
+    """Aniqlik tekshiruvi: profil hisoblagichlari test tarixi bilan solishtiriladi (veb-ilovadagi bilan bir xil servis)."""
+    if not is_admin(c.from_user.id):
+        return
+    await c.answer("Tekshirilmoqda…")
+    from ...webapp_users import audit_report
+
+    try:
+        r = await audit_report()
+    except Exception:
+        logging.getLogger(__name__).exception("Aniqlik tekshiruvi xatosi")
+        await c.message.answer("❌ Tekshirib bo'lmadi. Keyinroq qayta urinib ko'ring.")
+        return
+    lines = ["🔎 <b>Aniqlik tekshiruvi</b>", f"Foydalanuvchilar: <b>{r['users']}</b>\n"]
+    if r["ok"]:
+        lines.append("✅ <b>Hammasi to'g'ri.</b> Profil hisoblagichlari test tarixi bilan bir xil, javob yozuvlari ham mos.")
+    else:
+        lines.append(f"• Hisoblagichi test tarixidan farq qiladigan foydalanuvchilar: <b>{r['mismatch']}</b>")
+        lines.append(f"• Noto'g'ri test yozuvlari (to'g'ri > jami yoki jami ≤ 0): <b>{r['bad_attempts']}</b>")
+        lines.append(f"• To'g'ri javoblar soni javob yozuvlariga mos kelmagan testlar: <b>{r['log_mismatch']}</b>")
+        lines.append(f"• Javob yozuvlari savollar sonidan ko'p bo'lgan testlar: <b>{r['log_overflow']}</b>")
+        for x in r["samples"][:8]:
+            lines.append(f"  – {html.escape(str(x['name']))}: profil {x['counter'][1]}/{x['counter'][2]}, tarix {x['real'][1]}/{x['real'][2]} (savol/to'g'ri)")
+        lines.append("\nBatafsil ro'yxat veb-ilovada: Admin → Foydalanuvchilar → Statistika → Aniqlikni tekshirish.")
+    await c.message.edit_text("\n".join(lines)[:3900], reply_markup=cancel_kb(), parse_mode="HTML")

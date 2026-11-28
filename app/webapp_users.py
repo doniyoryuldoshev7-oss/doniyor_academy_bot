@@ -359,6 +359,11 @@ def compare_counters(users, agg) -> list:
 
 async def api_u_audit(request):
     await _admin(request)
+    return web.json_response(await audit_report())
+
+
+async def audit_report() -> dict:
+    """Aniqlik tekshiruvi: profil hisoblagichlari va test tarixi solishtiriladi (bot va veb-ilova uchun bitta)."""
     async with SessionLocal() as s:
         users = (await s.execute(select(User.id, User.telegram_id, User.full_name, User.total_tests,
                                         User.total_questions, User.correct_answers, User.total_score))).all()
@@ -393,11 +398,11 @@ async def api_u_audit(request):
                             "total": int(r[2] or 0), "correct": int(r[3] or 0), "source": r[4] or "quiz",
                             "when": _fmt(r[5]) if r[5] else "", "log_n": int(r[6] or 0), "log_ok": int(r[7] or 0)} for r in lrows]
     diffs = compare_counters(users, agg)
-    return web.json_response({
+    return {
         "users": len(users), "mismatch": len(diffs), "samples": diffs[:SAMPLE],
         "bad_attempts": bad_attempts, "log_mismatch": log_mismatch, "log_overflow": log_overflow, "log_samples": log_samples,
         "ok": not diffs and not bad_attempts and not log_mismatch and not log_overflow,
-    })
+    }
 
 
 def setup(app: web.Application) -> None:

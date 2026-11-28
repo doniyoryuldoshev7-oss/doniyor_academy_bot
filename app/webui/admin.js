@@ -194,6 +194,7 @@
       if (busy) return; busy = true;
       const body = { text: text.value, correct, explanation: expl.value };
       for (const l of "abcd") body[l] = opt[l].value;
+      if (!e && imgName) body.image = imgName;
       try {
         if (e) { body.id = e.id; await api("/api/g/question_edit", { method: "POST", body: JSON.stringify(body) }); toast("Savol saqlandi"); (c.back)(); }
         else {
@@ -203,6 +204,25 @@
       } catch (err) { toast(err.message); } finally { busy = false; }
     };
     const nodes = [];
+    /* Yangi savolga rasm (botdagi «Bitta savol qo'shish» kabi): savol matni va variantlar rasmda bo'lsa, maydonlarni bo'sh qoldiring */
+    let imgName = "";
+    const imgBox = el("div", {});
+    const pick = el("input", { type: "file", accept: "image/*", style: "display:none" });
+    const paintImg = () => imgBox.replaceChildren(imgName
+      ? el("div", { class: "card" }, el("div", { class: "hint" }, "🖼 Rasm qo'shildi. Savol va variantlar rasmda bo'lsa, quyidagi maydonlarni bo'sh qoldiring — faqat to'g'ri javobni tanlang."),
+          btn("alt", "Rasmni olib tashlash", () => { imgName = ""; paintImg(); }, "alert"))
+      : btn("alt", "🖼 Rasm qo'shish (ixtiyoriy)", () => pick.click(), "upload"));
+    pick.addEventListener("change", async () => {
+      const f = pick.files[0]; if (!f) return;
+      try {
+        const res = await fetch("/api/import/image", { method: "POST", headers: { "X-Init-Data": (window.Telegram && Telegram.WebApp && Telegram.WebApp.initData) || "" }, body: f });
+        const d = await res.json().catch(() => null);
+        if (!res.ok) throw new Error((d && d.error) || "Rasm yuklanmadi");
+        imgName = d.name; paintImg(); toast("Rasm qo'shildi");
+      } catch (err) { toast(err.message); }
+      pick.value = "";
+    });
+    if (!e) { paintImg(); nodes.push(imgBox, pick); }
     if (imageOnly) nodes.push(el("div", { class: "hint" }, "Rasmli savol: faqat to'g'ri javob va izohni o'zgartirish mumkin."));
     else nodes.push(text, ...["a", "b", "c", "d"].map((l) => opt[l]));
     nodes.push(el("div", { class: "hint", style: "margin-top:8px" }, "To'g'ri javob:"), chips);
@@ -277,7 +297,37 @@
     if (!ME.admin) return admin();
     screen("Export / Import", "Kerakli amalni tanlang:", admin, tiles(
       menuTile("upload", "b", "Excel/CSV import", "Fayldan savol yuklash", () => { S.importBack = eximHub; importScreen(); }),
+      menuTile("list", "g", "Ustunli jadval import", "Fan | Mavzu | Savol rasmi | Savol turi…", tableImport),
       menuTile("book", "o", "Word eksport", "Javobli yoki javobsiz", () => (OQ.wordExport ? OQ.wordExport(eximHub) : soon("Word eksport")))));
+  }
+  /* Botdagi «📥 Excel/CSV import» bilan bir xil: ustunli jadval (rasm nomi, ochiq savol, to'g'ri javob matni) */
+  function tableImport() {
+    const pick = el("input", { type: "file", accept: ".xlsx,.csv", style: "display:none" });
+    const out = el("div", {});
+    let file = null;
+    const send = async (dry) => {
+      const res = await fetch("/api/g/table_import" + (dry ? "?dry=1" : ""), { method: "POST",
+        headers: { "X-Init-Data": (window.Telegram && Telegram.WebApp && Telegram.WebApp.initData) || "", "X-Filename": encodeURIComponent(file.name) }, body: file });
+      const d = await res.json().catch(() => null);
+      if (!res.ok) throw new Error((d && d.error) || "Import bajarilmadi");
+      return d;
+    };
+    pick.addEventListener("change", async () => {
+      file = pick.files[0]; pick.value = ""; if (!file) return;
+      let d;
+      try { d = await send(true); } catch (e) { return toast(e.message); }
+      const info = `Fayl: ${file.name}\nSavollar: ${d.count} ta (ochiq: ${d.open}, rasmli: ${d.images})\nFanlar: ${d.subjects.join(", ") || "—"}`;
+      if (!d.ok) return out.replaceChildren(el("div", { class: "card" }, el("b", {}, d.error_count ? `⚠️ Faylda ${d.error_count} ta xato — import bajarilmaydi` : "Import qilinadigan savol topilmadi"),
+        el("div", { class: "pre", style: "margin-top:6px" }, info), el("div", { class: "pre", style: "margin-top:6px;color:var(--r)" }, d.errors.map((x) => "• " + x).join("\n"))));
+      out.replaceChildren(el("div", { class: "card" }, el("b", {}, "✅ Fayl to'g'ri"), el("div", { class: "pre", style: "margin-top:6px" }, info),
+        btn("", `Saqlash (${d.count} ta savol)`, async () => {
+          try { const r = await send(false); toast(`Qo'shildi: ${r.added} ta savol`); out.replaceChildren(el("div", { class: "card" }, el("b", {}, `✅ Import muvaffaqiyatli: ${r.added} ta savol qo'shildi`), el("div", { class: "hint" }, "Fan va mavzular avtomatik bog'landi."))); }
+          catch (e) { toast(e.message); }
+        }, "check")));
+    });
+    screen("Ustunli jadval import", null, eximHub,
+      el("div", { class: "card pre hint" }, "Faylni .xlsx yoki .csv qilib tanlang.\n\nUstunlar:\nFan | Mavzu | Savol | Savol rasmi | A | B | C | D | Savol turi | To'g'ri javob | To'g'ri javob matni | Izoh\n\n• Savol turi: closed (A–D) yoki open (ochiq savol: «To'g'ri javob matni» majburiy).\n• Savol rasmi: serverdagi rasm fayli nomi.\n• Avval tekshiriladi, xato bo'lsa hech narsa saqlanmaydi."),
+      btn("", "📎 Fayl tanlash (.xlsx / .csv)", () => pick.click(), "upload"), pick, out);
   }
 
   OQ.admin = admin;

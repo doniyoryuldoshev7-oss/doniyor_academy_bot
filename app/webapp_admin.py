@@ -4,6 +4,7 @@ Savolni o'chirish botdagidek «yumshoq»: savol faol emas deb belgilanadi."""
 from __future__ import annotations
 
 import json
+import re
 import logging
 
 from aiohttp import web
@@ -275,15 +276,35 @@ async def api_g_question_add(request):
         tid = int(body.get("topic_id"))
     except (TypeError, ValueError):
         return _err("Mavzu tanlanmadi.")
-    f, e = clean_question(body)
+    # Rasm (ixtiyoriy): /api/import/image orqali yuklangan fayl nomi.
+    #  • matn va 4 variant yozilgan bo'lsa — rasmli oddiy savol;
+    #  • hammasi bo'sh bo'lsa — savol ham, variantlar ham rasmda (botdagi «rasmli savol» kabi), faqat to'g'ri harf.
+    image = str(body.get("image") or "").strip()
+    mode = "closed"
+    if image:
+        from .services.savol_import import _img_exists, image_ref
+
+        if not re.fullmatch(r"[A-Za-z0-9_.\-]{3,80}", image) or not _img_exists(image):
+            return _err("Rasm topilmadi. Qayta yuklang.")
+        filled = [bool(str(body.get(k) or "").strip()) for k in ("text", "a", "b", "c", "d")]
+        if not any(filled):
+            mode = "image"
+        elif not all(filled):
+            return _err("Rasmli savolda yo matn va 4 variantning hammasini yozing, yo hammasini bo'sh qoldiring (savol va variantlar rasmda bo'lsa).")
+    f, e = clean_question(body, require_all=(mode == "closed"))
     if e:
         return _err(e)
     async with SessionLocal() as s:
         t = await s.get(Topic, tid)
         if t is None:
             return _err("Mavzu topilmadi.", 404)
-        s.add(Question(topic_id=tid, text=f["text"], option_a=f["a"], option_b=f["b"], option_c=f["c"], option_d=f["d"],
-                       correct_option=f["correct"], explanation=f["explanation"], question_mode="closed"))
+        q = Question(topic_id=tid, text=f["text"], option_a=f["a"], option_b=f["b"], option_c=f["c"], option_d=f["d"],
+                     correct_option=f["correct"], explanation=f["explanation"], question_mode=mode)
+        if image:
+            q.image_path = image_ref(image)
+        if mode == "closed":
+            q.correct_answer = f[f["correct"].lower()]
+        s.add(q)
         await s.commit()
     return web.json_response({"ok": True})
 
@@ -370,8 +391,37 @@ async def api_g_question_delete(request):
     return web.json_response({"ok": True, "topic_id": tid})
 
 
+async def api_g_table_import(request):
+    """Ustunli Excel/CSV import (botdagi «📥 Excel/CSV import» bilan bir xil servis).
+    ?dry=1 — faqat tekshiradi; aks holda xato bo'lmasa saqlaydi (xato bo'lsa hech narsa saqlanmaydi)."""
+    from urllib.parse import unquote
+
+    from .services.jadval_import import parse_rows, read_rows, save_rows
+
+    _err, _ = _helpers()
+    await _admin(request)
+    data = await request.read()
+    if len(data) > 15 * 1024 * 1024:
+        return _err("Fayl juda katta (15 MB dan oshmasin).")
+    try:
+        rows = read_rows(unquote(request.headers.get("X-Filename", "")), data)
+        valid, errors = parse_rows(rows)
+    except ValueError as exc:
+        return _err(str(exc))
+    out = {"ok": not errors and bool(valid), "count": len(valid), "errors": errors[:30], "error_count": len(errors),
+           "subjects": sorted({v["subject"] for v in valid})[:20], "open": sum(1 for v in valid if v["mode"] == "open"),
+           "images": sum(1 for v in valid if v["image"])}
+    if request.query.get("dry") == "1" or errors or not valid:
+        return web.json_response(out)
+    added = await save_rows(valid)
+    log.info("veb: jadval import %s ta savol (%s)", added, request["tg_id"])
+    out["added"] = added
+    return web.json_response(out)
+
+
 def setup(app: web.Application) -> None:
     r = app.router
+    r.add_post("/api/g/table_import", api_g_table_import)
     r.add_get("/api/g/me", api_g_me)
     r.add_get("/api/g/tree", api_g_tree)
     r.add_get("/api/g/subjects", api_g_subjects)

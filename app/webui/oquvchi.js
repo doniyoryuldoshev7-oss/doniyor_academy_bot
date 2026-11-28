@@ -92,7 +92,14 @@
   /* ---------- markaziy menyular (botdagi tuzilma) ---------- */
   function testHub() {
     stopTimer(); closing(false);
-    screen("Sinov va imtihon", "Bilimingizni sinab ko'ring:", toOrigin,
+    const saved = loadQuiz();
+    const resume = saved ? el("div", { class: "card" },
+      el("b", {}, "⏸ Tugallanmagan test"),
+      el("div", { class: "hint", style: "margin:4px 0 8px" }, `${saved.topic.name} — javob berilgan: ${Object.keys(saved.ans).length} / ${saved.qs.length}`),
+      el("button", { class: "btn", onclick: () => { Object.assign(Q, saved, { busy: false }); closing(true); quizView(); } }, icon("play"), "Davom ettirish"),
+      el("button", { class: "btn alt", onclick: () => { Object.assign(Q, saved, { busy: false }); finishQuiz(); } }, "🏁 Tugatish va natijani saqlash"),
+      el("button", { class: "btn alt", onclick: () => confirmSheet("Test bekor qilinsinmi?", "Berilgan javoblar saqlanmaydi.", "Ha, bekor qilish", () => { clearQuiz(); testHub(); }) }, "🗑 Bekor qilish")) : null;
+    screen("Sinov va imtihon", "Bilimingizni sinab ko'ring:", toOrigin, resume,
       tiles(
         menuTile("book", "b", "Fanlar", "Fan va mavzu bo'yicha test", subjects),
         menuTile("clip", "o", "Milliy sertifikat", "Milliy sertifikat imtihoni", () => openTab("exams")),
@@ -151,12 +158,27 @@
   }
 
   const Q = { topic: null, qs: [], i: 0, ans: {}, busy: false };
+  /* Tugallanmagan testni shu qurilmada saqlash (botdagi «Davom ettirish» kabi): ilova yopilsa ham yo'qolmaydi */
+  const QKEY = () => "quiz_resume_v1_" + (((window.Telegram || {}).WebApp || {}).initDataUnsafe?.user?.id || "x");
+  function saveQuiz() {
+    try { localStorage.setItem(QKEY(), JSON.stringify({ topic: Q.topic, qs: Q.qs, i: Q.i, ans: Q.ans, from: Q.from || null, t: Date.now() })); } catch (e) {}
+  }
+  function clearQuiz() { try { localStorage.removeItem(QKEY()); } catch (e) {} }
+  function loadQuiz() {
+    try {
+      const x = JSON.parse(localStorage.getItem(QKEY()) || "null");
+      if (!x || !x.topic || !Array.isArray(x.qs) || !x.qs.length || Date.now() - (x.t || 0) > 24 * 3600 * 1000) { clearQuiz(); return null; }
+      x.i = Math.min(Math.max(0, x.i | 0), x.qs.length - 1); x.ans = x.ans || {};
+      return x;
+    } catch (e) { return null; }
+  }
 
   async function startQuiz(topicId, size, from) {
     let d;
     try { d = await api("/api/s/start", { method: "POST", body: JSON.stringify({ topic_id: topicId, size }) }); }
     catch (e) { return toast(e.message); }
     Object.assign(Q, { topic: d.topic, qs: d.questions, i: 0, ans: {}, busy: false, from: from || null });
+    saveQuiz();
     closing(true);
     quizView();
   }
@@ -172,9 +194,9 @@
       chip: `✅ ${right}/${vals.length}`,
       okText: "✅ To'g'ri!", badText: a ? `❌ Xato. To'g'ri javob: ${a.correct}` : "",
       onQuit: askQuit, onFinish: askQuit, onPick: quizPick,
-      onNext: () => (Q.i + 1 < total ? (Q.i++, quizView()) : finishQuiz()),
+      onNext: () => (Q.i + 1 < total ? (Q.i++, saveQuiz(), quizView()) : finishQuiz()),
       nextLabel: Q.i + 1 < total ? "Keyingi" : "Natijani ko'rish",
-      onSkip: Q.i + 1 < total ? () => { Q.i++; quizView(); } : null,
+      onSkip: Q.i + 1 < total ? () => { Q.i++; saveQuiz(); quizView(); } : null,
     });
   }
 
@@ -185,6 +207,7 @@
     try {
       const r = await api("/api/s/check", { method: "POST", body: JSON.stringify({ qid: q.id, sel: letter }) });
       Q.ans[q.id] = { sel: letter, ok: r.ok, correct: r.correct, e: r.e };
+      saveQuiz();
       notify(r.ok ? "success" : "error");
     } catch (e) { toast(e.message); }
     Q.busy = false;
@@ -192,7 +215,7 @@
   }
 
   async function finishQuiz() {
-    if (!Object.keys(Q.ans).length) { toast("Hali birorta savolga javob berilmadi."); closing(false); return testHub(); }
+    if (!Object.keys(Q.ans).length) { toast("Hali birorta savolga javob berilmadi."); clearQuiz(); closing(false); return testHub(); }
     wait(); backTo(null);
     let r;
     try {
@@ -200,6 +223,7 @@
         topic_id: Q.topic.id, qids: Q.qs.map((x) => x.id),
         answers: Object.entries(Q.ans).map(([qid, v]) => ({ qid: Number(qid), sel: v.sel })) }) });
     } catch (e) { toast(e.message); return quizView(); }
+    clearQuiz();
     closing(false);
     const fromAsg = Q.from === "asg" && window.OQ.assignments;
     const goBack = fromAsg ? () => window.OQ.assignments() : testHub;
