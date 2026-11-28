@@ -31,6 +31,7 @@ from ..services.savol_import import (
     IMG_RE,
     MAX_FILE,
     MAX_TEXT,
+    ACC_RE,
     SRC_RE,
     extract_text,
     image_ref,
@@ -147,7 +148,9 @@ HELP_ALL = (
     "\n"
     "🆕 <b>55 talik tayyor test fayli</b> ham bo'ladi: 1–55 hammasi oddiy test (A–D, to'g'ri javob "
     "<code>++</code> yoki <code>Javob: B</code>). Bot 1–35 ni yopiq savol qiladi, 36–55 ni esa ochiq "
-    "savolga aylantiradi: o'quvchi javobni o'zi yozadi, to'g'ri variant matni — to'g'ri javob.\n\n"
+    "savolga aylantiradi: o'quvchi javobni o'zi yozadi, to'g'ri variant matni — to'g'ri javob.\n"
+    "• To'g'ri javob bir nechta bo'lsa (36–55): <code>Qabul: Samarqand | Qarshi | Termiz</code> qatori — "
+    "istalgani to'g'ri hisoblanadi.\n\n"
     "Yuborgach «✅ Tayyor» ni bosing: bot ikkala qismni o'zi ajratadi va tekshiradi."
 )
 
@@ -408,7 +411,12 @@ def split55(buf: str):
         if q.get("image"):
             block.append(f"[rasm:{q['image']}]")
         block.append(stem or "Rasmdagi savolga javob yozing.")
-        block.append(f"a) {OPEN_SINGLE_PROMPT} => " + " | ".join(answer_variants(right)))
+        accepted = []
+        for a in [right] + [" ".join(x.split()).replace("|", "/").replace("=>", "→") for x in q.get("accept") or []]:
+            for v in answer_variants(a):
+                if v.casefold() not in {x.casefold() for x in accepted}:
+                    accepted.append(v)
+        block.append(f"a) {OPEN_SINGLE_PROMPT} => " + " | ".join(accepted))
         if q.get("explanation"):
             block.append("Izoh: " + q["explanation"])
         if q.get("source"):
@@ -672,7 +680,7 @@ def parse_closed_strict(text: str):
     pending_img = None
 
     def new_q(number, first):
-        q = {"n": number, "body": [first] if first else [], "opts": {}, "ans": None, "exp": [], "src": [], "meta": None,
+        q = {"n": number, "body": [first] if first else [], "opts": {}, "ans": None, "exp": [], "src": [], "acc": [], "meta": None,
              "img": pending_img}
         questions.append(q)
         return q
@@ -710,6 +718,9 @@ def parse_closed_strict(text: str):
             if exp or src:
                 cur["meta"] = "exp" if exp else "src"
                 cur[cur["meta"]].append((exp or src).group(1).strip())
+                continue
+            if ACC_RE.match(line):
+                cur["meta"] = "acc"           # yopiq savolda (1–35) kerak emas — e'tiborsiz qoldiriladi
                 continue
 
         start = _Q_START.match(line)
@@ -825,6 +836,18 @@ def split_open_meta(text: str):
             flush()
             cur, meta, mode = [], {"exp": [], "src": []}, None
             out.append(line)
+            continue
+        acc = ACC_RE.match(st)
+        if acc:                              # «Qabul: x | y» — oxirgi «=>» qatoriga muqobil javob qo'shiladi
+            from ..services.savol_import import split_accept
+
+            k = next((i for i in range(len(out) - 1, -1, -1) if "=>" in out[i] and not _SEP.match(out[i])), None)
+            if k is not None and out[k] in cur:
+                extra = [x.replace("|", "/").replace("=>", "→") for x in split_accept(acc.group(1))]
+                ci = len(cur) - 1 - cur[::-1].index(out[k])
+                out[k] = out[k].rstrip() + "".join(" | " + x for x in extra)
+                cur[ci] = out[k]
+            mode = None
             continue
         ex, sr = EXP_RE.match(st), SRC_RE.match(st)
         if ex or sr:

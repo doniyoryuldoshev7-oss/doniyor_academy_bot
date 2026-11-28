@@ -93,7 +93,8 @@ async def cb_upload(c: CallbackQuery, state: FSMContext):
         "• Fayl nomi — variant nomi. Shu nomli variant qayta yuklansa, yangilanadi.\n"
         "• Xato fayl saqlanmaydi, qolganlari saqlanadi.\n"
         "• <b>Izoh va manba</b> (ixtiyoriy): har savolning to'g'ri javobidan keyin "
-        "<code>Izoh: …</code> va <code>Manba: …</code> qatorlari — o'quvchi imtihon yopilgach tahlilda ko'radi.\n\n"
+        "<code>Izoh: …</code> va <code>Manba: …</code> qatorlari — o'quvchi imtihon yopilgach tahlilda ko'radi.\n"
+        "• 36–55 da to'g'ri javob bir nechta bo'lsa: <code>Qabul: Samarqand | Qarshi | Termiz</code> — istalgani qabul qilinadi.\n\n"
         "⚠️ Telegram botga 20 MB dan katta fayl yuborib bo'lmaydi. Katta zipni "
         "<b>veb-ilovadan</b> yuklang (60 MB gacha) yoki 2 ta zipga bo'ling.",
         kb([[B("⬅️ Orqaga", "mlv:l:0")]]),

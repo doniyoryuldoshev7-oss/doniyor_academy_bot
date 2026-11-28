@@ -46,6 +46,20 @@ EXP_RE = re.compile(r"^(?:izoh|tushuntirish|sharh|explanation)\s*[:\-–—]\s*(
 # «Manba: 8-sinf O'zbekiston tarixi, 52-bet» — izohning manbasi (o'quvchiga izoh bilan birga ko'rsatiladi)
 SRC_RE = re.compile(r"^(?:manba|manbaa|manbalar|source|источник)\s*[:\-–—]\s*(.*)$", re.I)
 
+# «Qabul: Samarqand | Qarshi | Termiz» — yozma javobga aylanadigan savolda boshqa to'g'ri javoblar
+ACC_RE = re.compile(
+    r"^(?:qabul(?:\s+qilinadi)?|boshqa\s+javoblar|muqobil\s+javoblar?|to['’ʻ`]?g['’ʻ`]?ri\s+javoblar)\s*[:\-–—]\s*(.*)$", re.I)
+
+
+def split_accept(text: str) -> list[str]:
+    """«Samarqand | Qarshi; Termiz, Toshkent» → ['Samarqand', 'Qarshi', 'Termiz', 'Toshkent']."""
+    out = []
+    for x in re.split(r"[|;,]", text or ""):
+        x = " ".join(x.split()).strip(" .")
+        if x and x.casefold() not in {y.casefold() for y in out}:
+            out.append(x)
+    return out
+
 
 def with_source(explanation, source):
     """Savollar bankida manba alohida ustun emas: izoh oxiriga «📚 Manba: …» qilib qo'shiladi."""
@@ -132,7 +146,7 @@ def _clean(text: str) -> str:
 # ---------------------------------------------------------------
 def _new(number, line):
     return {"number": number, "line": line, "stem": [], "opts": {}, "opt_order": [],
-            "marked": [], "answer": None, "exp": [], "src": [], "mode": "stem", "blank": False}
+            "marked": [], "answer": None, "exp": [], "src": [], "acc": [], "mode": "stem", "blank": False}
 
 
 def _finish(q, idx, out, errors):
@@ -170,6 +184,7 @@ def _finish(q, idx, out, errors):
         "correct": q["correct"],
         "explanation": " ".join(" ".join(q["exp"]).split()) or None,
         "source": " ".join(" ".join(q.get("src") or []).split()) or None,
+        "accept": split_accept(" | ".join(q.get("acc") or [])),
         "line": q["line"],
         "image": q.get("img"),
     })
@@ -233,6 +248,12 @@ def parse_closed(lines, base_line=1):
                 cur["mode"] = "src"
                 cur["blank"] = False
                 continue
+            m = ACC_RE.match(s)
+            if m:
+                cur["acc"].append(m.group(1))
+                cur["mode"] = "acc"
+                cur["blank"] = False
+                continue
 
         om = OPT_RE.match(s)
         if cur is not None and om and cur["mode"] in ("stem", "opt"):
@@ -258,7 +279,7 @@ def parse_closed(lines, base_line=1):
                 continue
 
         nm = NUM_RE.match(s)
-        if (nm and cur is not None and cur["mode"] in ("exp", "src") and int(nm.group(1)) != cur["number"] + 1
+        if (nm and cur is not None and cur["mode"] in ("exp", "src", "acc") and int(nm.group(1)) != cur["number"] + 1
                 and not STRONG_NUM_RE.match(s)):
             nm = None       # izoh ichidagi «395-yilda …» kabi qator yangi savol emas («14.» / «14)» esa yangi savol)
         complete = cur is not None and len(cur["opt_order"]) == 4
@@ -267,7 +288,7 @@ def parse_closed(lines, base_line=1):
             starts_new = True
         elif nm and (complete or int(nm.group(1)) == cur["number"] + 1):
             starts_new = True
-        elif complete and (cur["answer"] or cur["marked"] or cur["blank"]) and not nm and not (cur["mode"] in ("exp", "src") and not cur["blank"]):
+        elif complete and (cur["answer"] or cur["marked"] or cur["blank"]) and not nm and not (cur["mode"] in ("exp", "src", "acc") and not cur["blank"]):
             starts_new = True
         elif complete and nm:
             starts_new = True
@@ -304,6 +325,8 @@ def parse_closed(lines, base_line=1):
             cur["exp"].append(s)
         elif cur["mode"] == "src":
             cur["src"].append(s)
+        elif cur["mode"] == "acc":
+            cur["acc"].append(s)
         else:
             errors.append(f"{ln}-qator: tushunarsiz qator «{s[:40]}»")
 
