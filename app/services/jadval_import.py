@@ -1,7 +1,7 @@
 """Excel/CSV jadval importi (ustunli format) — bot («📥 Excel/CSV import») va veb-ilova uchun BITTA servis.
 
 Ustunlar (sarlavha qatori bo'yicha, tartib ixtiyoriy):
-    Fan | Mavzu | Savol | Savol rasmi | A | B | C | D | Savol turi | To'g'ri javob | To'g'ri javob matni | Izoh
+    Fan | Mavzu | Savol | Savol rasmi | A | B | C | D | Savol turi | To'g'ri javob | To'g'ri javob matni | Izoh | Manba
 
 • Savol turi: closed (yopiq, A–D) yoki open (ochiq: «To'g'ri javob matni» majburiy).
 • Savol rasmi: serverdagi app/question_images ichidagi fayl nomi.
@@ -41,6 +41,7 @@ ALIASES = {
     "correct_answer": {"to'g'ri javob matni", "tog'ri javob matni", "togri javob matni", "correct answer text",
                        "correct_answer", "answer text", "javob matni"},
     "izoh": {"izoh", "explanation", "comment"},
+    "manba": {"manba", "source", "manbaa"},
 }
 
 
@@ -111,7 +112,9 @@ def parse_rows(rows) -> tuple[list[dict], list[str]]:
         mode = cell(row, "mode").lower() or "closed"
         correct = cell(row, "correct").upper()
         correct_answer = cell(row, "correct_answer")
-        explanation = cell(row, "izoh") or None
+        from .savol_import import with_source
+
+        explanation = with_source(cell(row, "izoh"), cell(row, "manba"))
         if mode in {"yopiq", "variantli", "test"}:
             mode = "closed"
         if mode in {"ochiq", "free", "free text"}:

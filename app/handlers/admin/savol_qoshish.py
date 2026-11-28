@@ -422,6 +422,7 @@ async def q_correct(m: Message, state: FSMContext):
 
         await m.answer(
             f"📝 <b>{current_index + 1}-savol</b> uchun izohni yuboring.\n"
+            "Manbani ham qo'shish mumkin — yangi qatorda: <code>Manba: 8-sinf O'zbekiston tarixi, 52-bet</code>\n"
             "Izoh kerak bo'lmasa <code>-</code> yuboring:",
             reply_markup=cancel_kb(),
         )
@@ -431,7 +432,8 @@ async def q_correct(m: Message, state: FSMContext):
     await state.set_state(AdminState.add_question_explanation)
 
     await m.answer(
-        "7️⃣ <b>Izoh</b>ni yuboring. "
+        "7️⃣ <b>Izoh</b>ni yuboring (nega bu javob to'g'ri). "
+        "Manbani ham qo'shish mumkin — yangi qatorda: <code>Manba: 8-sinf O'zbekiston tarixi, 52-bet</code>\n"
         "Agar izoh kerak bo'lmasa, <code>-</code> yuboring:",
         reply_markup=cancel_kb(),
     )
@@ -444,6 +446,16 @@ async def q_explanation(m: Message, state: FSMContext):
 
     explanation = (m.text or "").strip()
     explanation = None if explanation == "-" else explanation
+    if explanation:
+        # «Manba: …» qatori yozilgan bo'lsa — fayldan yuklashdagi kabi izohdan ajratib saqlanadi
+        from ...services.savol_import import SRC_RE, with_source
+
+        exp_lines, src_lines = [], []
+        for line in explanation.splitlines():
+            sm = SRC_RE.match(line.strip())
+            (src_lines.append(sm.group(1).strip()) if sm else exp_lines.append(line))
+        if src_lines:
+            explanation = with_source("\n".join(exp_lines).strip(), " ".join(src_lines))
 
     data = await state.get_data()
 

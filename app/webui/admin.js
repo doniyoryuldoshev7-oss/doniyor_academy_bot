@@ -184,7 +184,12 @@
     const text = taField(e && e.text, "Savol matni", 100);
     const opt = {};
     for (const l of "abcd") opt[l] = inField(e && e[l], `${l.toUpperCase()} variant`);
-    const expl = taField(e && e.explanation, "Izoh (ixtiyoriy)", 70);
+    /* izoh va manba alohida maydon (bazada «izoh\n📚 Manba: …» bo'lib saqlanadi — botdagi kabi) */
+    const MK = "\n📚 Manba: ";
+    const e0 = (e && e.explanation) || "";
+    const eSrc = e0.startsWith("📚 Manba: ") ? ["", e0.slice(10)] : e0.includes(MK) ? [e0.slice(0, e0.indexOf(MK)), e0.slice(e0.indexOf(MK) + MK.length)] : [e0, ""];
+    const expl = taField(eSrc[0], "Izoh: nega bu javob to'g'ri (ixtiyoriy)", 70);
+    const src = inField(eSrc[1], "Manba: masalan, 8-sinf O'zbekiston tarixi, 52-bet (ixtiyoriy)");
     const chips = el("div", { class: "row", style: "margin:8px 0" });
     const paint = () => chips.replaceChildren(...["A", "B", "C", "D"].map((l) =>
       el("button", { class: "btn small grow" + (correct === l ? "" : " alt"), onclick: () => { correct = l; paint(); } }, l)));
@@ -192,7 +197,7 @@
     let busy = false;
     const save = async () => {
       if (busy) return; busy = true;
-      const body = { text: text.value, correct, explanation: expl.value };
+      const body = { text: text.value, correct, explanation: expl.value, source: src.value };
       for (const l of "abcd") body[l] = opt[l].value;
       if (!e && imgName) body.image = imgName;
       try {
@@ -226,7 +231,7 @@
     if (imageOnly) nodes.push(el("div", { class: "hint" }, "Rasmli savol: faqat to'g'ri javob va izohni o'zgartirish mumkin."));
     else nodes.push(text, ...["a", "b", "c", "d"].map((l) => opt[l]));
     nodes.push(el("div", { class: "hint", style: "margin-top:8px" }, "To'g'ri javob:"), chips);
-    nodes.push(expl);
+    nodes.push(expl, src);
     nodes.push(btn("", e ? "Saqlash" : "Savolni saqlash", save, "check"));
     screen(e ? "Savolni tahrirlash" : "Yangi savol", c.topicName ? `Mavzu: ${c.topicName}` : null, c.back, ...nodes);
   }
@@ -326,7 +331,7 @@
         }, "check")));
     });
     screen("Ustunli jadval import", null, eximHub,
-      el("div", { class: "card pre hint" }, "Faylni .xlsx yoki .csv qilib tanlang.\n\nUstunlar:\nFan | Mavzu | Savol | Savol rasmi | A | B | C | D | Savol turi | To'g'ri javob | To'g'ri javob matni | Izoh\n\n• Savol turi: closed (A–D) yoki open (ochiq savol: «To'g'ri javob matni» majburiy).\n• Savol rasmi: serverdagi rasm fayli nomi.\n• Avval tekshiriladi, xato bo'lsa hech narsa saqlanmaydi."),
+      el("div", { class: "card pre hint" }, "Faylni .xlsx yoki .csv qilib tanlang.\n\nUstunlar:\nFan | Mavzu | Savol | Savol rasmi | A | B | C | D | Savol turi | To'g'ri javob | To'g'ri javob matni | Izoh | Manba\n\n• Savol turi: closed (A–D) yoki open (ochiq savol: «To'g'ri javob matni» majburiy).\n• Savol rasmi: serverdagi rasm fayli nomi.\n• Avval tekshiriladi, xato bo'lsa hech narsa saqlanmaydi."),
       btn("", "📎 Fayl tanlash (.xlsx / .csv)", () => pick.click(), "upload"), pick, out);
   }
 

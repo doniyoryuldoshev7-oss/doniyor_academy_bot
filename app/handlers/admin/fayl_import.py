@@ -231,6 +231,10 @@ async def import_document(m: Message, state: FSMContext):
                 "explanation",
                 "comment",
             },
+            "manba": {
+                "manba",
+                "source",
+            },
         }
 
         idx = {}
@@ -306,10 +310,9 @@ async def import_document(m: Message, state: FSMContext):
                 row,
                 "correct_answer",
             )
-            explanation = (
-                cell(row, "izoh")
-                or None
-            )
+            from ...services.savol_import import with_source
+
+            explanation = with_source(cell(row, "izoh"), cell(row, "manba"))
 
             if not mode:
                 mode = "closed"

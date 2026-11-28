@@ -257,13 +257,18 @@ def _add_question(
                 run_value.bold = True
                 line.add_run(" " + CORRECT_MARK).bold = True
 
-    explanation = (item.get("explanation") or "").strip()
+    from .savol_import import split_source
 
-    if with_answers and explanation:
+    explanation, source = split_source(item.get("explanation"))
+
+    # «Izoh:» va «Manba:» alohida qatorda — fayl qayta yuklansa, ikkalasi ham to'g'ri o'qiladi
+    for label, value in (("Izoh: ", explanation), ("Manba: ", source)):
+        if not (with_answers and value):
+            continue
         note = document.add_paragraph()
         note.paragraph_format.left_indent = Cm(0.75)
 
-        run = note.add_run("Izoh: " + explanation)
+        run = note.add_run(label + value)
         run.italic = True
         run.font.size = Pt(10)
         run.font.color.rgb = RGBColor(0x50, 0x50, 0x50)

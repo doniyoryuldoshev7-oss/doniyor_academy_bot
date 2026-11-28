@@ -34,6 +34,7 @@ from ..services.savol_import import (
     ACC_RE,
     SRC_RE,
     extract_text,
+    split_open_meta,
     image_ref,
     parse_text,
     save_image_bytes,
@@ -817,52 +818,7 @@ def build_open(res) -> tuple[list, list, list]:
     return items, errors, warnings
 
 
-def split_open_meta(text: str):
-    """Ochiq savollar matnidan «Izoh: …» va «Manba: …» qatorlarini ajratib oladi.
-    Qaytaradi: (izohsiz matn, [(izoh, manba)] — har bir savol bloki uchun, matndagi tartibda)."""
-    out, metas = [], []
-    cur, meta, mode = [], {"exp": [], "src": []}, None
-
-    def flush():
-        if any(x.strip() for x in cur):
-            metas.append((" ".join(" ".join(meta["exp"]).split()), " ".join(" ".join(meta["src"]).split())))
-        elif (meta["exp"] or meta["src"]) and metas:      # izoh savoldan keyin --- bilan ajratilgan bo'lsa
-            e, m = metas[-1]
-            metas[-1] = ((e + " " + " ".join(meta["exp"])).strip(), (m + " " + " ".join(meta["src"])).strip())
-
-    for line in (text or "").split("\n"):
-        st = line.strip()
-        if _SEP.match(line):
-            flush()
-            cur, meta, mode = [], {"exp": [], "src": []}, None
-            out.append(line)
-            continue
-        acc = ACC_RE.match(st)
-        if acc:                              # «Qabul: x | y» — oxirgi «=>» qatoriga muqobil javob qo'shiladi
-            from ..services.savol_import import split_accept
-
-            k = next((i for i in range(len(out) - 1, -1, -1) if "=>" in out[i] and not _SEP.match(out[i])), None)
-            if k is not None and out[k] in cur:
-                extra = [x.replace("|", "/").replace("=>", "→") for x in split_accept(acc.group(1))]
-                ci = len(cur) - 1 - cur[::-1].index(out[k])
-                out[k] = out[k].rstrip() + "".join(" | " + x for x in extra)
-                cur[ci] = out[k]
-            mode = None
-            continue
-        ex, sr = EXP_RE.match(st), SRC_RE.match(st)
-        if ex or sr:
-            mode = "exp" if ex else "src"
-            meta[mode].append((ex or sr).group(1).strip())
-            continue
-        if mode and st and not _PART.match(line) and not IMG_RE.match(st) and "=>" not in st:
-            meta[mode].append(st)            # izoh/manbaning davomi
-            continue
-        if st:
-            mode = None
-        cur.append(line)
-        out.append(line)
-    flush()
-    return "\n".join(out), metas
+# split_open_meta — savol_import da (Fanlar bo'yicha yuklash bilan BITTA qoida)
 
 
 def build_open_text(text: str):

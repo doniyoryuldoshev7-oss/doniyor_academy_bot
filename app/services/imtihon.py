@@ -654,9 +654,17 @@ def _closed_payload(q: Question) -> dict | None:
         "o": options,
         "c": correct,
         "img": q.image_path,
-        "e": q.explanation,
+        **_exp_src(q.explanation),
         "qid": q.id,
     }
+
+
+def _exp_src(text) -> dict:
+    """Bankdagi izoh («izoh\n📚 Manba: …») → imtihon elementi uchun {"e", "m"}."""
+    from .savol_import import split_source
+
+    e, m = split_source(text)
+    return {"e": e, "m": m}
 
 
 async def pick_questions(
@@ -722,10 +730,12 @@ async def pick_questions(
                     parts = json.loads(row.parts)
                 except ValueError:
                     continue
-                _img = None
+                _img = _e = _m = None
                 if parts and isinstance(parts[0], dict):
                     _img = parts[0].pop("_img", None)
-                payloads.append({"k": "o", "s": row.stem, "p": parts, "oid": row.id, "img": _img})
+                    _e = parts[0].pop("_e", None)       # izoh va manba (yuklashda «Izoh:»/«Manba:»)
+                    _m = parts[0].pop("_m", None)
+                payloads.append({"k": "o", "s": row.stem, "p": parts, "oid": row.id, "img": _img, "e": _e, "m": _m})
 
     open_count = len(payloads) - closed_count
     return payloads, closed_count, open_count

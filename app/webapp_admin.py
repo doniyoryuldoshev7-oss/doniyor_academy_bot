@@ -74,6 +74,11 @@ def clean_question(body, require_all=True):
     expl = str(body.get("explanation") or "").strip()
     if expl == "-":
         expl = ""
+    src = str(body.get("source") or "").strip()
+    if src and len(src) <= 500:
+        from .services.savol_import import with_source
+
+        expl = with_source(expl, src) or ""
     if require_all:
         if not text:
             return None, "Savol matnini kiriting."

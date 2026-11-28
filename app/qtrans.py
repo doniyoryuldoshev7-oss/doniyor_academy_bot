@@ -44,7 +44,9 @@ def _apply(view, tr):
             if v and str(v).strip() and k in o:
                 o[k] = v
     if "e" in view and tr.explanation and tr.explanation.strip():
-        view["e"] = tr.explanation
+        from .services.savol_import import keep_source
+
+        view["e"] = keep_source(tr.explanation, view.get("e"))
     return view
 
 
@@ -119,7 +121,9 @@ async def explanation(qid, lang, default):
         async with SessionLocal() as s:
             tr = (await load(s, [qid], lang)).get(qid)
         if tr is not None and tr.explanation and tr.explanation.strip():
-            return tr.explanation
+            from .services.savol_import import keep_source
+
+            return keep_source(tr.explanation, default)
     except Exception:  # noqa: BLE001
         pass
     return default

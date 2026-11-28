@@ -9,7 +9,8 @@ YOPIQ savol:
     C) variant
     D) variant
     Javob: B
-    Izoh: ixtiyoriy tushuntirish
+    Izoh: ixtiyoriy tushuntirish (nega bu javob to'g'ri)
+    Manba: ixtiyoriy (masalan: 8-sinf O'zbekiston tarixi, 52-bet)
 
 OCHIQ savol (``=>`` belgisi bor, savollar ``---`` bilan ajratiladi):
     Savol matni
@@ -44,7 +45,8 @@ ANS_RE = re.compile(
 )
 EXP_RE = re.compile(r"^(?:izoh|tushuntirish|sharh|explanation)\s*[:\-–—]\s*(.*)$", re.I)
 # «Manba: 8-sinf O'zbekiston tarixi, 52-bet» — izohning manbasi (o'quvchiga izoh bilan birga ko'rsatiladi)
-SRC_RE = re.compile(r"^(?:manba|manbaa|manbalar|source|источник)\s*[:\-–—]\s*(.*)$", re.I)
+SRC_RE = re.compile(r"^(?:📚\s*)?(?:manba|manbaa|manbalar|source|источник)\s*[:\-–—]\s*(.*)$", re.I)
+SRC_MARK = "\n📚 Manba: "
 
 # «Qabul: Samarqand | Qarshi | Termiz» — yozma javobga aylanadigan savolda boshqa to'g'ri javoblar
 ACC_RE = re.compile(
@@ -68,6 +70,102 @@ def with_source(explanation, source):
     if not src:
         return exp or None
     return (exp + "\n" if exp else "") + "📚 Manba: " + src
+
+
+def split_source(text):
+    """with_source ning teskarisi: «izoh\n📚 Manba: …» → (izoh, manba)."""
+    t = (text or "").strip()
+    if t.startswith("📚 Manba: "):
+        return None, t[len("📚 Manba: "):].strip() or None
+    exp, sep, src = t.partition(SRC_MARK)
+    return (exp.strip() or None), (src.strip() or None) if sep else None
+
+
+def keep_source(translated, original):
+    """Tarjima izohida manba bo'lmasa, asl (o'zbekcha) izohdagi manba saqlanib qoladi."""
+    _e, src = split_source(original)
+    if not src or not (translated or "").strip() or "📚" in translated:
+        return translated
+    return translated.rstrip() + SRC_MARK + src
+
+
+# Ochiq savol bloklarida ham «Izoh:», «Manba:» va «Qabul:» qatorlari (Milliy sertifikat bilan bir xil)
+_OPEN_SEP = re.compile(r"^\s*(?:---+|\*\*\*+|===+)\s*$")
+_OPEN_PART = re.compile(r"^\s*[a-dA-D]\s*[\)\.]")
+
+
+def split_open_meta(text: str):
+    """Ochiq savollar matnidan «Izoh: …», «Manba: …» qatorlarini ajratadi, «Qabul: x | y» ni oxirgi «=>» qatoriga
+    muqobil javob qilib qo'shadi. Qaytaradi: (toza matn, [(izoh, manba)] — har bir savol bloki uchun, tartibda)."""
+    out, metas = [], []
+    cur, meta, mode = [], {"exp": [], "src": []}, None
+
+    def flush():
+        if any(x.strip() for x in cur):
+            metas.append((" ".join(" ".join(meta["exp"]).split()), " ".join(" ".join(meta["src"]).split())))
+        elif (meta["exp"] or meta["src"]) and metas:      # izoh savoldan keyin --- bilan ajratilgan bo'lsa
+            e, m = metas[-1]
+            metas[-1] = ((e + " " + " ".join(meta["exp"])).strip(), (m + " " + " ".join(meta["src"])).strip())
+
+    for line in (text or "").split("\n"):
+        st = line.strip()
+        if _OPEN_SEP.match(line):
+            flush()
+            cur, meta, mode = [], {"exp": [], "src": []}, None
+            out.append(line)
+            continue
+        acc = ACC_RE.match(st)
+        if acc:                              # «Qabul: x | y» — oxirgi «=>» qatoriga muqobil javob qo'shiladi
+            k = next((i for i in range(len(out) - 1, -1, -1) if "=>" in out[i] and not _OPEN_SEP.match(out[i])), None)
+            if k is not None and out[k] in cur:
+                extra = [x.replace("|", "/").replace("=>", "→") for x in split_accept(acc.group(1))]
+                ci = len(cur) - 1 - cur[::-1].index(out[k])
+                out[k] = out[k].rstrip() + "".join(" | " + x for x in extra)
+                cur[ci] = out[k]
+            mode = None
+            continue
+        ex, sr = EXP_RE.match(st), SRC_RE.match(st)
+        if ex or sr:
+            mode = "exp" if ex else "src"
+            meta[mode].append((ex or sr).group(1).strip())
+            continue
+        if mode and st and not _OPEN_PART.match(line) and not IMG_RE.match(st) and "=>" not in st:
+            meta[mode].append(st)            # izoh/manbaning davomi
+            continue
+        if st:
+            mode = None
+        cur.append(line)
+        out.append(line)
+    flush()
+    return "\n".join(out), metas
+
+
+def parse_open_meta(text: str):
+    """parse_open_text + izoh/manba/qabul. Qaytaradi: (savollar — har birida "e", "m" bo'lishi mumkin, xatolar)."""
+    from .imtihon import parse_open_text
+
+    clean, metas = split_open_meta(text)
+    qs, errs = parse_open_text(clean)
+    if len(metas) == len(qs):
+        for q, (e, m) in zip(qs, metas):
+            if e:
+                q["e"] = e
+            if m:
+                q["m"] = m
+    return qs, errs
+
+
+def open_parts_json(q, image=None) -> str:
+    """Ochiq savol qismlari (bazaga). Rasm, izoh va manba 1-qism ichida saqlanadi (_img, _e, _m)."""
+    parts = [dict(p) for p in q["parts"]]
+    if parts:
+        if image:
+            parts[0]["_img"] = image
+        if q.get("e"):
+            parts[0]["_e"] = q["e"]
+        if q.get("m"):
+            parts[0]["_m"] = q["m"]
+    return json.dumps(parts, ensure_ascii=False)
 OPT_RE = re.compile(r"^[\(\[]?\s*([A-Da-d])\s*[\)\]\.:]\s*(.*)$")
 STRONG_NUM_RE = re.compile(r"^\s*(?:#|№\s*)?\d{1,4}\s*[.)]")
 NUM_RE = re.compile(r"^(?:#|№\s*)?(\d{1,4})\s*(?:\.+|\)|:|;|-|–|—)\s*(.+)$")
@@ -469,8 +567,6 @@ def attach_tr(qs, trs, errors):
 def parse_text(text: str, auto_book: bool = False) -> Parsed:
     """auto_book=True — «1-mavzu. …», «19–20-§. …» sarlavhalaridan darslik va mavzular avtomatik aniqlanadi
     (services/darsliklar.py). Faylda «Fan:»/«Mavzu:» qatorlari bo'lsa, ular ustun."""
-    from .imtihon import parse_open_text
-
     res = Parsed()
     text = _clean(text)
     if not text.strip():
@@ -479,6 +575,10 @@ def parse_text(text: str, auto_book: bool = False) -> Parsed:
     if len(text) > MAX_TEXT:
         res.errors.append(f"Matn juda uzun (>{MAX_TEXT} belgi). Bir necha qismga bo'lib yuklang.")
         return res
+    # botning o'zi eksport qilgan Word fayli qayta yuklansa: oxiridagi «JAVOBLAR KALITI» bo'limi savol emas
+    key = re.search(r"(?mi)^[ \t]*JAVOBLAR KALITI[ \t]*$", text)
+    if key:
+        text = text[:key.start()]
     if auto_book:
         try:
             from .darsliklar import annotate
@@ -530,7 +630,7 @@ def parse_text(text: str, auto_book: bool = False) -> Parsed:
                     img = im.group(1)
                 elif not im:
                     keep.append(tl)
-            qs, errs = parse_open_text("\n".join(keep))
+            qs, errs = parse_open_meta("\n".join(keep))
             for q in qs:
                 q["line"] = start
                 q["image"] = img
@@ -731,7 +831,7 @@ def docx_lines(doc):
 # ---------------------------------------------------------------
 #  Excel / CSV (Kahoot uslubidagi jadval)
 # ---------------------------------------------------------------
-SHEET_HEAD = ["Savol", "A", "B", "C", "D", "Javob", "Izoh", "Fan", "Mavzu"]
+SHEET_HEAD = ["Savol", "A", "B", "C", "D", "Javob", "Izoh", "Fan", "Mavzu", "Manba"]
 _COLS = {
     "savol": ("savol", "question", "matn", "вопрос", "savol matni"),
     "A": ("a", "a variant", "variant a", "1-variant", "javob a", "a)"),
@@ -740,6 +840,7 @@ _COLS = {
     "D": ("d", "d variant", "variant d", "4-variant", "javob d", "d)"),
     "javob": ("javob", "to'g'ri javob", "togri javob", "answer", "correct", "to'g'ri", "ответ"),
     "izoh": ("izoh", "tushuntirish", "explanation", "sharh"),
+    "manba": ("manba", "source", "manbaa", "источник"),
     "fan": ("fan", "subject"),
     "mavzu": ("mavzu", "topic"),
 }
@@ -792,6 +893,8 @@ def rows_to_text(rows):
         out.append(f"Javob: {ans}" if ans in ("A", "B", "C", "D") else f"Javob: ?{ans}")
         if g("izoh"):
             out.append(f"Izoh: {g('izoh')}")
+        if g("manba"):
+            out.append(f"Manba: {g('manba')}")
         out.append("")
     return "\n".join(out)
 
@@ -804,9 +907,9 @@ def template_xlsx_bytes() -> bytes:
     ws.title = "Savollar"
     ws.append(SHEET_HEAD)
     ws.append(["Amir Temur qachon tug'ilgan?", "1326-yil", "1336-yil", "1346-yil", "1356-yil", "B",
-               "Kesh yaqinida tug'ilgan.", "Tarix", "Amir Temur davri"])
+               "Kesh yaqinida tug'ilgan.", "Tarix", "Amir Temur davri", "7-sinf O'zbekiston tarixi"])
     ws.append(["O'zbekiston poytaxti qaysi shahar?", "Samarqand", "Buxoro", "Toshkent", "Xiva", "C", "", "Tarix", "Amir Temur davri"])
-    for col, w in zip("ABCDEFGHI", (46, 18, 18, 18, 18, 8, 30, 14, 24)):
+    for col, w in zip("ABCDEFGHIJ", (46, 18, 18, 18, 18, 8, 30, 14, 24, 30)):
         ws.column_dimensions[col].width = w
     buf = io.BytesIO()
     wb.save(buf)
@@ -993,11 +1096,8 @@ async def save_parsed(session, default_topic_id, res: Parsed, uid: int, may_crea
             dup += 1
             continue
         have_open[tid].add(k)
-        parts = [dict(p) for p in q["parts"]]
-        if q.get("image"):
-            parts[0]["_img"] = image_ref(q["image"])
         row = OpenQuestion(topic_id=tid, stem=q["stem"],
-                           parts=json.dumps(parts, ensure_ascii=False), created_by=uid)
+                           parts=open_parts_json(q, image_ref(q["image"]) if q.get("image") else None), created_by=uid)
         session.add(row)
         added_o.append(row)
     await session.flush()
@@ -1147,6 +1247,7 @@ C) 1346-yil
 D) 1356-yil
 Javob: B
 Izoh: Amir Temur 1336-yil 9-aprelda Kesh yaqinida tug'ilgan.
+Manba: 7-sinf O'zbekiston tarixi
 
 2. O'zbekiston poytaxti qaysi shahar?
 A) Samarqand
@@ -1177,14 +1278,16 @@ def template_docx_bytes() -> bytes:
 HELP_HTML = (
     "<b>Yopiq savol</b> (har biri alohida, orasida bo'sh qator):\n"
     "<code>1. Savol matni\nA) variant\nB) variant\nC) variant\nD) variant\n"
-    "Javob: B\nIzoh: ixtiyoriy</code>\n\n"
+    "Javob: B\nIzoh: nega bu javob to'g'ri (ixtiyoriy)\nManba: 8-sinf O'zbekiston tarixi, 52-bet (ixtiyoriy)</code>\n\n"
     "<b>Ochiq savol</b> (ochiq savollar <code>---</code> bilan ajratiladi):\n"
     "<code>Savol matni\na) qism savoli =&gt; javob1 | javob2\n"
     "b) qism savoli =&gt; javob1 + javob2</code>\n"
-    "<code>|</code> — muqobil javoblar, <code>+</code> — ikkalasi ham kerak.\n\n"
+    "<code>|</code> — muqobil javoblar, <code>+</code> — ikkalasi ham kerak. Ochiq savolda ham "
+    "<code>Izoh:</code>, <code>Manba:</code> va <code>Qabul: x | y</code> (boshqa to'g'ri javoblar) qatorlari bo'ladi.\n\n"
     "Bir faylda yopiq va ochiq savollar aralash bo'lishi mumkin.\n"
     "Bir fayldan bir necha mavzuga yuklash: <code>Fan: Tarix</code> va <code>Mavzu: …</code> qatorlarini yozing.\n"
-    "<b>Excel/CSV</b> ham bo'ladi: ustunlar Savol, A, B, C, D, Javob, Izoh (namuna faylni oling).\n"
+    "<b>Excel/CSV</b> ham bo'ladi: ustunlar Savol, A, B, C, D, Javob, Izoh, Manba (namuna faylni oling).\n"
+    "O'quvchi izoh va manbani javob bergandan keyin (imtihonda — imtihon yopilgach) ko'radi.\n"
     "Format Moodle'ning Aiken formatini ham qamrab oladi (<code>ANSWER: B</code>).\n"
     "Rasmli savol: Wordda rasmni savol matnidan keyin (variantlardan oldin) qo'ying, yoki botga rasmni "
     "savol matni bilan birga (izoh/caption qilib) yuboring.\n"

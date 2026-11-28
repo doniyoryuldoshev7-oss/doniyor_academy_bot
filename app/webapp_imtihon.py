@@ -769,7 +769,9 @@ async def api_ex_open_add(request):
         return _err("Savollarni yozing.")
     if len(text) > 60000:
         return _err("Matn juda uzun.")
-    questions, errors = parse_open_text(text)
+    from .services.savol_import import open_parts_json, parse_open_meta
+
+    questions, errors = parse_open_meta(text)     # «Izoh:», «Manba:», «Qabul:» ham (botdagi bilan bir xil)
     errs = [str(e) for e in errors[:10]]
     if body.get("dry"):
         return web.json_response({"count": len(questions), "errors": errs, "saved": False})
@@ -780,7 +782,7 @@ async def api_ex_open_add(request):
         if not questions:
             return _err("Birorta ham savol o'qilmadi." + ((" " + "; ".join(errs)) if errs else ""))
         for q in questions:
-            s.add(OpenQuestion(topic_id=tid, stem=q["stem"], parts=json.dumps(q["parts"], ensure_ascii=False), created_by=request["tg_id"]))
+            s.add(OpenQuestion(topic_id=tid, stem=q["stem"], parts=open_parts_json(q), created_by=request["tg_id"]))
         await s.commit()
     return web.json_response({"count": len(questions), "errors": errs, "saved": True})
 

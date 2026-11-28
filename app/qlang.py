@@ -75,12 +75,16 @@ class TQ:
         raise AttributeError("tarjima ko'rinishini o'zgartirib bo'lmaydi")
 
 
-def _over(tr):
+def _over(tr, q=None):
     over = {}
     for field, val in (("text", tr.text), ("option_a", tr.option_a), ("option_b", tr.option_b),
                        ("option_c", tr.option_c), ("option_d", tr.option_d), ("explanation", tr.explanation)):
         if val and str(val).strip():
             over[field] = val
+    if "explanation" in over and q is not None:
+        from .services.savol_import import keep_source
+
+        over["explanation"] = keep_source(over["explanation"], getattr(q, "explanation", None))
     return over
 
 
@@ -96,7 +100,7 @@ async def tq(q, tg_id):
             tr = (await qtrans.load(s, [q.id], lang)).get(q.id)
     except Exception:  # noqa: BLE001
         return q
-    return TQ(q, _over(tr)) if tr is not None else q
+    return TQ(q, _over(tr, q)) if tr is not None else q
 
 
 async def tq_map(qmap, tg_id):
@@ -111,7 +115,7 @@ async def tq_map(qmap, tg_id):
             trs = await qtrans.load(s, list(qmap), lang)
     except Exception:  # noqa: BLE001
         return qmap
-    return {k: (TQ(v, _over(trs[k])) if k in trs else v) for k, v in qmap.items()}
+    return {k: (TQ(v, _over(trs[k], v)) if k in trs else v) for k, v in qmap.items()}
 
 
 async def localize_items(items, tg_id):

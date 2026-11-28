@@ -1197,7 +1197,9 @@ async def msg_open_paste(m: Message, state: FSMContext):
         return
     data = await state.get_data()
     tid = data.get("open_topic")
-    questions, errors = parse_open_text(m.text or "")
+    from ..services.savol_import import open_parts_json, parse_open_meta
+
+    questions, errors = parse_open_meta(m.text or "")     # «Izoh:», «Manba:», «Qabul:» ham
 
     if not questions:
         await m.answer(
@@ -1213,7 +1215,7 @@ async def msg_open_paste(m: Message, state: FSMContext):
                 OpenQuestion(
                     topic_id=tid,
                     stem=q["stem"],
-                    parts=json.dumps(q["parts"], ensure_ascii=False),
+                    parts=open_parts_json(q),
                     created_by=uid,
                 )
             )
